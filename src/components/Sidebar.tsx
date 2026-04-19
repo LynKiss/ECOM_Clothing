@@ -1,48 +1,87 @@
-import { 
-  LayoutDashboard, 
-  Package, 
-  ShoppingCart, 
-  Users, 
-  BarChart3, 
-  Settings, 
-  MonitorSmartphone, 
+import {
+  LayoutDashboard,
+  Package,
+  ShoppingCart,
+  Users,
+  BarChart3,
+  Settings,
+  MonitorSmartphone,
   ShieldCheck,
-  LogOut
+  LogOut,
 } from 'lucide-react';
-import { NavLink } from 'react-router-dom';
-import { motion } from 'motion/react';
+import { NavLink, useNavigate } from 'react-router-dom';
+import { useState } from 'react';
+import { useAdminSession } from '../hooks/useAdminSession';
+import { useToast } from '../hooks/useToast';
+import { logoutAdmin } from '../lib/api';
+import { useLanguage } from '../i18n/language-context';
 
 export default function Sidebar() {
+  const navigate = useNavigate();
+  const { session } = useAdminSession();
+  const { showToast } = useToast();
+  const { language } = useLanguage();
+  const [loggingOut, setLoggingOut] = useState(false);
+  const isVietnamese = language === 'vi';
+
   const navItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, path: '/admin' },
-    { id: 'products', label: 'Products', icon: Package, path: '/admin/products' },
-    { id: 'orders', label: 'Orders', icon: ShoppingCart, path: '/admin/orders' },
-    { id: 'customers', label: 'Customers', icon: Users, path: '/admin/customers' },
-    { id: 'reports', label: 'Reports', icon: BarChart3, path: '/admin/reports' },
-    { id: 'interface', label: 'Interface', icon: MonitorSmartphone, path: '/admin/interface' },
-    { id: 'security', label: 'Security', icon: ShieldCheck, path: '/admin/security' },
-    { id: 'settings', label: 'Settings', icon: Settings, path: '/admin/settings' },
+    { id: 'dashboard', label: isVietnamese ? 'Tổng quan' : 'Dashboard', icon: LayoutDashboard, path: '/admin' },
+    { id: 'products', label: isVietnamese ? 'Sản phẩm' : 'Products', icon: Package, path: '/admin/products' },
+    { id: 'orders', label: isVietnamese ? 'Đơn hàng' : 'Orders', icon: ShoppingCart, path: '/admin/orders' },
+    { id: 'customers', label: isVietnamese ? 'Tài khoản' : 'Customers', icon: Users, path: '/admin/customers' },
+    { id: 'reports', label: isVietnamese ? 'Báo cáo' : 'Reports', icon: BarChart3, path: '/admin/reports' },
+    { id: 'interface', label: isVietnamese ? 'Giao diện' : 'Interface', icon: MonitorSmartphone, path: '/admin/interface' },
+    { id: 'security', label: isVietnamese ? 'Bảo mật' : 'Security', icon: ShieldCheck, path: '/admin/security' },
+    { id: 'settings', label: isVietnamese ? 'Cấu hình' : 'Settings', icon: Settings, path: '/admin/settings' },
   ];
 
+  async function handleLogout() {
+    setLoggingOut(true);
+
+    try {
+      await logoutAdmin();
+      showToast({
+        tone: 'info',
+        title: isVietnamese ? 'Đã đăng xuất' : 'Signed out',
+        description: isVietnamese
+          ? 'Phiên quản trị đã được đóng an toàn.'
+          : 'The admin session has been closed safely.',
+      });
+      navigate('/login', { replace: true });
+    } finally {
+      setLoggingOut(false);
+    }
+  }
+
+  const displayName = session?.user.username || (isVietnamese ? 'Quản trị viên' : 'Administrator');
+  const initials = displayName
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join('');
+
   return (
-    <aside className="fixed left-0 top-0 h-full w-64 bg-sidebar-bg flex flex-col p-6 z-50 shadow-2xl">
+    <aside className="fixed left-0 top-0 z-50 flex h-full w-64 flex-col bg-sidebar-bg p-6 shadow-2xl">
       <div className="mb-10 px-4">
-        <h1 className="text-xl font-black text-white tracking-widest uppercase">
-          Cultivated Ledger
-        </h1>
-        <p className="text-accent/60 text-xs mt-1 font-medium">Admin Terminal</p>
+        <h1 className="text-xl font-black uppercase tracking-widest text-white">Cultivated Ledger</h1>
+        <p className="mt-1 text-xs font-medium text-accent/60">
+          {isVietnamese ? 'Bảng điều khiển quản trị' : 'Administrative console'}
+        </p>
       </div>
 
-      <nav className="flex-1 flex flex-col gap-2">
+      <nav className="flex flex-1 flex-col gap-2">
         {navItems.map((item) => (
           <NavLink
             key={item.id}
             to={item.path}
             className={({ isActive }) => `
-              flex items-center gap-3 px-4 py-3 rounded-full transition-all duration-200 text-sm font-medium
-              ${isActive 
-                ? 'bg-accent text-primary font-bold shadow-lg shadow-accent/20 scale-100' 
-                : 'text-white/60 hover:text-white hover:bg-white/5 active:scale-95'}
+              flex items-center gap-3 rounded-full px-4 py-3 text-sm font-medium transition-all duration-200
+              ${
+                isActive
+                  ? 'bg-accent text-primary font-bold shadow-lg shadow-accent/20 scale-100'
+                  : 'text-white/60 hover:bg-white/5 hover:text-white active:scale-95'
+              }
             `}
           >
             <item.icon size={20} />
@@ -51,19 +90,23 @@ export default function Sidebar() {
         ))}
       </nav>
 
-      <div className="mt-auto pt-6 border-t border-white/5 flex flex-col gap-4">
-        <div className="bg-white/5 rounded-2xl p-4 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-accent/20 border border-accent/20 flex items-center justify-center text-accent font-bold">
-            AD
+      <div className="mt-auto flex flex-col gap-4 border-t border-white/5 pt-6">
+        <div className="flex items-center gap-3 rounded-2xl bg-white/5 p-4">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full border border-accent/20 bg-accent/20 font-bold text-accent">
+            {initials || 'AD'}
           </div>
           <div>
-            <p className="text-white text-sm font-semibold">Administrator</p>
-            <p className="text-white/40 text-xs">v2.4.1</p>
+            <p className="text-sm font-semibold text-white">{displayName}</p>
+            <p className="text-xs text-white/40">{session?.user.email || (isVietnamese ? 'phiên quản trị' : 'admin session')}</p>
           </div>
         </div>
-        <button className="flex items-center gap-3 px-4 py-3 text-white/60 hover:text-white transition-colors text-sm font-medium">
+        <button
+          onClick={() => void handleLogout()}
+          disabled={loggingOut}
+          className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-white/60 transition-colors hover:text-white disabled:opacity-60"
+        >
           <LogOut size={20} />
-          <span>Log Out</span>
+          <span>{loggingOut ? (isVietnamese ? 'Đang đăng xuất...' : 'Signing out...') : isVietnamese ? 'Đăng xuất' : 'Sign out'}</span>
         </button>
       </div>
     </aside>

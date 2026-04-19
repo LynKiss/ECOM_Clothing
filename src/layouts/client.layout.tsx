@@ -7,14 +7,14 @@ export default function ClientLayout() {
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.35em] text-primary/60">Cultivated Ledger</p>
-            <h1 className="text-xl font-black tracking-tight text-primary">Client Workspace</h1>
+            <h1 className="text-xl font-black tracking-tight text-primary">Không gian khách</h1>
           </div>
           <nav className="flex items-center gap-3 text-sm font-semibold">
             <NavLink to="/client" end className="rounded-full px-4 py-2 text-on-surface-variant transition hover:text-primary">
-              Home
+              Trang chủ
             </NavLink>
             <NavLink to="/admin" className="rounded-full bg-primary px-4 py-2 text-white transition hover:bg-primary-container">
-              Admin
+              Quản trị
             </NavLink>
           </nav>
         </div>

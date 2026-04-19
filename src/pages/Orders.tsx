@@ -1,177 +1,325 @@
-import { Search, Plus, MoreHorizontal } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Search, Plus, MoreHorizontal, ShieldAlert } from 'lucide-react';
 import { motion } from 'motion/react';
+import { apiClient } from '../lib/api';
+import { useLanguage } from '../i18n/language-context';
+
+type OrderStatus = 'pending' | 'confirmed' | 'processing' | 'shipping' | 'delivered' | 'cancelled' | 'returned';
+type PaymentStatus = 'unpaid' | 'paid' | 'failed' | 'refunded';
+
+type OrderItem = {
+  id: string;
+  status: OrderStatus;
+  paymentStatus: PaymentStatus;
+  totalPayment: string;
+  fullName: string;
+  createdAt: string;
+};
+
+type OrderResponse = {
+  meta: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+  items: OrderItem[];
+};
 
 export default function Orders() {
-  const orders = [
-    { id: '#ORD-8923', date: '24 Oct, 2023', customer: 'Happy Farm', initial: 'NH', amount: '12,500,000 ₫', payment: 'Paid', status: 'Processing' },
-    { id: '#ORD-8924', date: '24 Oct, 2023', customer: 'VinMart Branch 1', initial: 'VM', amount: '45,200,000 ₫', payment: 'Unpaid', status: 'Shipping' },
-    { id: '#ORD-8925', date: '23 Oct, 2023', customer: 'Bach Hoa Xanh', initial: 'BH', amount: '8,950,000 ₫', payment: 'Paid', status: 'Completed' },
-    { id: '#ORD-8926', date: '22 Oct, 2023', customer: 'VinaAgri Co.', initial: 'CT', amount: '112,000,000 ₫', payment: 'Pending', status: 'Inventory' },
-    { id: '#ORD-8927', date: '21 Oct, 2023', customer: 'BigC Supermarket', initial: 'ST', amount: '34,500,000 ₫', payment: 'Refunded', status: 'Cancelled' },
+  const { language } = useLanguage();
+  const isVietnamese = language === 'vi';
+  const currency = useMemo(
+    () =>
+      new Intl.NumberFormat(language === 'vi' ? 'vi-VN' : 'en-US', {
+        style: 'currency',
+        currency: 'VND',
+        maximumFractionDigits: 0,
+      }),
+    [language],
+  );
+  const dateFormatter = useMemo(
+    () =>
+      new Intl.DateTimeFormat(language === 'vi' ? 'vi-VN' : 'en-US', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+      }),
+    [language],
+  );
+
+  const orderTabs: Array<{ label: string; value: 'all' | OrderStatus }> = [
+    { label: isVietnamese ? 'Tất cả' : 'All', value: 'all' },
+    { label: isVietnamese ? 'Chờ xử lý' : 'Pending', value: 'pending' },
+    { label: isVietnamese ? 'Đang xử lý' : 'Processing', value: 'processing' },
+    { label: isVietnamese ? 'Đang giao' : 'Shipping', value: 'shipping' },
+    { label: isVietnamese ? 'Đã giao' : 'Delivered', value: 'delivered' },
+    { label: isVietnamese ? 'Đã hủy' : 'Cancelled', value: 'cancelled' },
   ];
+
+  const [orders, setOrders] = useState<OrderItem[]>([]);
+  const [search, setSearch] = useState('');
+  const [status, setStatus] = useState<'all' | OrderStatus>('all');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadOrders() {
+      setLoading(true);
+      setError(null);
+
+      try {
+        const query = new URLSearchParams({
+          limit: '10',
+          ...(status !== 'all' ? { status } : {}),
+          ...(search.trim() ? { search: search.trim() } : {}),
+        });
+
+        const data = await apiClient.get<OrderResponse>(`/orders?${query.toString()}`);
+        if (!cancelled) {
+          setOrders(data.items);
+        }
+      } catch (loadError) {
+        if (!cancelled) {
+          setError(loadError instanceof Error ? loadError.message : isVietnamese ? 'Không tải được danh sách đơn hàng' : 'Unable to load orders');
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
+
+    void loadOrders();
+    return () => {
+      cancelled = true;
+    };
+  }, [search, status, isVietnamese]);
 
   return (
     <div className="space-y-8">
-      <div className="flex justify-between items-end">
+      <div className="flex items-end justify-between gap-4">
         <div>
-          <h2 className="text-4xl font-black text-primary tracking-tight">Order Management</h2>
-          <p className="text-on-surface-variant mt-2 text-sm max-w-xl">
-            Track and process agricultural orders in the system. Ensure seamless logistics flow.
+          <h2 className="text-4xl font-black tracking-tight text-primary">
+            {isVietnamese ? 'Quản lý đơn hàng' : 'Order Management'}
+          </h2>
+          <p className="mt-2 max-w-xl text-sm text-on-surface-variant">
+            {isVietnamese
+              ? 'Dữ liệu đang lấy trực tiếp từ API quản trị `/api/v1/orders`.'
+              : 'Data is loaded directly from the admin `/api/v1/orders` endpoint.'}
           </p>
         </div>
-        <button className="bg-primary text-white px-6 py-3 rounded-xl flex items-center gap-2 font-bold shadow-xl shadow-primary/20 hover:-translate-y-1 transition-all">
+        <button className="flex items-center gap-2 rounded-xl bg-primary px-6 py-3 font-bold text-white opacity-70 shadow-xl shadow-primary/20 transition-all">
           <Plus size={20} />
-          <span>New Order</span>
+          <span>{isVietnamese ? 'Đơn hàng mới' : 'New order'}</span>
         </button>
       </div>
 
-      <div className="flex flex-col lg:flex-row justify-between items-center gap-6 bg-white/50 p-3 rounded-2xl border border-white">
-        <div className="flex bg-white p-1 rounded-xl shadow-sm border border-on-surface-variant/5">
-          <TabButton label="All" active />
-          <TabButton label="Pending" />
-          <TabButton label="Shipping" />
-          <TabButton label="Completed" />
-          <TabButton label="Cancelled" />
+      <div className="flex flex-col items-center justify-between gap-6 rounded-2xl border border-white bg-white/50 p-3 lg:flex-row">
+        <div className="flex flex-wrap rounded-xl border border-on-surface-variant/5 bg-white p-1 shadow-sm">
+          {orderTabs.map((tab) => (
+            <span key={tab.value}>
+              <TabButton label={tab.label} active={status === tab.value} onClick={() => setStatus(tab.value)} />
+            </span>
+          ))}
         </div>
-        
+
         <div className="relative w-full lg:w-96">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant/40" size={18} />
-          <input 
-            type="text" 
-            placeholder="Search by ID, Customer..." 
-            className="w-full bg-white border border-on-surface-variant/10 text-on-surface text-sm rounded-xl py-3 pl-12 pr-6 focus:ring-2 focus:ring-primary/20 transition-all outline-none"
+          <input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            type="text"
+            placeholder={isVietnamese ? 'Tìm theo mã đơn, khách hàng...' : 'Search by order ID, customer...'}
+            className="w-full rounded-xl border border-on-surface-variant/10 bg-white py-3 pl-12 pr-6 text-sm text-on-surface outline-none transition-all focus:ring-2 focus:ring-primary/20"
           />
         </div>
       </div>
 
-      <div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-on-surface-variant/5">
+      {error ? <div className="rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700">{error}</div> : null}
+
+      <div className="rounded-[2.5rem] border border-on-surface-variant/5 bg-white p-8 shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead>
               <tr className="border-b border-on-surface-variant/5">
-                <th className="py-6 px-4 text-[10px] font-black text-on-surface-variant/40 uppercase tracking-[0.2em]">Order ID</th>
-                <th className="py-6 px-4 text-[10px] font-black text-on-surface-variant/40 uppercase tracking-[0.2em]">Date</th>
-                <th className="py-6 px-4 text-[10px] font-black text-on-surface-variant/40 uppercase tracking-[0.2em]">Customer</th>
-                <th className="py-6 px-4 text-[10px] font-black text-on-surface-variant/40 uppercase tracking-[0.2em] text-right">Amount</th>
-                <th className="py-6 px-4 text-[10px] font-black text-on-surface-variant/40 uppercase tracking-[0.2em] text-center">Payment</th>
-                <th className="py-6 px-4 text-[10px] font-black text-on-surface-variant/40 uppercase tracking-[0.2em] text-center">Status</th>
-                <th className="py-6 px-4"></th>
+                <th className="px-4 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant/40">
+                  {isVietnamese ? 'Mã đơn' : 'Order ID'}
+                </th>
+                <th className="px-4 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant/40">
+                  {isVietnamese ? 'Ngày tạo' : 'Created at'}
+                </th>
+                <th className="px-4 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant/40">
+                  {isVietnamese ? 'Khách hàng' : 'Customer'}
+                </th>
+                <th className="px-4 py-6 text-right text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant/40">
+                  {isVietnamese ? 'Giá trị' : 'Amount'}
+                </th>
+                <th className="px-4 py-6 text-center text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant/40">
+                  {isVietnamese ? 'Thanh toán' : 'Payment'}
+                </th>
+                <th className="px-4 py-6 text-center text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant/40">
+                  {isVietnamese ? 'Trạng thái' : 'Status'}
+                </th>
+                <th className="px-4 py-6"></th>
               </tr>
             </thead>
             <tbody className="text-sm">
-              {orders.map((order, i) => (
-                <motion.tr 
-                  key={order.id}
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: i * 0.05 }}
-                  className="hover:bg-on-surface-variant/5 transition-colors group"
-                >
-                  <td className="py-6 px-4 font-black text-primary">{order.id}</td>
-                  <td className="py-6 px-4 text-on-surface-variant font-medium">{order.date}</td>
-                  <td className="py-6 px-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-black text-xs border border-primary/5">
-                        {order.initial}
+              {loading ? (
+                <tr>
+                  <td colSpan={7} className="py-12 text-center text-sm text-on-surface-variant">
+                    {isVietnamese ? 'Đang tải đơn hàng...' : 'Loading orders...'}
+                  </td>
+                </tr>
+              ) : orders.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="py-14">
+                    <div className="flex flex-col items-center gap-3 text-center">
+                      <ShieldAlert className="text-primary/60" size={26} />
+                      <div>
+                        <p className="font-black text-primary">
+                          {isVietnamese ? 'Không có đơn hàng phù hợp' : 'No matching orders'}
+                        </p>
+                        <p className="mt-1 text-sm text-on-surface-variant">
+                          {isVietnamese
+                            ? 'Backend không trả về bản ghi nào với bộ lọc hiện tại.'
+                            : 'The backend returned no records for the current filters.'}
+                        </p>
                       </div>
-                      <span className="font-bold text-on-surface">{order.customer}</span>
                     </div>
                   </td>
-                  <td className="py-6 px-4 text-right font-black text-on-surface">{order.amount}</td>
-                  <td className="py-6 px-4 text-center">
-                    <PaymentBadge type={order.payment} />
-                  </td>
-                  <td className="py-6 px-4 text-center">
-                    <StatusBadge type={order.status} />
-                  </td>
-                  <td className="py-6 px-4 text-right">
-                    <button className="text-on-surface-variant/40 hover:text-primary transition-colors p-2 rounded-lg hover:bg-primary/5">
-                      <MoreHorizontal size={20} />
-                    </button>
-                  </td>
-                </motion.tr>
-              ))}
+                </tr>
+              ) : (
+                orders.map((order, index) => (
+                  <motion.tr
+                    key={order.id}
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: index * 0.04 }}
+                    className="group transition-colors hover:bg-on-surface-variant/5"
+                  >
+                    <td className="px-4 py-6 font-black text-primary">{order.id}</td>
+                    <td className="px-4 py-6 font-medium text-on-surface-variant">
+                      {dateFormatter.format(new Date(order.createdAt))}
+                    </td>
+                    <td className="px-4 py-6">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-primary/5 bg-primary/10 text-xs font-black text-primary">
+                          {getInitials(order.fullName)}
+                        </div>
+                        <span className="font-bold text-on-surface">{order.fullName}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-6 text-right font-black text-on-surface">
+                      {currency.format(Number(order.totalPayment))}
+                    </td>
+                    <td className="px-4 py-6 text-center">
+                      <PaymentBadge type={order.paymentStatus} isVietnamese={isVietnamese} />
+                    </td>
+                    <td className="px-4 py-6 text-center">
+                      <StatusBadge type={order.status} isVietnamese={isVietnamese} />
+                    </td>
+                    <td className="px-4 py-6 text-right">
+                      <button className="rounded-lg p-2 text-on-surface-variant/40 transition-colors hover:bg-primary/5 hover:text-primary">
+                        <MoreHorizontal size={20} />
+                      </button>
+                    </td>
+                  </motion.tr>
+                ))
+              )}
             </tbody>
           </table>
-        </div>
-
-        <div className="mt-8 pt-6 border-t border-on-surface-variant/5 flex items-center justify-between text-xs font-bold text-on-surface-variant/60 uppercase tracking-widest">
-          <div>Showing 1-5 of 248 orders</div>
-          <div className="flex items-center gap-2">
-            <PaginationButton label="Prev" disabled />
-            <div className="flex gap-1">
-              <PageNumber num={1} active />
-              <PageNumber num={2} />
-              <PageNumber num={3} />
-              <span className="px-2">...</span>
-              <PageNumber num={50} />
-            </div>
-            <PaginationButton label="Next" />
-          </div>
         </div>
       </div>
     </div>
   );
 }
 
-function TabButton({ label, active }: any) {
-  return (
-    <button className={`
-      px-6 py-2.5 rounded-lg text-sm font-black transition-all duration-200
-      ${active ? 'bg-primary text-white shadow-lg shadow-primary/20 transform scale-105' : 'text-on-surface-variant/60 hover:text-primary'}
-    `}>
-      {label}
-    </button>
-  );
+function getInitials(value: string) {
+  return value
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join('');
 }
 
-function PaymentBadge({ type }: any) {
-  const styles: any = {
-    'Paid': 'bg-green-100 text-green-700',
-    'Unpaid': 'bg-red-100 text-red-700',
-    'Pending': 'bg-yellow-100 text-yellow-700',
-    'Refunded': 'bg-blue-100 text-blue-700',
-  };
+function TabButton({
+  label,
+  active,
+  onClick,
+}: {
+  label: string;
+  active?: boolean;
+  onClick: () => void;
+}) {
   return (
-    <span className={`inline-flex px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${styles[type]}`}>
-      {type}
-    </span>
-  );
-}
-
-function StatusBadge({ type }: any) {
-  const styles: any = {
-    'Processing': 'bg-on-surface-variant/10 text-on-surface',
-    'Shipping': 'bg-primary/10 text-primary',
-    'Completed': 'bg-green-100 text-green-700',
-    'Inventory': 'bg-blue-100 text-blue-700',
-    'Cancelled': 'bg-red-100 text-red-700',
-  };
-  return (
-    <span className={`inline-flex px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${styles[type]}`}>
-      {type}
-    </span>
-  );
-}
-
-function PaginationButton({ label, disabled }: any) {
-  return (
-    <button 
-      disabled={disabled}
-      className={`px-4 py-2 rounded-lg border border-on-surface-variant/10 hover:bg-on-surface-variant/5 transition-colors disabled:opacity-30`}
+    <button
+      onClick={onClick}
+      className={`px-6 py-2.5 text-sm font-black transition-all duration-200 ${
+        active ? 'scale-105 rounded-lg bg-primary text-white shadow-lg shadow-primary/20' : 'rounded-lg text-on-surface-variant/60 hover:text-primary'
+      }`}
     >
       {label}
     </button>
   );
 }
 
-function PageNumber({ num, active }: any) {
-  return (
-    <button className={`
-      w-8 h-8 rounded-lg flex items-center justify-center transition-all font-black text-xs
-      ${active ? 'bg-primary text-white' : 'hover:bg-on-surface-variant/10 text-on-surface-variant'}
-    `}>
-      {num}
-    </button>
-  );
+function PaymentBadge({ type, isVietnamese }: { type: PaymentStatus; isVietnamese: boolean }) {
+  const styles: Record<PaymentStatus, string> = {
+    paid: 'bg-green-100 text-green-700',
+    unpaid: 'bg-red-100 text-red-700',
+    failed: 'bg-yellow-100 text-yellow-700',
+    refunded: 'bg-blue-100 text-blue-700',
+  };
+  const labels: Record<PaymentStatus, string> = isVietnamese
+    ? {
+        paid: 'Đã thanh toán',
+        unpaid: 'Chưa thanh toán',
+        failed: 'Thất bại',
+        refunded: 'Đã hoàn tiền',
+      }
+    : {
+        paid: 'Paid',
+        unpaid: 'Unpaid',
+        failed: 'Failed',
+        refunded: 'Refunded',
+      };
+
+  return <span className={`inline-flex rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-widest ${styles[type]}`}>{labels[type]}</span>;
+}
+
+function StatusBadge({ type, isVietnamese }: { type: OrderStatus; isVietnamese: boolean }) {
+  const styles: Record<OrderStatus, string> = {
+    pending: 'bg-amber-100 text-amber-700',
+    confirmed: 'bg-sky-100 text-sky-700',
+    processing: 'bg-on-surface-variant/10 text-on-surface',
+    shipping: 'bg-primary/10 text-primary',
+    delivered: 'bg-green-100 text-green-700',
+    cancelled: 'bg-red-100 text-red-700',
+    returned: 'bg-slate-100 text-slate-700',
+  };
+  const labels: Record<OrderStatus, string> = isVietnamese
+    ? {
+        pending: 'Chờ xử lý',
+        confirmed: 'Đã xác nhận',
+        processing: 'Đang xử lý',
+        shipping: 'Đang giao',
+        delivered: 'Đã giao',
+        cancelled: 'Đã hủy',
+        returned: 'Đã hoàn',
+      }
+    : {
+        pending: 'Pending',
+        confirmed: 'Confirmed',
+        processing: 'Processing',
+        shipping: 'Shipping',
+        delivered: 'Delivered',
+        cancelled: 'Cancelled',
+        returned: 'Returned',
+      };
+
+  return <span className={`inline-flex rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-widest ${styles[type]}`}>{labels[type]}</span>;
 }

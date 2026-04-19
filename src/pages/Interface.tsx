@@ -1,174 +1,232 @@
 import { Palette, Layout, Settings, Code, Plus, MoreVertical, GripVertical, CheckCircle2 } from 'lucide-react';
 import { motion } from 'motion/react';
+import { useLanguage } from '../i18n/language-context';
 
 export default function Interface() {
+  const { language } = useLanguage();
+  const isVietnamese = language === 'vi';
+
   const blocks = [
-    { title: 'Harvest Yield Chart', position: 'Home (Top)', role: 'All Users', icon: Layout, status: 'active' },
-    { title: 'Regional Weather Widget', position: 'Sidebar Right', role: 'Managers', icon: Layout, status: 'active' },
-    { title: 'Low Inventory Alert', position: 'Inventory Page', role: 'All Users', icon: Layout, status: 'hidden' },
+    {
+      title: isVietnamese ? 'Biểu đồ sản lượng thu hoạch' : 'Harvest Yield Chart',
+      position: isVietnamese ? 'Trang chủ (đầu trang)' : 'Home (Top)',
+      role: isVietnamese ? 'Tất cả người dùng' : 'All Users',
+      icon: Layout,
+      status: 'active',
+    },
+    {
+      title: isVietnamese ? 'Widget thời tiết khu vực' : 'Regional Weather Widget',
+      position: isVietnamese ? 'Thanh bên phải' : 'Sidebar Right',
+      role: isVietnamese ? 'Quản lý' : 'Managers',
+      icon: Layout,
+      status: 'active',
+    },
+    {
+      title: isVietnamese ? 'Cảnh báo tồn kho thấp' : 'Low Inventory Alert',
+      position: isVietnamese ? 'Trang kho hàng' : 'Inventory Page',
+      role: isVietnamese ? 'Tất cả người dùng' : 'All Users',
+      icon: Layout,
+      status: 'hidden',
+    },
   ];
 
   return (
     <div className="space-y-12 pb-20">
       <div className="max-w-4xl">
-        <h1 className="text-[3rem] font-headline font-black text-primary leading-none tracking-tight mb-4">Interface Control</h1>
-        <p className="text-on-surface-variant font-medium text-lg max-w-2xl leading-relaxed">
-          Fine-tune the visual experience and information structure of Harvest OS. Manage themes, high-level UI overrides, and layout blocks.
+        <h1 className="mb-4 text-[3rem] font-headline font-black leading-none tracking-tight text-primary">
+          {isVietnamese ? 'Điều khiển giao diện' : 'Interface Control'}
+        </h1>
+        <p className="max-w-2xl text-lg font-medium leading-relaxed text-on-surface-variant">
+          {isVietnamese
+            ? 'Tinh chỉnh trải nghiệm hiển thị và cấu trúc thông tin của trang quản trị. Quản lý theme, ghi đè giao diện và các khối bố cục.'
+            : 'Fine-tune the visual experience and information structure of the admin experience. Manage themes, UI overrides, and layout blocks.'}
         </p>
       </div>
 
       <section>
-        <div className="flex items-center justify-between mb-8">
-          <h2 className="text-2xl font-black text-primary flex items-center gap-3">
+        <div className="mb-8 flex items-center justify-between">
+          <h2 className="flex items-center gap-3 text-2xl font-black text-primary">
             <Palette className="text-accent" size={28} />
-            Theme Configuration
+            {isVietnamese ? 'Cấu hình giao diện' : 'Theme Configuration'}
           </h2>
         </div>
-        
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 bg-white rounded-[2.5rem] p-8 flex flex-col md:flex-row gap-10 relative overflow-hidden group border border-on-surface-variant/5">
-            <div className="absolute -right-20 -top-20 w-80 h-80 bg-accent/10 rounded-full blur-3xl pointer-events-none" />
-            
-            <div className="w-full md:w-5/12 shrink-0 rounded-[2rem] overflow-hidden aspect-[4/3] relative ring-1 ring-on-surface-variant/5 shadow-2xl">
-              <img 
-                src="https://picsum.photos/seed/interface/600/400" 
-                alt="Theme Preview" 
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-1000"
+
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
+          <div className="group relative flex flex-col gap-10 overflow-hidden rounded-[2.5rem] border border-on-surface-variant/5 bg-white p-8 md:flex-row lg:col-span-2">
+            <div className="pointer-events-none absolute -right-20 -top-20 h-80 w-80 rounded-full bg-accent/10 blur-3xl" />
+
+            <div className="relative aspect-[4/3] w-full shrink-0 overflow-hidden rounded-[2rem] shadow-2xl ring-1 ring-on-surface-variant/5 md:w-5/12">
+              <img
+                src="https://picsum.photos/seed/interface/600/400"
+                alt="Theme Preview"
+                className="h-full w-full object-cover transition-transform duration-1000 group-hover:scale-105"
                 referrerPolicy="no-referrer"
               />
-              <div className="absolute top-4 left-4 bg-accent text-primary text-[10px] font-black uppercase tracking-widest px-4 py-1.5 rounded-full shadow-lg border border-white/50">
-                Active Theme
+              <div className="absolute left-4 top-4 rounded-full border border-white/50 bg-accent px-4 py-1.5 text-[10px] font-black uppercase tracking-widest text-primary shadow-lg">
+                {isVietnamese ? 'Theme đang dùng' : 'Active Theme'}
               </div>
             </div>
 
-            <div className="flex flex-col justify-between z-10 flex-1 py-2">
+            <div className="z-10 flex flex-1 flex-col justify-between py-2">
               <div>
-                <h3 className="text-3xl font-black text-on-surface mb-3 tracking-tighter">Botanical Enterprise v2.4</h3>
-                <p className="text-sm text-on-surface-variant/80 leading-relaxed mb-8">
-                  The default system identity focuses on data integrity with organic green palettes and expansive white space. Optimized for high information density.
+                <h3 className="mb-3 text-3xl font-black tracking-tighter text-on-surface">Botanical Enterprise v2.4</h3>
+                <p className="mb-8 text-sm leading-relaxed text-on-surface-variant/80">
+                  {isVietnamese
+                    ? 'Bộ nhận diện mặc định tập trung vào độ tin cậy dữ liệu, dùng bảng màu xanh hữu cơ và khoảng trắng rộng. Tối ưu cho giao diện có mật độ thông tin cao.'
+                    : 'The default system identity focuses on data integrity with organic green palettes and expansive white space. Optimized for high information density.'}
                 </p>
-                <div className="flex gap-8 mb-8 pb-8 border-b border-on-surface-variant/5">
+                <div className="mb-8 flex gap-8 border-b border-on-surface-variant/5 pb-8">
                   <div className="flex flex-col gap-1">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/40">Version</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/40">
+                      {isVietnamese ? 'Phiên bản' : 'Version'}
+                    </span>
                     <span className="text-sm font-bold text-on-surface">2.4.1 (Stable)</span>
                   </div>
-                  <div className="flex flex-col gap-1 pl-8 border-l border-on-surface-variant/5">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/40">Last Updated</span>
-                    <span className="text-sm font-bold text-on-surface">Yesterday</span>
+                  <div className="flex flex-col gap-1 border-l border-on-surface-variant/5 pl-8">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/40">
+                      {isVietnamese ? 'Cập nhật gần nhất' : 'Last Updated'}
+                    </span>
+                    <span className="text-sm font-bold text-on-surface">{isVietnamese ? 'Hôm qua' : 'Yesterday'}</span>
                   </div>
                 </div>
               </div>
               <div className="flex items-center gap-4">
-                <button className="bg-primary text-white px-8 py-3 rounded-xl text-sm font-bold shadow-xl shadow-primary/20 hover:scale-105 transition-all">
-                  Customize
+                <button className="rounded-xl bg-primary px-8 py-3 text-sm font-bold text-white shadow-xl shadow-primary/20 transition-all hover:scale-105">
+                  {isVietnamese ? 'Tùy chỉnh' : 'Customize'}
                 </button>
-                <button className="bg-on-surface-variant/5 text-on-surface px-6 py-3 rounded-xl text-sm font-bold hover:bg-on-surface-variant/10 transition-colors">
-                  View Details
+                <button className="rounded-xl bg-on-surface-variant/5 px-6 py-3 text-sm font-bold text-on-surface transition-colors hover:bg-on-surface-variant/10">
+                  {isVietnamese ? 'Xem chi tiết' : 'View Details'}
                 </button>
               </div>
             </div>
           </div>
 
           <div className="space-y-6">
-             <MenuCard title="Theme Library" subtitle="Browse 12 pre-built identities" icon={Settings} />
-             <MenuCard title="Global Settings" subtitle="Logos, typography, branding" icon={Settings} />
-             <MenuCard title="Custom Codes" subtitle="Developer override (CSS/JS)" icon={Code} />
+            <MenuCard
+              title={isVietnamese ? 'Thư viện theme' : 'Theme Library'}
+              subtitle={isVietnamese ? 'Duyệt 12 bộ nhận diện dựng sẵn' : 'Browse 12 pre-built identities'}
+              icon={Settings}
+            />
+            <MenuCard
+              title={isVietnamese ? 'Cài đặt toàn cục' : 'Global Settings'}
+              subtitle={isVietnamese ? 'Logo, kiểu chữ, thương hiệu' : 'Logos, typography, branding'}
+              icon={Settings}
+            />
+            <MenuCard
+              title={isVietnamese ? 'Mã tùy chỉnh' : 'Custom Codes'}
+              subtitle={isVietnamese ? 'Ghi đè cho lập trình viên (CSS/JS)' : 'Developer override (CSS/JS)'}
+              icon={Code}
+            />
           </div>
         </div>
       </section>
 
       <section>
-        <div className="flex justify-between items-end mb-8">
+        <div className="mb-8 flex items-end justify-between">
           <div>
-            <h2 className="text-2xl font-black text-primary flex items-center gap-3">
+            <h2 className="flex items-center gap-3 text-2xl font-black text-primary">
               <Layout className="text-accent" size={28} />
-              Block Components
+              {isVietnamese ? 'Khối giao diện' : 'Block Components'}
             </h2>
-            <p className="text-sm text-on-surface-variant font-medium mt-1">Manage modular content tiles across dashboard and reports.</p>
+            <p className="mt-1 text-sm font-medium text-on-surface-variant">
+              {isVietnamese
+                ? 'Quản lý các khối nội dung theo module trên dashboard và báo cáo.'
+                : 'Manage modular content tiles across dashboards and reports.'}
+            </p>
           </div>
-          <button className="flex items-center gap-2 bg-on-surface text-white px-6 py-3 rounded-xl text-sm font-bold hover:opacity-90 transition-opacity">
+          <button className="flex items-center gap-2 rounded-xl bg-on-surface px-6 py-3 text-sm font-bold text-white transition-opacity hover:opacity-90">
             <Plus size={18} />
-            <span>Add Block</span>
+            <span>{isVietnamese ? 'Thêm khối' : 'Add Block'}</span>
           </button>
         </div>
 
-        <div className="bg-white rounded-[2.5rem] p-6 space-y-3 border border-on-surface-variant/5">
-           {blocks.map((block, i) => (
-             <motion.div 
-               key={i}
-               initial={{ opacity: 0, y: 10 }}
-               animate={{ opacity: 1, y: 0 }}
-               transition={{ delay: i * 0.1 }}
-               className={`flex items-center justify-between p-5 rounded-2xl transition-all border border-transparent hover:border-primary/5 hover:bg-primary/[0.02] group ${block.status === 'hidden' ? 'opacity-50' : ''}`}
-             >
-               <div className="flex items-center gap-6">
-                 <GripVertical className="text-on-surface-variant/20 group-hover:text-primary/40 cursor-grab" size={20} />
-                 <div className="w-12 h-12 rounded-2xl bg-primary/5 flex items-center justify-center text-primary border border-primary/5">
-                   <block.icon size={24} />
-                 </div>
-                 <div>
-                   <h4 className="font-bold text-on-surface text-base">{block.title}</h4>
-                   <p className="text-xs font-bold text-on-surface-variant/40 mt-1 uppercase tracking-widest leading-none">
-                     Position: {block.position} • Access: {block.role}
-                   </p>
-                 </div>
-               </div>
-               <div className="flex items-center gap-6">
-                 {block.status === 'active' ? (
-                   <span className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-green-50 text-green-700 text-[10px] font-black uppercase tracking-widest">
-                     <CheckCircle2 size={12} /> Active
-                   </span>
-                 ) : (
-                   <span className="px-4 py-1.5 rounded-full bg-on-surface-variant/5 text-on-surface-variant/60 text-[10px] font-black uppercase tracking-widest">
-                     Hidden
-                   </span>
-                 )}
-                 <button className="text-on-surface-variant/20 hover:text-primary transition-colors p-2 rounded-xl">
-                   <MoreVertical size={20} />
-                 </button>
-               </div>
-             </motion.div>
-           ))}
+        <div className="space-y-3 rounded-[2.5rem] border border-on-surface-variant/5 bg-white p-6">
+          {blocks.map((block, i) => (
+            <motion.div
+              key={i}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.1 }}
+              className={`group flex items-center justify-between rounded-2xl border border-transparent p-5 transition-all hover:border-primary/5 hover:bg-primary/[0.02] ${
+                block.status === 'hidden' ? 'opacity-50' : ''
+              }`}
+            >
+              <div className="flex items-center gap-6">
+                <GripVertical className="cursor-grab text-on-surface-variant/20 group-hover:text-primary/40" size={20} />
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-primary/5 bg-primary/5 text-primary">
+                  <block.icon size={24} />
+                </div>
+                <div>
+                  <h4 className="text-base font-bold text-on-surface">{block.title}</h4>
+                  <p className="mt-1 text-xs font-bold uppercase tracking-widest leading-none text-on-surface-variant/40">
+                    {isVietnamese ? 'Vị trí' : 'Position'}: {block.position} • {isVietnamese ? 'Truy cập' : 'Access'}: {block.role}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-6">
+                {block.status === 'active' ? (
+                  <span className="flex items-center gap-2 rounded-full bg-green-50 px-4 py-1.5 text-[10px] font-black uppercase tracking-widest text-green-700">
+                    <CheckCircle2 size={12} /> {isVietnamese ? 'Đang bật' : 'Active'}
+                  </span>
+                ) : (
+                  <span className="rounded-full bg-on-surface-variant/5 px-4 py-1.5 text-[10px] font-black uppercase tracking-widest text-on-surface-variant/60">
+                    {isVietnamese ? 'Đang ẩn' : 'Hidden'}
+                  </span>
+                )}
+                <button className="rounded-xl p-2 text-on-surface-variant/20 transition-colors hover:text-primary">
+                  <MoreVertical size={20} />
+                </button>
+              </div>
+            </motion.div>
+          ))}
         </div>
       </section>
     </div>
   );
 }
 
-function MenuCard({ title, subtitle, icon: Icon }: any) {
+function MenuCard({
+  title,
+  subtitle,
+  icon: Icon,
+}: {
+  title: string;
+  subtitle: string;
+  icon: typeof Settings;
+}) {
   return (
-    <a href="#" className="block bg-white rounded-[2rem] p-6 hover:bg-primary/[0.02] border border-on-surface-variant/5 transition-all group relative overflow-hidden">
-      <div className="absolute -right-8 -bottom-8 w-24 h-24 bg-primary/5 rounded-full group-hover:scale-150 transition-transform duration-500 pointer-events-none" />
-      <div className="flex items-center justify-between relative z-10">
+    <a href="#" className="group relative block overflow-hidden rounded-[2rem] border border-on-surface-variant/5 bg-white p-6 transition-all hover:bg-primary/[0.02]">
+      <div className="pointer-events-none absolute -bottom-8 -right-8 h-24 w-24 rounded-full bg-primary/5 transition-transform duration-500 group-hover:scale-150" />
+      <div className="relative z-10 flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-full bg-on-surface-variant/5 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-all">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-on-surface-variant/5 text-primary transition-all group-hover:bg-primary group-hover:text-white">
             <Icon size={20} />
           </div>
           <div>
-            <h4 className="font-bold text-on-surface mb-0.5">{title}</h4>
+            <h4 className="mb-0.5 font-bold text-on-surface">{title}</h4>
             <p className="text-xs font-medium text-on-surface-variant/60">{subtitle}</p>
           </div>
         </div>
-        <ChevronRight className="text-on-surface-variant/20 group-hover:text-primary group-hover:translate-x-1 transition-all" size={20} />
+        <ChevronRight className="text-on-surface-variant/20 transition-all group-hover:translate-x-1 group-hover:text-primary" size={20} />
       </div>
     </a>
   );
 }
 
-function ChevronRight({ className, size }: { className?: string, size?: number }) {
+function ChevronRight({ className, size }: { className?: string; size?: number }) {
   return (
-    <svg 
-      className={className} 
-      width={size || 24} 
-      height={size || 24} 
-      viewBox="0 0 24 24" 
-      fill="none" 
-      stroke="currentColor" 
-      strokeWidth="2.5" 
-      strokeLinecap="round" 
+    <svg
+      className={className}
+      width={size || 24}
+      height={size || 24}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
       strokeLinejoin="round"
     >
-      <path d="m9 18 6-6-6-6"/>
+      <path d="m9 18 6-6-6-6" />
     </svg>
   );
 }
