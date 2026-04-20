@@ -8,7 +8,7 @@ export default function Security() {
   return (
     <div className="space-y-12 pb-20">
       <div className="max-w-4xl">
-        <h1 className="mb-4 text-4xl font-headline font-black leading-none tracking-tight text-primary">
+        <h1 className="font-headline mb-4 text-4xl font-black leading-none tracking-tight text-primary">
           {isVietnamese ? 'Bảo mật và giao thức' : 'Security and Protocol'}
         </h1>
         <p className="max-w-2xl text-lg font-medium leading-relaxed text-on-surface-variant">
@@ -48,12 +48,17 @@ export default function Security() {
                     <span className="mb-1 block text-xs font-black uppercase tracking-widest text-primary">
                       {isVietnamese ? 'Trạng thái: Đang bật' : 'Status: Active'}
                     </span>
-                    <span className="text-[11px] font-bold text-on-surface-variant/60">Let's Encrypt Authority X3</span>
+                    <span className="text-[11px] font-bold text-on-surface-variant/60">
+                      Let&apos;s Encrypt Authority X3
+                    </span>
                   </div>
                   <Toggle active />
                 </div>
                 <p className="flex items-center gap-2 px-1 text-[10px] font-black uppercase tracking-widest text-primary">
-                  <Activity size={12} /> {isVietnamese ? 'Chứng chỉ hết hạn sau 84 ngày' : 'Certificate expires in 84 days'}
+                  <Activity size={12} />{' '}
+                  {isVietnamese
+                    ? 'Chứng chỉ hết hạn sau 84 ngày'
+                    : 'Certificate expires in 84 days'}
                 </p>
               </div>
 
@@ -83,7 +88,8 @@ export default function Security() {
                     </div>
                   </div>
                   <button className="ml-1 flex items-center gap-2 text-xs font-black uppercase tracking-widest text-primary transition-colors hover:text-primary-container">
-                    <Key size={14} /> {isVietnamese ? 'Cập nhật khóa mã hóa' : 'Update cryptographic keys'}
+                    <Key size={14} />{' '}
+                    {isVietnamese ? 'Cập nhật khóa mã hóa' : 'Update cryptographic keys'}
                   </button>
                 </div>
               </div>
@@ -131,9 +137,13 @@ export default function Security() {
                     <History size={24} />
                   </div>
                   <div>
-                    <h4 className="font-bold text-on-surface">{isVietnamese ? 'Điều khiển XML Sitemap' : 'XML Sitemap Control'}</h4>
+                    <h4 className="font-bold text-on-surface">
+                      {isVietnamese ? 'Điều khiển XML Sitemap' : 'XML Sitemap Control'}
+                    </h4>
                     <p className="mt-0.5 text-xs font-medium text-on-surface-variant/60">
-                      {isVietnamese ? 'Lần đồng bộ gần nhất: Hôm nay, 04:30 AM' : 'Last successful sync: Today, 04:30 AM'}
+                      {isVietnamese
+                        ? 'Lần đồng bộ gần nhất: Hôm nay, 04:30 AM'
+                        : 'Last successful sync: Today, 04:30 AM'}
                     </p>
                   </div>
                 </div>
@@ -154,7 +164,9 @@ export default function Security() {
               <div className="space-y-3">
                 <div className="flex items-center gap-3">
                   <History size={18} className="text-accent" />
-                  <span className="text-sm font-bold">{isVietnamese ? 'Bộ nhớ đệm' : 'Memory Cache'}</span>
+                  <span className="text-sm font-bold">
+                    {isVietnamese ? 'Bộ nhớ đệm' : 'Memory Cache'}
+                  </span>
                 </div>
                 <p className="text-[11px] font-medium leading-relaxed text-white/60">
                   {isVietnamese
@@ -169,7 +181,9 @@ export default function Security() {
               <div className="space-y-3 border-t border-white/10 pt-6">
                 <div className="flex items-center gap-3">
                   <Activity size={18} className="text-accent" />
-                  <span className="text-sm font-bold">{isVietnamese ? 'Cổng API' : 'API Gateways'}</span>
+                  <span className="text-sm font-bold">
+                    {isVietnamese ? 'Cổng API' : 'API Gateways'}
+                  </span>
                 </div>
                 <p className="text-[11px] font-medium leading-relaxed text-white/60">
                   {isVietnamese
@@ -177,7 +191,7 @@ export default function Security() {
                     : 'Monitor external connection integrity and node-to-node webhook responsiveness.'}
                 </p>
                 <button className="py-2 text-center text-xs font-black uppercase tracking-widest text-accent transition-all hover:text-white">
-                  {isVietnamese ? 'Cấu hình endpoint →' : 'Configure Endpoints →'}
+                  {isVietnamese ? 'Cấu hình endpoint →' : 'Configure endpoints →'}
                 </button>
               </div>
             </div>

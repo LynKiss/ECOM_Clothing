@@ -1,12 +1,16 @@
 import { useState } from 'react';
-import { Search, Bell, Globe, User, LogOut } from 'lucide-react';
+import { Search, Bell, Globe, User, LogOut, Menu } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAdminSession } from '../hooks/useAdminSession';
 import { useToast } from '../hooks/useToast';
 import { logoutAdmin } from '../lib/api';
 import { useLanguage } from '../i18n/language-context';
 
-export default function Topbar() {
+type TopbarProps = {
+  onOpenSidebar: () => void;
+};
+
+export default function Topbar({ onOpenSidebar }: TopbarProps) {
   const navigate = useNavigate();
   const { session } = useAdminSession();
   const { showToast } = useToast();
@@ -33,11 +37,21 @@ export default function Topbar() {
   }
 
   return (
-    <header className="fixed top-0 right-0 left-64 z-40 flex h-20 items-center justify-between border-b border-on-surface-variant/5 bg-surface/80 px-10 backdrop-blur-xl">
-      <div className="flex flex-1 items-center gap-8">
-        <h2 className="text-xl font-black tracking-tight text-primary">
-          {isVietnamese ? 'Trung tâm điều hành' : 'Operations Center'}
-        </h2>
+    <header className="sticky top-0 z-30 flex h-20 items-center justify-between border-b border-on-surface-variant/5 bg-surface/90 px-4 backdrop-blur-xl sm:px-6 lg:px-10">
+      <div className="flex min-w-0 flex-1 items-center gap-4 lg:gap-8">
+        <button
+          type="button"
+          onClick={onOpenSidebar}
+          className="flex h-11 w-11 items-center justify-center rounded-2xl border border-on-surface-variant/10 bg-white text-on-surface shadow-sm transition hover:border-primary/20 hover:text-primary lg:hidden"
+        >
+          <Menu size={18} />
+        </button>
+
+        <div className="min-w-0">
+          <h2 className="truncate text-lg font-black tracking-tight text-primary sm:text-xl">
+            {isVietnamese ? 'Trung tâm điều hành' : 'Operations Center'}
+          </h2>
+        </div>
 
         <div className="relative hidden w-full max-w-md lg:block">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant/50" size={18} />
@@ -49,8 +63,8 @@ export default function Topbar() {
         </div>
       </div>
 
-      <div className="flex items-center gap-6">
-        <nav className="mr-4 hidden items-center gap-6 md:flex">
+      <div className="flex items-center gap-3 sm:gap-4 lg:gap-6">
+        <nav className="mr-2 hidden items-center gap-6 md:flex">
           <a href="#" className="text-sm font-medium text-on-surface-variant transition-colors hover:text-primary">
             {isVietnamese ? 'Phân tích' : 'Analytics'}
           </a>
@@ -59,7 +73,7 @@ export default function Topbar() {
           </a>
         </nav>
 
-        <div className="flex items-center gap-4 border-l border-on-surface-variant/10 pl-6 text-on-surface-variant/80">
+        <div className="flex items-center gap-3 border-l border-on-surface-variant/10 pl-3 text-on-surface-variant/80 sm:gap-4 sm:pl-4 lg:pl-6">
           <button className="relative p-1 transition-colors hover:text-primary">
             <Bell size={20} />
             <span className="absolute right-0 top-0 h-2 w-2 rounded-full border-2 border-surface bg-red-500" />
@@ -74,7 +88,7 @@ export default function Topbar() {
               {language === 'vi' ? 'VI' : 'EN'}
             </span>
           </button>
-          <button className="p-1 transition-colors hover:text-primary">
+          <button className="hidden p-1 transition-colors hover:text-primary sm:block">
             <User size={20} />
           </button>
         </div>
@@ -82,14 +96,16 @@ export default function Topbar() {
         <button
           onClick={() => void handleLogout()}
           disabled={loggingOut}
-          className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-primary to-primary-container px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-primary/20 transition-all hover:shadow-xl disabled:opacity-60"
+          className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-primary to-primary-container px-3 py-2.5 text-sm font-semibold text-white shadow-lg shadow-primary/20 transition-all hover:shadow-xl disabled:opacity-60 sm:px-5"
         >
           <LogOut size={16} />
-          {loggingOut
-            ? isVietnamese
-              ? 'Đang đăng xuất...'
-              : 'Signing out...'
-            : session?.user.username || (isVietnamese ? 'Đăng xuất' : 'Sign out')}
+          <span className="hidden sm:inline">
+            {loggingOut
+              ? isVietnamese
+                ? 'Đang đăng xuất...'
+                : 'Signing out...'
+              : session?.user.username || (isVietnamese ? 'Đăng xuất' : 'Sign out')}
+          </span>
         </button>
       </div>
     </header>

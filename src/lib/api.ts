@@ -38,7 +38,11 @@ async function request<T>(
   const headers = new Headers(init?.headers);
 
   if (!headers.has('Content-Type') && init?.body) {
-    headers.set('Content-Type', 'application/json');
+    const isFormData =
+      typeof FormData !== 'undefined' && init.body instanceof FormData;
+    if (!isFormData) {
+      headers.set('Content-Type', 'application/json');
+    }
   }
 
   if (session?.accessToken) {
@@ -129,6 +133,11 @@ export const apiClient = {
     request<T>(path, {
       method: 'PATCH',
       body: body ? JSON.stringify(body) : undefined,
+    }),
+  postForm: <T>(path: string, body: FormData) =>
+    request<T>(path, {
+      method: 'POST',
+      body,
     }),
   delete: <T>(path: string) =>
     request<T>(path, {

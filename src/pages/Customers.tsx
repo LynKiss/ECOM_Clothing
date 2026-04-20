@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Search, Download, Plus, ChevronRight, TrendingUp, Users2 } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
 import { apiClient } from '../lib/api';
 import { useLanguage } from '../i18n/language-context';
+import Pagination from '../components/shared/Pagination';
 
 type UserRole = 'admin' | 'staff' | 'customer';
 
@@ -19,7 +21,10 @@ type Customer = {
 
 type CustomersResponse = {
   meta: {
+    page: number;
+    limit: number;
     total: number;
+    totalPages: number;
   };
   items: Customer[];
 };
@@ -27,11 +32,27 @@ type CustomersResponse = {
 export default function Customers() {
   const { language } = useLanguage();
   const isVietnamese = language === 'vi';
-  const [search, setSearch] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [search, setSearch] = useState(searchParams.get('search') ?? '');
   const [customers, setCustomers] = useState<Customer[]>([]);
-  const [total, setTotal] = useState(0);
+  const [customersMeta, setCustomersMeta] = useState<CustomersResponse['meta']>({
+    page: 1,
+    limit: 12,
+    total: 0,
+    totalPages: 1,
+  });
+  const [page, setPage] = useState(Number(searchParams.get('page') ?? '1'));
+  const [limit, setLimit] = useState(Number(searchParams.get('limit') ?? '12'));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const nextParams = new URLSearchParams();
+    if (search.trim()) nextParams.set('search', search.trim());
+    if (page > 1) nextParams.set('page', String(page));
+    if (limit !== 12) nextParams.set('limit', String(limit));
+    setSearchParams(nextParams, { replace: true });
+  }, [search, page, limit, setSearchParams]);
 
   useEffect(() => {
     let cancelled = false;
@@ -42,14 +63,15 @@ export default function Customers() {
 
       try {
         const query = new URLSearchParams({
-          limit: '12',
+          page: String(page),
+          limit: String(limit),
           ...(search.trim() ? { search: search.trim() } : {}),
         });
         const data = await apiClient.get<CustomersResponse>(`/users?${query.toString()}`);
 
         if (!cancelled) {
           setCustomers(data.items);
-          setTotal(data.meta.total);
+          setCustomersMeta(data.meta);
         }
       } catch (loadError) {
         if (!cancelled) {
@@ -66,7 +88,11 @@ export default function Customers() {
     return () => {
       cancelled = true;
     };
-  }, [search, isVietnamese]);
+  }, [search, isVietnamese, page, limit]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search]);
 
   const stats = useMemo(() => {
     const activeUsers = customers.filter((customer) => customer.isActive).length;
@@ -102,7 +128,7 @@ export default function Customers() {
       </div>
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-        <KpiCard title={isVietnamese ? 'Tổng tài khoản' : 'Total accounts'} value={String(total)} growth={isVietnamese ? '+trực tiếp' : '+live'} />
+        <KpiCard title={isVietnamese ? 'Tổng tài khoản' : 'Total accounts'} value={String(customersMeta.total)} growth={isVietnamese ? '+trực tiếp' : '+live'} />
         <KpiCard title={isVietnamese ? 'Người dùng hoạt động' : 'Active users'} value={String(stats.activeUsers)} growth={isVietnamese ? '+đồng bộ' : '+synced'} />
         <KpiCard title={isVietnamese ? 'Admin / Nhân sự' : 'Admin / Staff'} value={`${stats.admins} / ${stats.staff}`} highlight={isVietnamese ? 'Phân tách vai trò' : 'Role split'} />
       </div>
@@ -209,6 +235,22 @@ export default function Customers() {
               )}
             </tbody>
           </table>
+        </div>
+
+        <div className="px-6 pb-6 sm:px-8">
+          <Pagination
+            page={customersMeta.page}
+            limit={customersMeta.limit}
+            total={customersMeta.total}
+            totalPages={customersMeta.totalPages}
+            isVietnamese={isVietnamese}
+            onPageChange={setPage}
+            onLimitChange={(nextLimit) => {
+              setLimit(nextLimit);
+              setPage(1);
+            }}
+            pageSizeOptions={[12, 24, 48]}
+          />
         </div>
       </div>
     </div>

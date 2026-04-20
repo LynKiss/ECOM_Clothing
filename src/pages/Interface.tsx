@@ -1,4 +1,14 @@
-import { Palette, Layout, Settings, Code, Plus, MoreVertical, GripVertical, CheckCircle2 } from 'lucide-react';
+import {
+  Palette,
+  Layout,
+  Settings,
+  Code,
+  Plus,
+  MoreVertical,
+  GripVertical,
+  CheckCircle2,
+  ChevronRight,
+} from 'lucide-react';
 import { motion } from 'motion/react';
 import { useLanguage } from '../i18n/language-context';
 
@@ -16,14 +26,14 @@ export default function Interface() {
     },
     {
       title: isVietnamese ? 'Widget thời tiết khu vực' : 'Regional Weather Widget',
-      position: isVietnamese ? 'Thanh bên phải' : 'Sidebar Right',
+      position: isVietnamese ? 'Thanh bên phải' : 'Right sidebar',
       role: isVietnamese ? 'Quản lý' : 'Managers',
       icon: Layout,
       status: 'active',
     },
     {
       title: isVietnamese ? 'Cảnh báo tồn kho thấp' : 'Low Inventory Alert',
-      position: isVietnamese ? 'Trang kho hàng' : 'Inventory Page',
+      position: isVietnamese ? 'Trang kho hàng' : 'Inventory page',
       role: isVietnamese ? 'Tất cả người dùng' : 'All Users',
       icon: Layout,
       status: 'hidden',
@@ -33,13 +43,13 @@ export default function Interface() {
   return (
     <div className="space-y-12 pb-20">
       <div className="max-w-4xl">
-        <h1 className="mb-4 text-[3rem] font-headline font-black leading-none tracking-tight text-primary">
+        <h1 className="font-headline mb-4 text-[3rem] font-black leading-none tracking-tight text-primary">
           {isVietnamese ? 'Điều khiển giao diện' : 'Interface Control'}
         </h1>
         <p className="max-w-2xl text-lg font-medium leading-relaxed text-on-surface-variant">
           {isVietnamese
             ? 'Tinh chỉnh trải nghiệm hiển thị và cấu trúc thông tin của trang quản trị. Quản lý theme, ghi đè giao diện và các khối bố cục.'
-            : 'Fine-tune the visual experience and information structure of the admin experience. Manage themes, UI overrides, and layout blocks.'}
+            : 'Fine-tune the visual experience and information structure of the admin UI. Manage themes, UI overrides, and layout blocks.'}
         </p>
       </div>
 
@@ -69,11 +79,13 @@ export default function Interface() {
 
             <div className="z-10 flex flex-1 flex-col justify-between py-2">
               <div>
-                <h3 className="mb-3 text-3xl font-black tracking-tighter text-on-surface">Botanical Enterprise v2.4</h3>
+                <h3 className="mb-3 text-3xl font-black tracking-tighter text-on-surface">
+                  Botanical Enterprise v2.4
+                </h3>
                 <p className="mb-8 text-sm leading-relaxed text-on-surface-variant/80">
                   {isVietnamese
                     ? 'Bộ nhận diện mặc định tập trung vào độ tin cậy dữ liệu, dùng bảng màu xanh hữu cơ và khoảng trắng rộng. Tối ưu cho giao diện có mật độ thông tin cao.'
-                    : 'The default system identity focuses on data integrity with organic green palettes and expansive white space. Optimized for high information density.'}
+                    : 'The default system identity focuses on data integrity with organic green palettes and expansive white space. It is optimized for high information density.'}
                 </p>
                 <div className="mb-8 flex gap-8 border-b border-on-surface-variant/5 pb-8">
                   <div className="flex flex-col gap-1">
@@ -86,7 +98,9 @@ export default function Interface() {
                     <span className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/40">
                       {isVietnamese ? 'Cập nhật gần nhất' : 'Last Updated'}
                     </span>
-                    <span className="text-sm font-bold text-on-surface">{isVietnamese ? 'Hôm qua' : 'Yesterday'}</span>
+                    <span className="text-sm font-bold text-on-surface">
+                      {isVietnamese ? 'Hôm qua' : 'Yesterday'}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -95,7 +109,7 @@ export default function Interface() {
                   {isVietnamese ? 'Tùy chỉnh' : 'Customize'}
                 </button>
                 <button className="rounded-xl bg-on-surface-variant/5 px-6 py-3 text-sm font-bold text-on-surface transition-colors hover:bg-on-surface-variant/10">
-                  {isVietnamese ? 'Xem chi tiết' : 'View Details'}
+                  {isVietnamese ? 'Xem chi tiết' : 'View details'}
                 </button>
               </div>
             </div>
@@ -104,7 +118,7 @@ export default function Interface() {
           <div className="space-y-6">
             <MenuCard
               title={isVietnamese ? 'Thư viện theme' : 'Theme Library'}
-              subtitle={isVietnamese ? 'Duyệt 12 bộ nhận diện dựng sẵn' : 'Browse 12 pre-built identities'}
+              subtitle={isVietnamese ? 'Duyệt 12 bộ nhận diện dựng sẵn' : 'Browse 12 prebuilt identities'}
               icon={Settings}
             />
             <MenuCard
@@ -113,7 +127,7 @@ export default function Interface() {
               icon={Settings}
             />
             <MenuCard
-              title={isVietnamese ? 'Mã tùy chỉnh' : 'Custom Codes'}
+              title={isVietnamese ? 'Mã tùy chỉnh' : 'Custom Code'}
               subtitle={isVietnamese ? 'Ghi đè cho lập trình viên (CSS/JS)' : 'Developer override (CSS/JS)'}
               icon={Code}
             />
@@ -136,29 +150,32 @@ export default function Interface() {
           </div>
           <button className="flex items-center gap-2 rounded-xl bg-on-surface px-6 py-3 text-sm font-bold text-white transition-opacity hover:opacity-90">
             <Plus size={18} />
-            <span>{isVietnamese ? 'Thêm khối' : 'Add Block'}</span>
+            <span>{isVietnamese ? 'Thêm khối' : 'Add block'}</span>
           </button>
         </div>
 
         <div className="space-y-3 rounded-[2.5rem] border border-on-surface-variant/5 bg-white p-6">
-          {blocks.map((block, i) => (
+          {blocks.map((block, index) => (
             <motion.div
-              key={i}
+              key={block.title}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.1 }}
+              transition={{ delay: index * 0.1 }}
               className={`group flex items-center justify-between rounded-2xl border border-transparent p-5 transition-all hover:border-primary/5 hover:bg-primary/[0.02] ${
                 block.status === 'hidden' ? 'opacity-50' : ''
               }`}
             >
               <div className="flex items-center gap-6">
-                <GripVertical className="cursor-grab text-on-surface-variant/20 group-hover:text-primary/40" size={20} />
+                <GripVertical
+                  className="cursor-grab text-on-surface-variant/20 group-hover:text-primary/40"
+                  size={20}
+                />
                 <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-primary/5 bg-primary/5 text-primary">
                   <block.icon size={24} />
                 </div>
                 <div>
                   <h4 className="text-base font-bold text-on-surface">{block.title}</h4>
-                  <p className="mt-1 text-xs font-bold uppercase tracking-widest leading-none text-on-surface-variant/40">
+                  <p className="mt-1 text-xs font-bold uppercase leading-none tracking-widest text-on-surface-variant/40">
                     {isVietnamese ? 'Vị trí' : 'Position'}: {block.position} • {isVietnamese ? 'Truy cập' : 'Access'}: {block.role}
                   </p>
                 </div>
@@ -195,7 +212,10 @@ function MenuCard({
   icon: typeof Settings;
 }) {
   return (
-    <a href="#" className="group relative block overflow-hidden rounded-[2rem] border border-on-surface-variant/5 bg-white p-6 transition-all hover:bg-primary/[0.02]">
+    <a
+      href="#"
+      className="group relative block overflow-hidden rounded-[2rem] border border-on-surface-variant/5 bg-white p-6 transition-all hover:bg-primary/[0.02]"
+    >
       <div className="pointer-events-none absolute -bottom-8 -right-8 h-24 w-24 rounded-full bg-primary/5 transition-transform duration-500 group-hover:scale-150" />
       <div className="relative z-10 flex items-center justify-between">
         <div className="flex items-center gap-4">
@@ -207,26 +227,11 @@ function MenuCard({
             <p className="text-xs font-medium text-on-surface-variant/60">{subtitle}</p>
           </div>
         </div>
-        <ChevronRight className="text-on-surface-variant/20 transition-all group-hover:translate-x-1 group-hover:text-primary" size={20} />
+        <ChevronRight
+          className="text-on-surface-variant/20 transition-all group-hover:translate-x-1 group-hover:text-primary"
+          size={20}
+        />
       </div>
     </a>
-  );
-}
-
-function ChevronRight({ className, size }: { className?: string; size?: number }) {
-  return (
-    <svg
-      className={className}
-      width={size || 24}
-      height={size || 24}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="m9 18 6-6-6-6" />
-    </svg>
   );
 }

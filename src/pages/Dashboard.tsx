@@ -1,9 +1,18 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { TrendingUp, Package, Truck, Users } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from 'recharts';
 import { motion } from 'motion/react';
 import { apiClient } from '../lib/api';
 import { useLanguage } from '../i18n/language-context';
+import { useAdminSession } from '../hooks/useAdminSession';
 
 type ProductItem = {
   productId: string;
@@ -52,7 +61,16 @@ type OrdersResponse = {
 
 export default function Dashboard() {
   const { language } = useLanguage();
+  const { session } = useAdminSession();
   const isVietnamese = language === 'vi';
+  const canViewReports =
+    session?.user.permissions?.some(
+      (permission) => permission.key === 'manage_reports',
+    ) ?? false;
+  const canViewOrders =
+    session?.user.permissions?.some(
+      (permission) => permission.key === 'manage_orders',
+    ) ?? false;
   const currency = useMemo(
     () =>
       new Intl.NumberFormat(language === 'vi' ? 'vi-VN' : 'en-US', {
@@ -82,18 +100,37 @@ export default function Dashboard() {
           setPublicProducts(productData.items);
         }
 
-        const [dashboardData, ordersData] = await Promise.all([
-          apiClient.get<DashboardResponse>('/reports/dashboard'),
-          apiClient.get<OrdersResponse>('/orders?limit=5'),
-        ]);
+        const requests: Array<Promise<DashboardResponse | OrdersResponse>> = [];
+
+        if (canViewReports) {
+          requests.push(apiClient.get<DashboardResponse>('/reports/dashboard'));
+        }
+
+        if (canViewOrders) {
+          requests.push(apiClient.get<OrdersResponse>('/orders?limit=5'));
+        }
+
+        const responses = requests.length ? await Promise.all(requests) : [];
+        const dashboardData = canViewReports
+          ? (responses.shift() as DashboardResponse | undefined) ?? null
+          : null;
+        const ordersData = canViewOrders
+          ? (responses.shift() as OrdersResponse | undefined) ?? null
+          : null;
 
         if (!cancelled) {
           setDashboard(dashboardData);
-          setRecentOrders(ordersData.items);
+          setRecentOrders(ordersData?.items ?? []);
         }
       } catch (loadError) {
         if (!cancelled) {
-          setError(loadError instanceof Error ? loadError.message : isVietnamese ? 'Không tải được tổng quan' : 'Unable to load dashboard');
+          setError(
+            loadError instanceof Error
+              ? loadError.message
+              : isVietnamese
+                ? 'Không tải được tổng quan'
+                : 'Unable to load dashboard',
+          );
         }
       } finally {
         if (!cancelled) {
@@ -106,7 +143,7 @@ export default function Dashboard() {
     return () => {
       cancelled = true;
     };
-  }, [isVietnamese]);
+  }, [canViewOrders, canViewReports, isVietnamese]);
 
   const chartData = useMemo(
     () =>
@@ -130,7 +167,9 @@ export default function Dashboard() {
       }))
     : publicProducts.slice(0, 4).map((item) => ({
         name: item.productName,
-        stock: isVietnamese ? `${item.quantityAvailable} tồn kho` : `${item.quantityAvailable} in stock`,
+        stock: isVietnamese
+          ? `${item.quantityAvailable} tồn kho`
+          : `${item.quantityAvailable} in stock`,
         icon: '📦',
       }));
 
@@ -143,8 +182,8 @@ export default function Dashboard() {
           </h2>
           <p className="mt-1 text-sm text-on-surface-variant">
             {isVietnamese
-              ? 'Trang tổng quan đang kết hợp sản phẩm public với báo cáo protected từ backend Nest.'
-              : 'This dashboard combines public product data with protected reports from the Nest backend.'}
+              ? 'Trang tổng quan kết hợp dữ liệu sản phẩm công khai với báo cáo quản trị từ backend NestJS.'
+              : 'This dashboard combines public product data with protected reporting from the NestJS backend.'}
           </p>
         </div>
         <button className="rounded-xl border border-primary-container/20 bg-primary-container/10 px-6 py-2.5 text-sm font-bold text-primary-container opacity-70">
@@ -152,13 +191,23 @@ export default function Dashboard() {
         </button>
       </div>
 
-      {error ? <div className="rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700">{error}</div> : null}
+      {error ? (
+        <div className="rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700">
+          {error}
+        </div>
+      ) : null}
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
         <StatCard
           title={isVietnamese ? 'Tổng doanh thu' : 'Revenue'}
           value={dashboard ? currency.format(Number(dashboard.totals.revenue)) : '-'}
-          change={dashboard ? (isVietnamese ? `${dashboard.totals.paidOrders} đã thanh toán` : `${dashboard.totals.paidOrders} paid`) : '-'}
+          change={
+            dashboard
+              ? isVietnamese
+                ? `${dashboard.totals.paidOrders} đã thanh toán`
+                : `${dashboard.totals.paidOrders} paid`
+              : '-'
+          }
           icon={TrendingUp}
           subtitle={isVietnamese ? 'từ reports/dashboard' : 'from reports/dashboard'}
         />
@@ -180,7 +229,13 @@ export default function Dashboard() {
         <StatCard
           title={isVietnamese ? 'Đơn hàng / Người dùng' : 'Orders / Users'}
           value={dashboard ? `${dashboard.totals.orders} / ${dashboard.totals.users}` : '-'}
-          change={dashboard ? (isVietnamese ? `${dashboard.totals.pendingOrders} chờ xử lý` : `${dashboard.totals.pendingOrders} pending`) : '-'}
+          change={
+            dashboard
+              ? isVietnamese
+                ? `${dashboard.totals.pendingOrders} chờ xử lý`
+                : `${dashboard.totals.pendingOrders} pending`
+              : '-'
+          }
           icon={dashboard ? Truck : Users}
           subtitle={isVietnamese ? 'chỉ số thời gian thực' : 'real-time metrics'}
         />
@@ -189,7 +244,9 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
         <div className="rounded-3xl border border-on-surface-variant/5 bg-white p-8 shadow-sm lg:col-span-2">
           <div className="mb-8 flex items-center justify-between">
-            <h3 className="text-xl font-bold font-headline">{isVietnamese ? 'Xu hướng doanh thu' : 'Revenue trend'}</h3>
+            <h3 className="font-headline text-xl font-bold">
+              {isVietnamese ? 'Xu hướng doanh thu' : 'Revenue trend'}
+            </h3>
             <span className="rounded-lg bg-on-surface-variant/5 px-4 py-2 text-sm">
               {isVietnamese ? 'Dữ liệu backend trực tiếp' : 'Direct backend data'}
             </span>
@@ -207,7 +264,13 @@ export default function Dashboard() {
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#6B7280' }} dy={10} />
+                  <XAxis
+                    dataKey="name"
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fontSize: 12, fill: '#6B7280' }}
+                    dy={10}
+                  />
                   <YAxis
                     axisLine={false}
                     tickLine={false}
@@ -232,7 +295,9 @@ export default function Dashboard() {
         </div>
 
         <div className="rounded-3xl border border-primary/10 bg-primary/5 p-8">
-          <h3 className="mb-6 text-xl font-bold">{isVietnamese ? 'Sản phẩm nổi bật' : 'Featured products'}</h3>
+          <h3 className="mb-6 text-xl font-bold">
+            {isVietnamese ? 'Sản phẩm nổi bật' : 'Featured products'}
+          </h3>
           <div className="space-y-4">
             {featuredProducts.map((product) => (
               <div key={product.name}>
@@ -248,8 +313,12 @@ export default function Dashboard() {
 
       <div className="rounded-3xl border border-on-surface-variant/5 bg-white p-8 shadow-sm">
         <div className="mb-8 flex items-center justify-between">
-          <h3 className="text-xl font-bold">{isVietnamese ? 'Đơn hàng gần đây' : 'Recent orders'}</h3>
-          <button className="text-sm font-bold text-primary hover:underline">{isVietnamese ? 'Xem tất cả' : 'View all'}</button>
+          <h3 className="text-xl font-bold">
+            {isVietnamese ? 'Đơn hàng gần đây' : 'Recent orders'}
+          </h3>
+          <button className="text-sm font-bold text-primary hover:underline">
+            {isVietnamese ? 'Xem tất cả' : 'View all'}
+          </button>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left">
@@ -340,23 +409,37 @@ function StatCard({
     >
       <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-primary/5 transition-transform duration-700 group-hover:scale-150" />
       <div className="relative z-10">
-        <p className="mb-2 text-xs font-black uppercase tracking-widest text-on-surface-variant/60">{title}</p>
+        <p className="mb-2 text-xs font-black uppercase tracking-widest text-on-surface-variant/60">
+          {title}
+        </p>
         <h3 className="mb-4 text-4xl font-black tracking-tighter text-primary">{value}</h3>
         <div className="flex items-center gap-2">
           <span className="flex items-center gap-1 rounded bg-green-100 px-2 py-0.5 text-[10px] font-black text-green-700">
             <Icon size={12} /> {change}
           </span>
-          <span className="text-[10px] font-bold uppercase text-on-surface-variant/50">{subtitle}</span>
+          <span className="text-[10px] font-bold uppercase text-on-surface-variant/50">
+            {subtitle}
+          </span>
         </div>
       </div>
     </motion.div>
   );
 }
 
-function FeaturedProductCard({ name, stock, icon }: { name: string; stock: string; icon: string }) {
+function FeaturedProductCard({
+  name,
+  stock,
+  icon,
+}: {
+  name: string;
+  stock: string;
+  icon: string;
+}) {
   return (
     <div className="flex cursor-pointer items-center gap-4 rounded-2xl border border-transparent bg-white/50 p-4 transition-colors hover:border-primary/10 hover:bg-white">
-      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-xl">{icon}</div>
+      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-xl">
+        {icon}
+      </div>
       <div>
         <p className="text-sm font-bold text-on-surface">{name}</p>
         <p className="text-xs text-on-surface-variant/60">{stock}</p>
@@ -390,7 +473,9 @@ function RecentOrderRow({
       <td className="py-4 text-sm font-medium">{customer}</td>
       <td className="py-4 text-sm font-black">{amount}</td>
       <td className="py-4">
-        <span className={`rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-widest ${statusStyles[statusType]}`}>
+        <span
+          className={`rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-widest ${statusStyles[statusType]}`}
+        >
           {status}
         </span>
       </td>

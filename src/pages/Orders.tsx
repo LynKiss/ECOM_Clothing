@@ -1,10 +1,19 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Search, Plus, MoreHorizontal, ShieldAlert } from 'lucide-react';
 import { motion } from 'motion/react';
+import { useSearchParams } from 'react-router-dom';
 import { apiClient } from '../lib/api';
 import { useLanguage } from '../i18n/language-context';
+import Pagination from '../components/shared/Pagination';
 
-type OrderStatus = 'pending' | 'confirmed' | 'processing' | 'shipping' | 'delivered' | 'cancelled' | 'returned';
+type OrderStatus =
+  | 'pending'
+  | 'confirmed'
+  | 'processing'
+  | 'shipping'
+  | 'delivered'
+  | 'cancelled'
+  | 'returned';
 type PaymentStatus = 'unpaid' | 'paid' | 'failed' | 'refunded';
 
 type OrderItem = {
@@ -29,6 +38,7 @@ type OrderResponse = {
 export default function Orders() {
   const { language } = useLanguage();
   const isVietnamese = language === 'vi';
+  const [searchParams, setSearchParams] = useSearchParams();
   const currency = useMemo(
     () =>
       new Intl.NumberFormat(language === 'vi' ? 'vi-VN' : 'en-US', {
@@ -58,10 +68,29 @@ export default function Orders() {
   ];
 
   const [orders, setOrders] = useState<OrderItem[]>([]);
-  const [search, setSearch] = useState('');
-  const [status, setStatus] = useState<'all' | OrderStatus>('all');
+  const [ordersMeta, setOrdersMeta] = useState<OrderResponse['meta']>({
+    page: 1,
+    limit: 10,
+    total: 0,
+    totalPages: 1,
+  });
+  const [search, setSearch] = useState(searchParams.get('search') ?? '');
+  const [status, setStatus] = useState<'all' | OrderStatus>(
+    (searchParams.get('status') as 'all' | OrderStatus) ?? 'all',
+  );
+  const [page, setPage] = useState(Number(searchParams.get('page') ?? '1'));
+  const [limit, setLimit] = useState(Number(searchParams.get('limit') ?? '10'));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const nextParams = new URLSearchParams();
+    if (search.trim()) nextParams.set('search', search.trim());
+    if (status !== 'all') nextParams.set('status', status);
+    if (page > 1) nextParams.set('page', String(page));
+    if (limit !== 10) nextParams.set('limit', String(limit));
+    setSearchParams(nextParams, { replace: true });
+  }, [search, status, page, limit, setSearchParams]);
 
   useEffect(() => {
     let cancelled = false;
@@ -72,7 +101,8 @@ export default function Orders() {
 
       try {
         const query = new URLSearchParams({
-          limit: '10',
+          page: String(page),
+          limit: String(limit),
           ...(status !== 'all' ? { status } : {}),
           ...(search.trim() ? { search: search.trim() } : {}),
         });
@@ -80,10 +110,17 @@ export default function Orders() {
         const data = await apiClient.get<OrderResponse>(`/orders?${query.toString()}`);
         if (!cancelled) {
           setOrders(data.items);
+          setOrdersMeta(data.meta);
         }
       } catch (loadError) {
         if (!cancelled) {
-          setError(loadError instanceof Error ? loadError.message : isVietnamese ? 'Không tải được danh sách đơn hàng' : 'Unable to load orders');
+          setError(
+            loadError instanceof Error
+              ? loadError.message
+              : isVietnamese
+                ? 'Không tải được danh sách đơn hàng'
+                : 'Unable to load orders',
+          );
         }
       } finally {
         if (!cancelled) {
@@ -96,7 +133,11 @@ export default function Orders() {
     return () => {
       cancelled = true;
     };
-  }, [search, status, isVietnamese]);
+  }, [search, status, isVietnamese, page, limit]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, status]);
 
   return (
     <div className="space-y-8">
@@ -121,24 +162,39 @@ export default function Orders() {
         <div className="flex flex-wrap rounded-xl border border-on-surface-variant/5 bg-white p-1 shadow-sm">
           {orderTabs.map((tab) => (
             <span key={tab.value}>
-              <TabButton label={tab.label} active={status === tab.value} onClick={() => setStatus(tab.value)} />
+              <TabButton
+                label={tab.label}
+                active={status === tab.value}
+                onClick={() => setStatus(tab.value)}
+              />
             </span>
           ))}
         </div>
 
         <div className="relative w-full lg:w-96">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant/40" size={18} />
+          <Search
+            className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant/40"
+            size={18}
+          />
           <input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             type="text"
-            placeholder={isVietnamese ? 'Tìm theo mã đơn, khách hàng...' : 'Search by order ID, customer...'}
+            placeholder={
+              isVietnamese
+                ? 'Tìm theo mã đơn, khách hàng...'
+                : 'Search by order ID, customer...'
+            }
             className="w-full rounded-xl border border-on-surface-variant/10 bg-white py-3 pl-12 pr-6 text-sm text-on-surface outline-none transition-all focus:ring-2 focus:ring-primary/20"
           />
         </div>
       </div>
 
-      {error ? <div className="rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700">{error}</div> : null}
+      {error ? (
+        <div className="rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700">
+          {error}
+        </div>
+      ) : null}
 
       <div className="rounded-[2.5rem] border border-on-surface-variant/5 bg-white p-8 shadow-sm">
         <div className="overflow-x-auto">
@@ -232,6 +288,20 @@ export default function Orders() {
             </tbody>
           </table>
         </div>
+
+        <Pagination
+          page={ordersMeta.page}
+          limit={ordersMeta.limit}
+          total={ordersMeta.total}
+          totalPages={ordersMeta.totalPages}
+          isVietnamese={isVietnamese}
+          onPageChange={setPage}
+          onLimitChange={(nextLimit) => {
+            setLimit(nextLimit);
+            setPage(1);
+          }}
+          pageSizeOptions={[10, 20, 50]}
+        />
       </div>
     </div>
   );
@@ -259,7 +329,9 @@ function TabButton({
     <button
       onClick={onClick}
       className={`px-6 py-2.5 text-sm font-black transition-all duration-200 ${
-        active ? 'scale-105 rounded-lg bg-primary text-white shadow-lg shadow-primary/20' : 'rounded-lg text-on-surface-variant/60 hover:text-primary'
+        active
+          ? 'scale-105 rounded-lg bg-primary text-white shadow-lg shadow-primary/20'
+          : 'rounded-lg text-on-surface-variant/60 hover:text-primary'
       }`}
     >
       {label}
@@ -267,7 +339,13 @@ function TabButton({
   );
 }
 
-function PaymentBadge({ type, isVietnamese }: { type: PaymentStatus; isVietnamese: boolean }) {
+function PaymentBadge({
+  type,
+  isVietnamese,
+}: {
+  type: PaymentStatus;
+  isVietnamese: boolean;
+}) {
   const styles: Record<PaymentStatus, string> = {
     paid: 'bg-green-100 text-green-700',
     unpaid: 'bg-red-100 text-red-700',
@@ -288,10 +366,22 @@ function PaymentBadge({ type, isVietnamese }: { type: PaymentStatus; isVietnames
         refunded: 'Refunded',
       };
 
-  return <span className={`inline-flex rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-widest ${styles[type]}`}>{labels[type]}</span>;
+  return (
+    <span
+      className={`inline-flex rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-widest ${styles[type]}`}
+    >
+      {labels[type]}
+    </span>
+  );
 }
 
-function StatusBadge({ type, isVietnamese }: { type: OrderStatus; isVietnamese: boolean }) {
+function StatusBadge({
+  type,
+  isVietnamese,
+}: {
+  type: OrderStatus;
+  isVietnamese: boolean;
+}) {
   const styles: Record<OrderStatus, string> = {
     pending: 'bg-amber-100 text-amber-700',
     confirmed: 'bg-sky-100 text-sky-700',
@@ -321,5 +411,11 @@ function StatusBadge({ type, isVietnamese }: { type: OrderStatus; isVietnamese: 
         returned: 'Returned',
       };
 
-  return <span className={`inline-flex rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-widest ${styles[type]}`}>{labels[type]}</span>;
+  return (
+    <span
+      className={`inline-flex rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-widest ${styles[type]}`}
+    >
+      {labels[type]}
+    </span>
+  );
 }

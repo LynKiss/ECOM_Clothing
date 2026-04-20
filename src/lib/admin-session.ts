@@ -49,6 +49,14 @@ export function getAdminSession() {
   return currentSession;
 }
 
+export function hasAdminPermission(permissionKey: string) {
+  return (
+    currentSession?.user.permissions?.some(
+      (permission) => permission.key === permissionKey,
+    ) ?? false
+  );
+}
+
 export function setAdminSession(session: AdminSession | null) {
   currentSession = session;
 

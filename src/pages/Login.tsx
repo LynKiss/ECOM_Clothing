@@ -44,11 +44,18 @@ export default function LoginPage() {
       showToast({
         tone: 'success',
         title: isVietnamese ? 'Đăng nhập thành công' : 'Sign in successful',
-        description: isVietnamese ? 'Bảng điều khiển đã sẵn sàng.' : 'The admin console is ready.',
+        description: isVietnamese
+          ? 'Bảng điều khiển đã sẵn sàng.'
+          : 'The admin console is ready.',
       });
       navigate(from, { replace: true });
     } catch (loginError) {
-      const message = loginError instanceof Error ? loginError.message : isVietnamese ? 'Đăng nhập thất bại' : 'Sign in failed';
+      const message =
+        loginError instanceof Error
+          ? loginError.message
+          : isVietnamese
+            ? 'Đăng nhập thất bại'
+            : 'Sign in failed';
       setError(message);
       showToast({
         tone: 'error',
@@ -100,7 +107,9 @@ export default function LoginPage() {
                 {isVietnamese ? 'Đăng nhập' : 'Sign in'}
               </h2>
               <p className="mt-2 text-[14px] leading-6 text-[#66756d]">
-                {isVietnamese ? 'Nhập thông tin để truy cập bảng điều khiển.' : 'Enter your credentials to access the admin console.'}{' '}
+                {isVietnamese
+                  ? 'Nhập thông tin để truy cập bảng điều khiển.'
+                  : 'Enter your credentials to access the admin console.'}{' '}
                 {isVietnamese ? 'API base hiện tại:' : 'Current API base:'}{' '}
                 <span className="font-semibold">{getApiBaseUrl()}</span>
               </p>
@@ -121,7 +130,10 @@ export default function LoginPage() {
               <form className="mt-5 space-y-4" onSubmit={handleSubmit}>
                 <FieldLabel label={isVietnamese ? 'Địa chỉ email' : 'Email address'} />
                 <div className="relative">
-                  <Mail className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#7c8c84]" size={16} />
+                  <Mail
+                    className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#7c8c84]"
+                    size={16}
+                  />
                   <input
                     value={username}
                     onChange={(event) => setUsername(event.target.value)}
@@ -132,12 +144,18 @@ export default function LoginPage() {
 
                 <div className="flex items-center justify-between">
                   <FieldLabel label={isVietnamese ? 'Mật khẩu' : 'Password'} />
-                  <button type="button" className="text-xs font-semibold text-[#b26539] transition hover:text-[#8f4c26]">
+                  <button
+                    type="button"
+                    className="text-xs font-semibold text-[#b26539] transition hover:text-[#8f4c26]"
+                  >
                     {isVietnamese ? 'Quên mật khẩu?' : 'Forgot password?'}
                   </button>
                 </div>
                 <div className="relative">
-                  <LockKeyhole className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#7c8c84]" size={16} />
+                  <LockKeyhole
+                    className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#7c8c84]"
+                    size={16}
+                  />
                   <input
                     type={showPassword ? 'text' : 'password'}
                     value={password}
@@ -155,8 +173,14 @@ export default function LoginPage() {
                 </div>
 
                 <label className="inline-flex items-center gap-3 text-[13px] text-[#627168]">
-                  <input type="checkbox" defaultChecked className="h-4 w-4 rounded border-[#cfd6cf] accent-[#0b7a58]" />
-                  {isVietnamese ? 'Duy trì đăng nhập trong 30 ngày' : 'Keep me signed in for 30 days'}
+                  <input
+                    type="checkbox"
+                    defaultChecked
+                    className="h-4 w-4 rounded border-[#cfd6cf] accent-[#0b7a58]"
+                  />
+                  {isVietnamese
+                    ? 'Duy trì đăng nhập trong 30 ngày'
+                    : 'Keep me signed in for 30 days'}
                 </label>
 
                 <button
@@ -186,12 +210,20 @@ export default function LoginPage() {
 
               <div className="grid grid-cols-2 gap-3">
                 <SecondaryLoginButton icon={<Leaf size={16} />} label="Google" />
-                <SecondaryLoginButton icon={<Sprout size={16} />} label={isVietnamese ? 'Đăng nhập SSO' : 'SSO Login'} />
+                <SecondaryLoginButton
+                  icon={<Sprout size={16} />}
+                  label={isVietnamese ? 'Đăng nhập SSO' : 'SSO Login'}
+                />
               </div>
 
               <p className="mt-8 text-center text-sm text-[#69776f]">
-                {isVietnamese ? 'Bạn muốn làm quen với nông nghiệp hiện đại?' : 'Curious about modern agriculture?'}{' '}
-                <button type="button" className="font-bold text-[#0a7b59] transition hover:text-[#085d43]">
+                {isVietnamese
+                  ? 'Bạn muốn làm quen với nông nghiệp hiện đại?'
+                  : 'Curious about modern agriculture?'}{' '}
+                <button
+                  type="button"
+                  className="font-bold text-[#0a7b59] transition hover:text-[#085d43]"
+                >
                   {isVietnamese ? 'Tạo tài khoản' : 'Create account'}
                 </button>
               </p>
@@ -201,9 +233,13 @@ export default function LoginPage() {
 
         <footer className="flex shrink-0 flex-col gap-2 border-t border-[#e3e7e2] bg-[#f7f8f4] px-5 py-3 text-[10px] text-[#77837d] md:flex-row md:items-center md:justify-between md:px-7">
           <div>
-            <p className="font-black uppercase tracking-[0.22em] text-[#0f5d46]">Editorial Agronomy</p>
+            <p className="font-black uppercase tracking-[0.22em] text-[#0f5d46]">
+              Editorial Agronomy
+            </p>
             <p className="mt-2">
-              {isVietnamese ? '© 2024 Editorial Agronomy. Kiến tạo tương lai của trái đất.' : '© 2024 Editorial Agronomy. Building the future of the planet.'}
+              {isVietnamese
+                ? '© 2024 Editorial Agronomy. Kiến tạo tương lai của trái đất.'
+                : '© 2024 Editorial Agronomy. Building the future of the planet.'}
             </p>
           </div>
           <div className="flex flex-wrap gap-5">
@@ -244,13 +280,7 @@ function AudienceButton({
   );
 }
 
-function SecondaryLoginButton({
-  icon,
-  label,
-}: {
-  icon: ReactNode;
-  label: string;
-}) {
+function SecondaryLoginButton({ icon, label }: { icon: ReactNode; label: string }) {
   return (
     <button
       type="button"
