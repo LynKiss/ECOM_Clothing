@@ -7,11 +7,14 @@ import {
   ChevronRight,
   CornerDownRight,
   Edit2,
+  Eye,
+  EyeOff,
   FolderTree,
   GripVertical,
   Layers3,
   LoaderCircle,
   Plus,
+  Search,
   Shapes,
   Trash2,
 } from 'lucide-react';
@@ -86,6 +89,8 @@ export default function Categories() {
   const [dragState, setDragState] = useState<DragState | null>(null);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
   const [reorderingId, setReorderingId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [togglingActiveId, setTogglingActiveId] = useState<string | null>(null);
 
   const hoverExpandTimerRef = useRef<number | null>(null);
   const readySyncExpandedRef = useRef(false);
@@ -168,6 +173,16 @@ export default function Categories() {
     [flatCategories],
   );
   const siblingIdsMap = useMemo(() => buildSiblingMap(categories), [categories]);
+
+  const filteredCategories = useMemo(() => {
+    if (!searchQuery.trim()) return categories;
+    return filterTree(categories, searchQuery);
+  }, [categories, searchQuery]);
+
+  const displayExpandedIds = useMemo(() => {
+    if (!searchQuery.trim()) return expandedIds;
+    return collectExpandableIds(filteredCategories);
+  }, [searchQuery, filteredCategories, expandedIds]);
 
   const stats = useMemo(() => {
     const total = flatCategories.length;
@@ -291,7 +306,7 @@ export default function Categories() {
     const payload = {
       categoryName: formState.categoryName.trim(),
       categorySlug: formState.categorySlug.trim() || undefined,
-      categoryDescription: formState.categoryDescription.trim() || undefined,
+      categoryDescription: formState.categoryDescription.trim() || null,
       parentId: formState.parentId || null,
       isActive: formState.isActive,
     };
@@ -380,6 +395,31 @@ export default function Categories() {
     setDragState(null);
     setDropTarget(null);
     setReorderingId(null);
+  }
+
+  async function toggleCategoryActive(category: CategoryNode) {
+    setTogglingActiveId(category.categoryId);
+    try {
+      await apiClient.patch(`/categories/${category.categoryId}`, {
+        isActive: !category.isActive,
+      });
+      showToast({
+        tone: 'success',
+        title: category.isActive
+          ? isVietnamese ? 'Đã ẩn danh mục' : 'Category hidden'
+          : isVietnamese ? 'Đã hiển thị danh mục' : 'Category shown',
+        description: category.categoryName,
+      });
+      setReloadKey((value) => value + 1);
+    } catch (err) {
+      showToast({
+        tone: 'error',
+        title: isVietnamese ? 'Cập nhật thất bại' : 'Update failed',
+        description: err instanceof Error ? err.message : '',
+      });
+    } finally {
+      setTogglingActiveId(null);
+    }
   }
 
   async function moveCategory(
@@ -536,6 +576,26 @@ export default function Categories() {
       ) : null}
 
       <section className="rounded-[2.5rem] border border-on-surface-variant/5 bg-white p-8 shadow-sm">
+        <div className="mb-6 flex items-center gap-3 rounded-2xl border border-on-surface/10 bg-surface px-4 py-3">
+          <Search size={16} className="shrink-0 text-on-surface-variant/50" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder={isVietnamese ? 'Tìm kiếm danh mục theo tên hoặc slug...' : 'Search categories by name or slug...'}
+            className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-on-surface-variant/40"
+          />
+          {searchQuery ? (
+            <button
+              type="button"
+              onClick={() => setSearchQuery('')}
+              className="shrink-0 text-xs font-semibold text-on-surface-variant/60 hover:text-primary"
+            >
+              {isVietnamese ? 'Xóa' : 'Clear'}
+            </button>
+          ) : null}
+        </div>
+
         {dragState ? (
           <div
             className={`mb-6 rounded-[1.5rem] border-2 border-dashed px-5 py-4 transition ${
@@ -585,9 +645,13 @@ export default function Categories() {
               </p>
             </div>
           </div>
+        ) : filteredCategories.length === 0 ? (
+          <div className="flex min-h-[200px] items-center justify-center text-sm text-on-surface-variant">
+            {isVietnamese ? `Không tìm thấy kết quả cho "${searchQuery}".` : `No results for "${searchQuery}".`}
+          </div>
         ) : (
           <div className="overflow-hidden rounded-[2rem] border border-on-surface-variant/6">
-            <div className="hidden grid-cols-[52px_minmax(0,1.8fr)_minmax(0,1fr)_150px_160px_88px] gap-4 bg-surface px-5 py-4 text-[11px] font-black uppercase tracking-[0.24em] text-on-surface-variant/55 md:grid">
+            <div className="hidden grid-cols-[52px_minmax(0,1.8fr)_minmax(0,1fr)_150px_160px_112px] gap-4 bg-surface px-5 py-4 text-[11px] font-black uppercase tracking-[0.24em] text-on-surface-variant/55 md:grid">
               <div />
               <div>{isVietnamese ? 'Danh mục' : 'Category'}</div>
               <div>Slug</div>
@@ -597,18 +661,20 @@ export default function Categories() {
             </div>
 
             <div className="divide-y divide-on-surface-variant/6">
-              {categories.map((category) => (
+              {filteredCategories.map((category) => (
                 <CategoryTreeRow
                   key={category.categoryId}
                   category={category}
                   level={0}
-                  expandedIds={expandedIds}
+                  expandedIds={displayExpandedIds}
                   dragState={dragState}
                   dropTarget={dropTarget}
                   isVietnamese={isVietnamese}
                   reorderingId={reorderingId}
+                  togglingActiveId={togglingActiveId}
                   onEdit={openEditModal}
                   onDelete={setDeleteTarget}
+                  onToggleActive={(cat) => void toggleCategoryActive(cat)}
                   onToggleExpand={toggleExpand}
                   onDragStart={(nextDragState) => setDragState(nextDragState)}
                   onDragEnd={resetDragState}
@@ -795,6 +861,20 @@ export default function Categories() {
   );
 }
 
+function filterTree(nodes: CategoryNode[], query: string): CategoryNode[] {
+  const q = query.toLowerCase();
+  return nodes.flatMap((node) => {
+    const filteredChildren = filterTree(node.children, query);
+    const matches =
+      node.categoryName.toLowerCase().includes(q) ||
+      node.categorySlug.toLowerCase().includes(q);
+    if (matches || filteredChildren.length > 0) {
+      return [{ ...node, children: filteredChildren }];
+    }
+    return [];
+  });
+}
+
 function flattenCategories(nodes: CategoryNode[], level = 0): FlatCategoryNode[] {
   return nodes.flatMap((node) => [
     { ...node, level },
@@ -879,8 +959,10 @@ type CategoryTreeRowProps = {
   dropTarget: string | null;
   isVietnamese: boolean;
   reorderingId: string | null;
+  togglingActiveId: string | null;
   onEdit: (category: CategoryNode) => void;
   onDelete: (category: CategoryNode) => void;
+  onToggleActive: (category: CategoryNode) => void;
   onToggleExpand: (categoryId: string) => void;
   onDragStart: (dragState: DragState) => void;
   onDragEnd: () => void;
@@ -899,8 +981,10 @@ function CategoryTreeRow({
   dropTarget,
   isVietnamese,
   reorderingId,
+  togglingActiveId,
   onEdit,
   onDelete,
+  onToggleActive,
   onToggleExpand,
   onDragStart,
   onDragEnd,
@@ -932,7 +1016,7 @@ function CategoryTreeRow({
       ) : null}
 
       <div
-        className={`group grid gap-4 bg-white px-4 py-4 transition md:grid-cols-[52px_minmax(0,1.8fr)_minmax(0,1fr)_150px_160px_88px] md:px-5 ${
+        className={`group grid gap-4 bg-white px-4 py-4 transition md:grid-cols-[52px_minmax(0,1.8fr)_minmax(0,1fr)_150px_160px_112px] md:px-5 ${
           dropTarget === beforeKey ? 'bg-primary/[0.03] ring-2 ring-primary/20' : 'hover:bg-surface'
         } ${isDragging ? 'opacity-50' : ''}`}
         draggable={reorderingId === null}
@@ -1075,20 +1159,35 @@ function CategoryTreeRow({
           </div>
         </div>
 
-        <div className="flex items-center justify-end gap-2 opacity-100 transition md:opacity-0 md:group-hover:opacity-100">
+        <div className="flex items-center justify-end gap-1.5 opacity-100 transition md:opacity-0 md:group-hover:opacity-100">
+          <button
+            type="button"
+            onClick={() => onToggleActive(category)}
+            disabled={togglingActiveId === category.categoryId}
+            title={category.isActive ? (isVietnamese ? 'Ẩn danh mục' : 'Hide category') : (isVietnamese ? 'Hiện danh mục' : 'Show category')}
+            className={`rounded-xl p-2 transition ${
+              category.isActive
+                ? 'text-emerald-600 hover:bg-emerald-50'
+                : 'text-on-surface-variant/50 hover:bg-surface hover:text-on-surface-variant'
+            } disabled:opacity-40`}
+          >
+            {togglingActiveId === category.categoryId
+              ? <LoaderCircle size={16} className="animate-spin" />
+              : category.isActive ? <Eye size={16} /> : <EyeOff size={16} />}
+          </button>
           <button
             type="button"
             onClick={() => onEdit(category)}
             className="rounded-xl p-2 text-on-surface-variant transition hover:bg-primary/5 hover:text-primary"
           >
-            <Edit2 size={18} />
+            <Edit2 size={16} />
           </button>
           <button
             type="button"
             onClick={() => onDelete(category)}
             className="rounded-xl p-2 text-on-surface-variant transition hover:bg-red-50 hover:text-red-600"
           >
-            <Trash2 size={18} />
+            <Trash2 size={16} />
           </button>
         </div>
       </div>
@@ -1104,8 +1203,10 @@ function CategoryTreeRow({
               dropTarget={dropTarget}
               isVietnamese={isVietnamese}
               reorderingId={reorderingId}
+              togglingActiveId={togglingActiveId}
               onEdit={onEdit}
               onDelete={onDelete}
+              onToggleActive={onToggleActive}
               onToggleExpand={onToggleExpand}
               onDragStart={onDragStart}
               onDragEnd={onDragEnd}

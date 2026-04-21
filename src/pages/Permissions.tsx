@@ -22,6 +22,22 @@ type RolePermissionsResponse = {
   permissions: Permission[];
 };
 
+const GROUP_LABELS: Record<string, { vi: string; en: string }> = {
+  products: { vi: 'Sản phẩm', en: 'Products' },
+  orders: { vi: 'Đơn hàng', en: 'Orders' },
+  permissions: { vi: 'Phân quyền', en: 'Permissions' },
+  news: { vi: 'Bài viết', en: 'News' },
+  reports: { vi: 'Báo cáo', en: 'Reports' },
+  users: { vi: 'Người dùng', en: 'Users' },
+  general: { vi: 'Chung', en: 'General' },
+};
+
+function getGroupLabel(key: string, isVietnamese: boolean): string {
+  const entry = GROUP_LABELS[key];
+  if (entry) return isVietnamese ? entry.vi : entry.en;
+  return key.charAt(0).toUpperCase() + key.slice(1);
+}
+
 export default function Permissions() {
   const { language } = useLanguage();
   const isVietnamese = language === 'vi';
@@ -37,13 +53,10 @@ export default function Permissions() {
   const [error, setError] = useState<string | null>(null);
 
   const canManagePermissions =
-    session?.user.permissions?.some((permission) => permission.key === 'manage_permissions') ??
-    false;
+    session?.user.permissions?.some((p) => p.key === 'manage_permissions') ?? false;
 
   useEffect(() => {
-    if (!canManagePermissions) {
-      return;
-    }
+    if (!canManagePermissions) return;
 
     let cancelled = false;
 
@@ -70,28 +83,23 @@ export default function Permissions() {
             loadError instanceof Error
               ? loadError.message
               : isVietnamese
-                ? 'Khong tai duoc du lieu phan quyen'
+                ? 'Không tải được dữ liệu phân quyền'
                 : 'Unable to load permission data',
           );
         }
       } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
+        if (!cancelled) setLoading(false);
       }
     }
 
     void loadInitialData();
-
     return () => {
       cancelled = true;
     };
   }, [canManagePermissions, isVietnamese]);
 
   useEffect(() => {
-    if (!canManagePermissions || !selectedRole) {
-      return;
-    }
+    if (!canManagePermissions || !selectedRole) return;
 
     let cancelled = false;
 
@@ -101,13 +109,15 @@ export default function Permissions() {
           `/permissions/roles/${selectedRole}`,
         );
         if (!cancelled) {
-          setSelectedPermissionIds(response.permissions.map((permission) => permission._id));
+          setSelectedPermissionIds(response.permissions.map((p) => p._id));
         }
       } catch (loadError) {
         if (!cancelled) {
           showToast({
             tone: 'error',
-            title: isVietnamese ? 'Khong tai duoc quyen cua vai tro' : 'Unable to load role permissions',
+            title: isVietnamese
+              ? 'Không tải được quyền của vai trò'
+              : 'Unable to load role permissions',
             description: loadError instanceof Error ? loadError.message : '',
           });
         }
@@ -115,7 +125,6 @@ export default function Permissions() {
     }
 
     void loadRolePermissions();
-
     return () => {
       cancelled = true;
     };
@@ -140,12 +149,12 @@ export default function Permissions() {
       });
       showToast({
         tone: 'success',
-        title: isVietnamese ? 'Da cap nhat phan quyen' : 'Permissions updated',
+        title: isVietnamese ? 'Đã cập nhật phân quyền' : 'Permissions updated',
       });
     } catch (saveError) {
       showToast({
         tone: 'error',
-        title: isVietnamese ? 'Cap nhat phan quyen that bai' : 'Failed to update permissions',
+        title: isVietnamese ? 'Cập nhật phân quyền thất bại' : 'Failed to update permissions',
         description: saveError instanceof Error ? saveError.message : '',
       });
     } finally {
@@ -155,13 +164,16 @@ export default function Permissions() {
 
   if (!canManagePermissions) {
     return (
-      <div className="rounded-[2rem] border border-amber-200 bg-amber-50 p-6 text-amber-800">
-        <h1 className="text-2xl font-black">
-          {isVietnamese ? 'Khong du quyen truy cap' : 'Access denied'}
+      <div className="rounded-[2rem] border border-amber-200 bg-amber-50 p-8 text-amber-800">
+        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-100">
+          <ShieldCheck size={24} />
+        </div>
+        <h1 className="mt-4 text-2xl font-black">
+          {isVietnamese ? 'Không đủ quyền truy cập' : 'Access denied'}
         </h1>
         <p className="mt-2 text-sm">
           {isVietnamese
-            ? 'Tai khoan hien tai khong co quyen manage_permissions de vao trang phan quyen.'
+            ? 'Tài khoản hiện tại không có quyền manage_permissions để vào trang phân quyền.'
             : 'The current account does not have manage_permissions access.'}
         </p>
       </div>
@@ -169,15 +181,15 @@ export default function Permissions() {
   }
 
   return (
-    <div className="space-y-6 pb-12">
-      <div className="flex items-start justify-between gap-4">
+    <div className="space-y-8 pb-12">
+      <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-black tracking-tight text-primary">
-            {isVietnamese ? 'Nghiep vu phan quyen' : 'Permission operations'}
+          <h1 className="text-4xl font-black tracking-tight text-primary">
+            {isVietnamese ? 'Phân quyền truy cập' : 'Access Permissions'}
           </h1>
-          <p className="mt-1 text-sm text-on-surface-variant">
+          <p className="mt-2 max-w-2xl text-sm text-on-surface-variant">
             {isVietnamese
-              ? 'Gan quyen truy cap cho tung vai tro quan tri va nhan vien theo module nghiep vu.'
+              ? 'Gán quyền truy cập cho từng vai trò quản trị và nhân viên theo module nghiệp vụ.'
               : 'Assign role access by business module for admin and staff users.'}
           </p>
         </div>
@@ -186,10 +198,10 @@ export default function Permissions() {
           type="button"
           onClick={() => void handleSave()}
           disabled={saving || loading}
-          className="inline-flex items-center gap-2 rounded-2xl bg-primary px-5 py-3 text-sm font-black text-white disabled:opacity-60"
+          className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-primary to-primary-container px-6 py-3 text-sm font-black text-white shadow-xl shadow-primary/20 transition-all hover:-translate-y-0.5 disabled:opacity-60"
         >
           {saving ? <LoaderCircle size={16} className="animate-spin" /> : <Save size={16} />}
-          {isVietnamese ? 'Luu phan quyen' : 'Save permissions'}
+          {isVietnamese ? 'Lưu phân quyền' : 'Save permissions'}
         </button>
       </div>
 
@@ -199,11 +211,11 @@ export default function Permissions() {
         </div>
       ) : null}
 
-      <section className="rounded-[2rem] border border-on-surface/8 bg-white p-5 shadow-sm">
-        <div className="grid gap-5 lg:grid-cols-[260px_1fr]">
+      <section className="rounded-[2.5rem] border border-on-surface-variant/5 bg-white p-8 shadow-sm">
+        <div className="grid gap-8 lg:grid-cols-[260px_1fr]">
           <div className="space-y-3">
             <p className="text-[11px] font-black uppercase tracking-[0.18em] text-on-surface-variant/60">
-              {isVietnamese ? 'Vai tro' : 'Roles'}
+              {isVietnamese ? 'Vai trò' : 'Roles'}
             </p>
             {loading ? (
               <div className="rounded-2xl bg-surface px-4 py-6 text-center text-on-surface-variant">
@@ -218,39 +230,93 @@ export default function Permissions() {
                   className={`flex w-full items-center justify-between rounded-2xl border px-4 py-3 text-left transition ${
                     selectedRole === role.name
                       ? 'border-primary/30 bg-primary/5 text-primary'
-                      : 'border-on-surface/8 bg-surface text-on-surface'
+                      : 'border-on-surface/8 bg-surface text-on-surface hover:border-primary/15'
                   }`}
                 >
-                  <span className="font-semibold capitalize">{role.name}</span>
-                  <ShieldCheck size={16} />
+                  <div>
+                    <p className="font-bold capitalize">{role.name}</p>
+                    <p className="text-xs text-on-surface-variant/60">
+                      {role.name === 'admin'
+                        ? isVietnamese ? 'Quản trị viên' : 'Administrator'
+                        : role.name === 'staff'
+                          ? isVietnamese ? 'Nhân viên' : 'Staff'
+                          : isVietnamese ? 'Người dùng' : 'User'}
+                    </p>
+                  </div>
+                  <ShieldCheck
+                    size={16}
+                    className={selectedRole === role.name ? 'text-primary' : 'text-on-surface-variant/30'}
+                  />
                 </button>
               ))
             )}
           </div>
 
-          <div className="space-y-4">
-            <div className="rounded-2xl bg-surface px-4 py-3">
-              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-on-surface-variant/60">
-                {isVietnamese ? 'Vai tro dang chinh' : 'Editing role'}
-              </p>
-              <p className="mt-2 text-lg font-black capitalize text-on-surface">{selectedRole}</p>
+          <div className="space-y-5">
+            <div className="flex items-center justify-between rounded-2xl bg-primary/5 px-5 py-4">
+              <div>
+                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-on-surface-variant/60">
+                  {isVietnamese ? 'Đang chỉnh vai trò' : 'Editing role'}
+                </p>
+                <p className="mt-1 text-xl font-black capitalize text-primary">{selectedRole}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-on-surface-variant/60">
+                  {isVietnamese ? 'Số quyền đang chọn' : 'Selected permissions'}
+                </p>
+                <p className="mt-1 text-xl font-black text-primary">{selectedPermissionIds.length}</p>
+              </div>
             </div>
 
             {loading ? (
               <div className="rounded-2xl bg-surface px-4 py-10 text-center text-on-surface-variant">
                 <LoaderCircle size={18} className="mx-auto animate-spin" />
               </div>
+            ) : groupedPermissions.length === 0 ? (
+              <div className="rounded-2xl bg-surface px-4 py-10 text-center text-sm text-on-surface-variant">
+                {isVietnamese
+                  ? 'Chưa có quyền nào trong hệ thống'
+                  : 'No permissions in the system'}
+              </div>
             ) : (
               groupedPermissions.map(([groupName, items]) => (
-                <div key={groupName} className="rounded-[1.5rem] border border-on-surface/8 p-4">
-                  <p className="text-[11px] font-black uppercase tracking-[0.18em] text-on-surface-variant/60">
-                    {groupName}
-                  </p>
-                  <div className="mt-4 grid gap-3 md:grid-cols-2">
+                <div
+                  key={groupName}
+                  className="overflow-hidden rounded-[1.5rem] border border-on-surface/8"
+                >
+                  <div className="flex items-center justify-between bg-surface/70 px-5 py-3">
+                    <p className="text-xs font-black uppercase tracking-[0.18em] text-on-surface-variant/70">
+                      {getGroupLabel(groupName, isVietnamese)}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const groupIds = items.map((p) => p._id);
+                        const allSelected = groupIds.every((id) =>
+                          selectedPermissionIds.includes(id),
+                        );
+                        setSelectedPermissionIds((current) =>
+                          allSelected
+                            ? current.filter((id) => !groupIds.includes(id))
+                            : [...new Set([...current, ...groupIds])],
+                        );
+                      }}
+                      className="text-[11px] font-bold text-primary/70 hover:text-primary"
+                    >
+                      {items.every((p) => selectedPermissionIds.includes(p._id))
+                        ? isVietnamese
+                          ? 'Bỏ chọn tất cả'
+                          : 'Deselect all'
+                        : isVietnamese
+                          ? 'Chọn tất cả'
+                          : 'Select all'}
+                    </button>
+                  </div>
+                  <div className="grid gap-3 p-4 md:grid-cols-2">
                     {items.map((permission) => (
                       <label
                         key={permission._id}
-                        className="flex items-start gap-3 rounded-2xl bg-surface px-4 py-3"
+                        className="flex cursor-pointer items-start gap-3 rounded-2xl bg-surface px-4 py-3 transition hover:bg-primary/3"
                       >
                         <input
                           type="checkbox"
@@ -264,9 +330,11 @@ export default function Permissions() {
                           }
                           className="mt-1 h-4 w-4 accent-primary"
                         />
-                        <div>
+                        <div className="min-w-0">
                           <p className="font-semibold text-on-surface">{permission.name}</p>
-                          <p className="text-xs text-on-surface-variant">{permission.key}</p>
+                          <p className="mt-0.5 truncate text-xs text-on-surface-variant/60">
+                            {permission.key}
+                          </p>
                         </div>
                       </label>
                     ))}

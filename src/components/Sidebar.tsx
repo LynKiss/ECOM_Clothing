@@ -4,8 +4,11 @@ import {
   FolderTree,
   Globe,
   Hash,
+  KeyRound,
   LayoutDashboard,
+  Layers,
   MonitorSmartphone,
+  Newspaper,
   Package,
   Settings,
   ShieldCheck,
@@ -44,104 +47,121 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
   const navItems: NavItem[] = [
     {
       id: 'dashboard',
-      label: isVietnamese ? 'Tong quan' : 'Dashboard',
+      label: isVietnamese ? 'Tổng quan' : 'Dashboard',
       icon: LayoutDashboard,
       path: '/admin',
     },
     {
       id: 'products',
-      label: isVietnamese ? 'San pham' : 'Products',
+      label: isVietnamese ? 'Sản phẩm' : 'Products',
       icon: Package,
       children: [
         {
           id: 'products-all',
-          label: isVietnamese ? 'Tat ca san pham' : 'All products',
+          label: isVietnamese ? 'Tất cả sản phẩm' : 'All products',
           path: '/admin/products',
         },
         {
+          id: 'products-new',
+          label: isVietnamese ? 'Thêm sản phẩm' : 'Add product',
+          path: '/admin/products/new',
+        },
+        {
           id: 'products-import',
-          label: isVietnamese ? 'Nhap kho' : 'Import inventory',
+          label: isVietnamese ? 'Nhập kho' : 'Import inventory',
           path: '/admin/products/import',
         },
         {
           id: 'products-stock',
-          label: isVietnamese ? 'Giao dich kho' : 'Inventory transactions',
+          label: isVietnamese ? 'Giao dịch kho' : 'Inventory transactions',
           path: '/admin/products/inventory-transactions',
         },
         {
           id: 'products-damage',
-          label: isVietnamese ? 'Hang hong / tra hang' : 'Damage & returns',
+          label: isVietnamese ? 'Hàng hỏng / trả hàng' : 'Damage & returns',
           path: '/admin/products/inventory-damage',
         },
         {
           id: 'products-lowstock',
-          label: isVietnamese ? 'Tong quan ton kho' : 'Inventory overview',
+          label: isVietnamese ? 'Tổng quan tồn kho' : 'Inventory overview',
           path: '/admin/products/inventory-lowstock',
         },
         {
           id: 'products-discounts',
-          label: isVietnamese ? 'Chuong trinh giam gia' : 'Discount programs',
+          label: isVietnamese ? 'Chương trình giảm giá' : 'Discount programs',
           path: '/admin/products/discounts',
         },
       ],
     },
     {
       id: 'categories',
-      label: isVietnamese ? 'Danh muc' : 'Categories',
+      label: isVietnamese ? 'Danh mục' : 'Categories',
       icon: FolderTree,
       path: '/admin/categories',
     },
     {
+      id: 'subcategories',
+      label: isVietnamese ? 'Danh mục phụ' : 'Subcategories',
+      icon: Layers,
+      path: '/admin/subcategories',
+    },
+    {
       id: 'origins',
-      label: isVietnamese ? 'Xuat xu' : 'Origins',
+      label: isVietnamese ? 'Xuất xứ' : 'Origins',
       icon: Globe,
       path: '/admin/origins',
     },
     {
       id: 'tags',
-      label: 'Tags',
+      label: isVietnamese ? 'Nhãn sản phẩm' : 'Tags',
       icon: Hash,
       path: '/admin/tags',
     },
     {
       id: 'orders',
-      label: isVietnamese ? 'Don hang' : 'Orders',
+      label: isVietnamese ? 'Đơn hàng' : 'Orders',
       icon: ShoppingCart,
       path: '/admin/orders',
     },
     {
-      id: 'permissions',
-      label: isVietnamese ? 'Phan quyen' : 'Permissions',
-      icon: ShieldCheck,
-      path: '/admin/permissions',
-    },
-    {
       id: 'customers',
-      label: isVietnamese ? 'Tai khoan' : 'Customers',
+      label: isVietnamese ? 'Tài khoản' : 'Customers',
       icon: Users,
       path: '/admin/customers',
     },
     {
+      id: 'news',
+      label: isVietnamese ? 'Bài viết' : 'Articles',
+      icon: Newspaper,
+      path: '/admin/news',
+    },
+    {
       id: 'reports',
-      label: isVietnamese ? 'Bao cao' : 'Reports',
+      label: isVietnamese ? 'Báo cáo' : 'Reports',
       icon: BarChart3,
       path: '/admin/reports',
     },
     {
+      id: 'permissions',
+      label: isVietnamese ? 'Phân quyền' : 'Permissions',
+      icon: KeyRound,
+      path: '/admin/permissions',
+    },
+    {
       id: 'interface',
-      label: isVietnamese ? 'Giao dien' : 'Interface',
+      label: isVietnamese ? 'Giao diện' : 'Interface',
       icon: MonitorSmartphone,
       path: '/admin/interface',
     },
     {
       id: 'security',
-      label: isVietnamese ? 'Bao mat' : 'Security',
+      label: isVietnamese ? 'Bảo mật' : 'Security',
       icon: ShieldCheck,
       path: '/admin/security',
     },
     {
       id: 'settings',
-      label: isVietnamese ? 'Cau hinh' : 'Settings',
+      label: isVietnamese ? 'Cấu hình' : 'Settings',
       icon: Settings,
       path: '/admin/settings',
     },
@@ -158,7 +178,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
   }, [location.pathname]);
 
   const displayName =
-    session?.user.username || (isVietnamese ? 'Quan tri vien' : 'Administrator');
+    session?.user.username || (isVietnamese ? 'Quản trị viên' : 'Administrator');
   const initials = displayName
     .split(' ')
     .filter(Boolean)
@@ -170,7 +190,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
     <>
       <button
         type="button"
-        aria-label={isVietnamese ? 'Dong thanh dieu huong' : 'Close navigation'}
+        aria-label={isVietnamese ? 'Đóng thanh điều hướng' : 'Close navigation'}
         onClick={onClose}
         className={`fixed inset-0 z-40 bg-slate-950/50 transition-opacity lg:hidden ${
           open ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'
@@ -188,7 +208,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
               Cultivated Ledger
             </h1>
             <p className="mt-1 text-xs font-medium text-accent/60">
-              {isVietnamese ? 'Bang dieu khien quan tri' : 'Administrative console'}
+              {isVietnamese ? 'Bảng điều khiển quản trị' : 'Administrative console'}
             </p>
           </div>
 
@@ -298,7 +318,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold text-white">{displayName}</p>
               <p className="truncate text-xs text-white/40">
-                {session?.user.email || (isVietnamese ? 'phien quan tri' : 'admin session')}
+                {session?.user.email || (isVietnamese ? 'phiên quản trị' : 'admin session')}
               </p>
             </div>
           </div>

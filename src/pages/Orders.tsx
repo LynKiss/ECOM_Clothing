@@ -165,7 +165,7 @@ export default function Orders() {
             loadError instanceof Error
               ? loadError.message
               : isVietnamese
-                ? 'Khong tai duoc danh sach don hang'
+                ? 'Không tải được danh sách đơn hàng'
                 : 'Unable to load orders',
           );
         }
@@ -198,7 +198,7 @@ export default function Orders() {
     } catch (detailError) {
       showToast({
         tone: 'error',
-        title: isVietnamese ? 'Khong tai duoc chi tiet don hang' : 'Unable to load order detail',
+        title: isVietnamese ? 'Không tải được chi tiết đơn hàng' : 'Unable to load order detail',
         description: detailError instanceof Error ? detailError.message : '',
       });
       setDetailOpen(false);
@@ -222,23 +222,19 @@ export default function Orders() {
       setOrders((current) =>
         current.map((order) =>
           order.id === updated.id
-            ? {
-                ...order,
-                status: updated.status,
-                updatedAt: updated.updatedAt,
-              }
+            ? { ...order, status: updated.status, updatedAt: updated.updatedAt }
             : order,
         ),
       );
 
       showToast({
         tone: 'success',
-        title: isVietnamese ? 'Da cap nhat trang thai don hang' : 'Order status updated',
+        title: isVietnamese ? 'Đã cập nhật trạng thái đơn hàng' : 'Order status updated',
       });
     } catch (updateError) {
       showToast({
         tone: 'error',
-        title: isVietnamese ? 'Cap nhat trang thai that bai' : 'Status update failed',
+        title: isVietnamese ? 'Cập nhật trạng thái thất bại' : 'Status update failed',
         description: updateError instanceof Error ? updateError.message : '',
       });
     } finally {
@@ -249,12 +245,12 @@ export default function Orders() {
   return (
     <div className="space-y-6 pb-12">
       <div>
-        <h1 className="text-3xl font-black tracking-tight text-primary">
-          {isVietnamese ? 'Quan ly don hang' : 'Order management'}
+        <h1 className="text-4xl font-black tracking-tight text-primary">
+          {isVietnamese ? 'Quản lý đơn hàng' : 'Order Management'}
         </h1>
         <p className="mt-1 text-sm text-on-surface-variant">
           {isVietnamese
-            ? 'Theo doi don hang, thanh toan va cap nhat trang thai giao van trong cung mot man hinh.'
+            ? 'Theo dõi đơn hàng, thanh toán và cập nhật trạng thái giao vận trong cùng một màn hình.'
             : 'Track orders, payment status, and fulfillment progress from one screen.'}
         </p>
       </div>
@@ -271,7 +267,7 @@ export default function Orders() {
               onChange={(event) => setSearch(event.target.value)}
               placeholder={
                 isVietnamese
-                  ? 'Tim theo ma don, khach hang, so dien thoai'
+                  ? 'Tìm theo mã đơn, khách hàng, số điện thoại'
                   : 'Search by order, customer, phone'
               }
               className="w-full rounded-2xl border border-on-surface/10 bg-surface py-3 pl-11 pr-4 text-sm outline-none"
@@ -283,7 +279,7 @@ export default function Orders() {
             onChange={(event) => setStatus(event.target.value as 'all' | OrderStatus)}
             className="rounded-2xl border border-on-surface/10 bg-surface px-4 py-3 text-sm outline-none"
           >
-            <option value="all">{isVietnamese ? 'Tat ca trang thai' : 'All statuses'}</option>
+            <option value="all">{isVietnamese ? 'Tất cả trạng thái' : 'All statuses'}</option>
             {STATUS_OPTIONS.map((item) => (
               <option key={item} value={item}>
                 {getStatusLabel(item, isVietnamese)}
@@ -319,14 +315,14 @@ export default function Orders() {
           <table className="min-w-full text-left">
             <thead className="border-b border-on-surface/8 bg-surface/70 text-[11px] font-black uppercase tracking-[0.18em] text-on-surface-variant/60">
               <tr>
-                <th className="px-4 py-4">{isVietnamese ? 'Ma don' : 'Order ID'}</th>
-                <th className="px-4 py-4">{isVietnamese ? 'Khach hang' : 'Customer'}</th>
-                <th className="px-4 py-4">{isVietnamese ? 'Lien he' : 'Contact'}</th>
-                <th className="px-4 py-4">{isVietnamese ? 'Tong tien' : 'Total'}</th>
-                <th className="px-4 py-4">{isVietnamese ? 'Thanh toan' : 'Payment'}</th>
-                <th className="px-4 py-4">{isVietnamese ? 'Trang thai' : 'Status'}</th>
-                <th className="px-4 py-4">{isVietnamese ? 'Ngay tao' : 'Created at'}</th>
-                <th className="px-4 py-4 text-center">{isVietnamese ? 'Hanh dong' : 'Action'}</th>
+                <th className="px-4 py-4">{isVietnamese ? 'Mã đơn' : 'Order ID'}</th>
+                <th className="px-4 py-4">{isVietnamese ? 'Khách hàng' : 'Customer'}</th>
+                <th className="px-4 py-4">{isVietnamese ? 'Liên hệ' : 'Contact'}</th>
+                <th className="px-4 py-4">{isVietnamese ? 'Tổng tiền' : 'Total'}</th>
+                <th className="px-4 py-4">{isVietnamese ? 'Thanh toán' : 'Payment'}</th>
+                <th className="px-4 py-4">{isVietnamese ? 'Trạng thái' : 'Status'}</th>
+                <th className="px-4 py-4">{isVietnamese ? 'Ngày tạo' : 'Created at'}</th>
+                <th className="px-4 py-4 text-center">{isVietnamese ? 'Hành động' : 'Action'}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-on-surface/6 text-sm">
@@ -335,7 +331,7 @@ export default function Orders() {
                   <td colSpan={8} className="px-4 py-16 text-center text-on-surface-variant">
                     <span className="inline-flex items-center gap-2">
                       <LoaderCircle size={16} className="animate-spin" />
-                      {isVietnamese ? 'Dang tai don hang...' : 'Loading orders...'}
+                      {isVietnamese ? 'Đang tải đơn hàng...' : 'Loading orders...'}
                     </span>
                   </td>
                 </tr>
@@ -343,7 +339,7 @@ export default function Orders() {
                 <tr>
                   <td colSpan={8} className="px-4 py-16 text-center text-on-surface-variant">
                     <ShoppingCart size={28} className="mx-auto mb-3 text-primary/50" />
-                    {isVietnamese ? 'Khong co don hang phu hop' : 'No matching orders'}
+                    {isVietnamese ? 'Không có đơn hàng phù hợp' : 'No matching orders'}
                   </td>
                 </tr>
               ) : (
@@ -406,7 +402,7 @@ export default function Orders() {
 
       <Modal
         open={detailOpen}
-        title={isVietnamese ? 'Chi tiet don hang' : 'Order detail'}
+        title={isVietnamese ? 'Chi tiết đơn hàng' : 'Order detail'}
         onClose={() => {
           setDetailOpen(false);
           setSelectedOrder(null);
@@ -429,7 +425,7 @@ export default function Orders() {
               <input
                 value={statusNote}
                 onChange={(event) => setStatusNote(event.target.value)}
-                placeholder={isVietnamese ? 'Ghi chu cap nhat' : 'Status note'}
+                placeholder={isVietnamese ? 'Ghi chú cập nhật' : 'Status note'}
                 className="w-full rounded-2xl border border-on-surface/10 bg-surface px-4 py-2.5 text-sm outline-none sm:w-64"
               />
               <button
@@ -440,10 +436,10 @@ export default function Orders() {
               >
                 {updatingStatus
                   ? isVietnamese
-                    ? 'Dang cap nhat...'
+                    ? 'Đang cập nhật...'
                     : 'Updating...'
                   : isVietnamese
-                    ? 'Cap nhat trang thai'
+                    ? 'Cập nhật trạng thái'
                     : 'Update status'}
               </button>
             </div>
@@ -458,29 +454,29 @@ export default function Orders() {
           <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
             <div className="space-y-6">
               <div className="grid gap-4 sm:grid-cols-2">
-                <DetailCard label={isVietnamese ? 'Ma don' : 'Order ID'} value={selectedOrder.id} />
+                <DetailCard label={isVietnamese ? 'Mã đơn' : 'Order ID'} value={selectedOrder.id} />
                 <DetailCard
-                  label={isVietnamese ? 'Phuong thuc thanh toan' : 'Payment method'}
-                  value={selectedOrder.paymentMethod || '-'}
+                  label={isVietnamese ? 'Phương thức thanh toán' : 'Payment method'}
+                  value={selectedOrder.paymentMethod || '—'}
                 />
                 <DetailCard
-                  label={isVietnamese ? 'Khach hang' : 'Customer'}
+                  label={isVietnamese ? 'Khách hàng' : 'Customer'}
                   value={selectedOrder.fullName}
                 />
-                <DetailCard label={isVietnamese ? 'So dien thoai' : 'Phone'} value={selectedOrder.phone} />
+                <DetailCard label={isVietnamese ? 'Số điện thoại' : 'Phone'} value={selectedOrder.phone} />
                 <DetailCard
-                  label={isVietnamese ? 'Dia chi' : 'Address'}
+                  label={isVietnamese ? 'Địa chỉ' : 'Address'}
                   value={selectedOrder.address}
                 />
                 <DetailCard
-                  label={isVietnamese ? 'Ngay tao' : 'Created at'}
+                  label={isVietnamese ? 'Ngày tạo' : 'Created at'}
                   value={dateFormatter.format(new Date(selectedOrder.createdAt))}
                 />
               </div>
 
               <div className="rounded-[1.5rem] border border-on-surface/8 bg-surface/50 p-4">
                 <h3 className="text-sm font-black uppercase tracking-[0.18em] text-on-surface-variant/60">
-                  {isVietnamese ? 'San pham trong don' : 'Order items'}
+                  {isVietnamese ? 'Sản phẩm trong đơn' : 'Order items'}
                 </h3>
                 <div className="mt-4 space-y-3">
                   {selectedOrder.items.map((item) => (
@@ -494,7 +490,7 @@ export default function Orders() {
                       </div>
                       <div className="text-right">
                         <p className="font-semibold text-on-surface">
-                          {item.quantity} x {currency.format(Number(item.unitPrice))}
+                          {item.quantity} × {currency.format(Number(item.unitPrice))}
                         </p>
                         <p className="text-xs text-on-surface-variant">
                           {currency.format(Number(item.lineTotal))}
@@ -509,23 +505,23 @@ export default function Orders() {
             <div className="space-y-6">
               <div className="rounded-[1.5rem] border border-on-surface/8 bg-surface/50 p-4">
                 <h3 className="text-sm font-black uppercase tracking-[0.18em] text-on-surface-variant/60">
-                  {isVietnamese ? 'Tong hop thanh toan' : 'Payment summary'}
+                  {isVietnamese ? 'Tổng hợp thanh toán' : 'Payment summary'}
                 </h3>
                 <div className="mt-4 space-y-3 text-sm">
                   <SummaryRow
-                    label={isVietnamese ? 'Tam tinh' : 'Subtotal'}
+                    label={isVietnamese ? 'Tạm tính' : 'Subtotal'}
                     value={currency.format(Number(selectedOrder.subtotalAmount))}
                   />
                   <SummaryRow
-                    label={isVietnamese ? 'Giam gia' : 'Discount'}
+                    label={isVietnamese ? 'Giảm giá' : 'Discount'}
                     value={currency.format(Number(selectedOrder.discountAmount))}
                   />
                   <SummaryRow
-                    label={isVietnamese ? 'Phi giao hang' : 'Delivery'}
+                    label={isVietnamese ? 'Phí giao hàng' : 'Delivery'}
                     value={currency.format(Number(selectedOrder.deliveryCost))}
                   />
                   <SummaryRow
-                    label={isVietnamese ? 'Tong thanh toan' : 'Total payment'}
+                    label={isVietnamese ? 'Tổng thanh toán' : 'Total payment'}
                     value={currency.format(Number(selectedOrder.totalPayment))}
                     strong
                   />
@@ -542,20 +538,20 @@ export default function Orders() {
 
               <div className="rounded-[1.5rem] border border-on-surface/8 bg-surface/50 p-4">
                 <h3 className="text-sm font-black uppercase tracking-[0.18em] text-on-surface-variant/60">
-                  {isVietnamese ? 'Lich su trang thai' : 'Status history'}
+                  {isVietnamese ? 'Lịch sử trạng thái' : 'Status history'}
                 </h3>
                 <div className="mt-4 space-y-3">
                   {selectedOrder.history.length === 0 ? (
                     <p className="text-sm text-on-surface-variant">
-                      {isVietnamese ? 'Chua co lich su cap nhat' : 'No status history yet'}
+                      {isVietnamese ? 'Chưa có lịch sử cập nhật' : 'No status history yet'}
                     </p>
                   ) : (
                     selectedOrder.history.map((item) => (
                       <div key={item.id} className="rounded-2xl bg-white px-4 py-3">
                         <div className="flex flex-wrap items-center justify-between gap-2">
                           <p className="font-semibold text-on-surface">
-                            {(item.oldStatus ? getStatusLabel(item.oldStatus, isVietnamese) : '-') +
-                              ' -> ' +
+                            {(item.oldStatus ? getStatusLabel(item.oldStatus, isVietnamese) : '—') +
+                              ' → ' +
                               getStatusLabel(item.newStatus, isVietnamese)}
                           </p>
                           <span className="text-xs text-on-surface-variant">
@@ -584,13 +580,13 @@ export default function Orders() {
 function getStatusLabel(status: OrderStatus, isVietnamese: boolean) {
   const labels: Record<OrderStatus, string> = isVietnamese
     ? {
-        pending: 'Cho xu ly',
-        confirmed: 'Da xac nhan',
-        processing: 'Dang xu ly',
-        shipping: 'Dang giao',
-        delivered: 'Da giao',
-        cancelled: 'Da huy',
-        returned: 'Da hoan',
+        pending: 'Chờ xử lý',
+        confirmed: 'Đã xác nhận',
+        processing: 'Đang xử lý',
+        shipping: 'Đang giao',
+        delivered: 'Đã giao',
+        cancelled: 'Đã hủy',
+        returned: 'Đã hoàn',
       }
     : {
         pending: 'Pending',
@@ -608,10 +604,10 @@ function getStatusLabel(status: OrderStatus, isVietnamese: boolean) {
 function getPaymentLabel(status: PaymentStatus, isVietnamese: boolean) {
   const labels: Record<PaymentStatus, string> = isVietnamese
     ? {
-        unpaid: 'Chua thanh toan',
-        paid: 'Da thanh toan',
-        failed: 'That bai',
-        refunded: 'Da hoan tien',
+        unpaid: 'Chưa thanh toán',
+        paid: 'Đã thanh toán',
+        failed: 'Thất bại',
+        refunded: 'Đã hoàn tiền',
       }
     : {
         unpaid: 'Unpaid',
@@ -646,13 +642,7 @@ function getPaymentTone(status: PaymentStatus): BadgeTone {
   return tones[status];
 }
 
-function Badge({
-  children,
-  tone,
-}: {
-  children: string;
-  tone: BadgeTone;
-}) {
+function Badge({ children, tone }: { children: string; tone: BadgeTone }) {
   const classes: Record<BadgeTone, string> = {
     amber: 'bg-amber-100 text-amber-700',
     sky: 'bg-sky-100 text-sky-700',

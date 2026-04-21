@@ -7,6 +7,7 @@ import NotFound from '../components/shared/NotFound';
 import ProtectedAdminRoute from '../components/shared/ProtectedAdminRoute';
 import { ROUTE_PATHS } from './route-names';
 
+// Admin pages
 const DashboardPage = lazy(() => import('../features/admin/dashboard/page'));
 const ProductsPage = lazy(() => import('../features/admin/products/page'));
 const ProductCreatePage = lazy(() => import('../features/admin/products-create/page'));
@@ -16,6 +17,7 @@ const ProductDiscountsPage = lazy(() => import('../features/admin/products-disco
 const ProductInventoryDamagePage = lazy(() => import('../features/admin/products-damage/page'));
 const ProductInventoryLowStockPage = lazy(() => import('../features/admin/products-lowstock/page'));
 const CategoriesPage = lazy(() => import('../features/admin/categories/page'));
+const SubcategoriesPage = lazy(() => import('../features/admin/subcategories/page'));
 const OrdersPage = lazy(() => import('../features/admin/orders/page'));
 const CustomersPage = lazy(() => import('../features/admin/customers/page'));
 const ReportsPage = lazy(() => import('../features/admin/reports/page'));
@@ -25,11 +27,36 @@ const PermissionsPage = lazy(() => import('../features/admin/permissions/page'))
 const SettingsPage = lazy(() => import('../features/admin/settings/page'));
 const OriginsPage = lazy(() => import('../features/admin/origins/page'));
 const TagsPage = lazy(() => import('../features/admin/tags/page'));
+const NewsPage = lazy(() => import('../features/admin/news/page'));
+
+// Client pages
 const ClientHomePage = lazy(() => import('../features/client/home/page'));
+const ClientProductsPage = lazy(() => import('../features/client/products/page'));
+const ClientProductDetailPage = lazy(() => import('../features/client/product-detail/page'));
+const ClientCartPage = lazy(() => import('../features/client/cart/page'));
+const ClientCheckoutPage = lazy(() => import('../features/client/checkout/page'));
+const ClientPaymentPage = lazy(() => import('../features/client/payment/page'));
+const ClientNewsListPage = lazy(() => import('../features/client/news/page'));
+const ClientNewsDetailPage = lazy(() => import('../features/client/news-detail/page'));
+const ClientLoginPage = lazy(() => import('../features/client/login/page'));
+const ClientRegisterPage = lazy(() => import('../features/client/register/page'));
+const ClientAccountPage = lazy(() => import('../features/client/account/page'));
+const ClientOrdersPage = lazy(() => import('../features/client/orders/page'));
+
 const LoginPage = lazy(() => import('../pages/Login'));
 
 const withSuspense = (element: ReactNode) => (
   <Suspense fallback={<div className="p-6 text-sm text-on-surface-variant">Loading...</div>}>{element}</Suspense>
+);
+
+const clientSuspense = (element: ReactNode) => (
+  <Suspense fallback={
+    <div className="flex min-h-[40vh] items-center justify-center" style={{ background: '#f2f0eb' }}>
+      <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#006241] border-t-transparent" />
+    </div>
+  }>
+    {element}
+  </Suspense>
 );
 
 export const router = createBrowserRouter([
@@ -55,12 +82,14 @@ export const router = createBrowserRouter([
               { path: 'products/inventory-lowstock', element: withSuspense(<ProductInventoryLowStockPage />) },
               { path: 'products/discounts', element: withSuspense(<ProductDiscountsPage />) },
               { path: 'categories', element: withSuspense(<CategoriesPage />) },
+              { path: 'subcategories', element: withSuspense(<SubcategoriesPage />) },
               { path: 'origins', element: withSuspense(<OriginsPage />) },
               { path: 'tags', element: withSuspense(<TagsPage />) },
               { path: 'orders', element: withSuspense(<OrdersPage />) },
-              { path: 'permissions', element: withSuspense(<PermissionsPage />) },
               { path: 'customers', element: withSuspense(<CustomersPage />) },
+              { path: 'news', element: withSuspense(<NewsPage />) },
               { path: 'reports', element: withSuspense(<ReportsPage />) },
+              { path: 'permissions', element: withSuspense(<PermissionsPage />) },
               { path: 'interface', element: withSuspense(<InterfacePage />) },
               { path: 'security', element: withSuspense(<SecurityPage />) },
               { path: 'settings', element: withSuspense(<SettingsPage />) },
@@ -71,7 +100,20 @@ export const router = createBrowserRouter([
       {
         path: 'client',
         element: <ClientLayout />,
-        children: [{ index: true, element: withSuspense(<ClientHomePage />) }],
+        children: [
+          { index: true, element: clientSuspense(<ClientHomePage />) },
+          { path: 'products', element: clientSuspense(<ClientProductsPage />) },
+          { path: 'products/:id', element: clientSuspense(<ClientProductDetailPage />) },
+          { path: 'cart', element: clientSuspense(<ClientCartPage />) },
+          { path: 'checkout', element: clientSuspense(<ClientCheckoutPage />) },
+          { path: 'payment', element: clientSuspense(<ClientPaymentPage />) },
+          { path: 'news', element: clientSuspense(<ClientNewsListPage />) },
+          { path: 'news/:slug', element: clientSuspense(<ClientNewsDetailPage />) },
+          { path: 'login', element: clientSuspense(<ClientLoginPage />) },
+          { path: 'register', element: clientSuspense(<ClientRegisterPage />) },
+          { path: 'account', element: clientSuspense(<ClientAccountPage />) },
+          { path: 'orders', element: clientSuspense(<ClientOrdersPage />) },
+        ],
       },
       { path: 'login', element: withSuspense(<LoginPage />) },
     ],
