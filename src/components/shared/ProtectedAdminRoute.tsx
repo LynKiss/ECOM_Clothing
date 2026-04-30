@@ -1,4 +1,4 @@
-import { Navigate, Outlet, useLocation } from 'react-router-dom';
+﻿import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAdminSession } from '../../hooks/useAdminSession';
 
 export default function ProtectedAdminRoute() {
@@ -11,3 +11,4 @@ export default function ProtectedAdminRoute() {
 
   return <Outlet />;
 }
+

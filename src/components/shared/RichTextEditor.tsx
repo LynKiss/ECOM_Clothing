@@ -1,4 +1,4 @@
-import { Editor } from '@tinymce/tinymce-react';
+﻿import { Editor } from '@tinymce/tinymce-react';
 
 type RichTextEditorProps = {
   label: string;
@@ -40,3 +40,4 @@ export default function RichTextEditor({
     </label>
   );
 }
+

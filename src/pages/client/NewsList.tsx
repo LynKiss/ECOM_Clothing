@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+﻿import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Search, ChevronLeft, ChevronRight, ArrowRight, Newspaper } from 'lucide-react';
 import { clientApi } from '../../lib/client-api';
@@ -17,6 +17,7 @@ type NewsResponse = {
   items?: NewsItem[];
   total?: number;
   totalPages?: number;
+  meta?: { total: number; page: number; limit: number; totalPages: number };
 };
 
 const PAGE_SIZE = 9;
@@ -37,11 +38,10 @@ export default function NewsList() {
     const params = new URLSearchParams();
     params.set('page', String(page));
     params.set('limit', String(PAGE_SIZE));
-    params.set('status', 'published');
     if (search) params.set('search', search);
 
     void clientApi
-      .get<NewsResponse | NewsItem[]>(`/news?${params.toString()}`)
+      .get<NewsResponse | NewsItem[]>(`/news/public/list?${params.toString()}`)
       .then((data) => {
         if (Array.isArray(data)) {
           setArticles(data);
@@ -49,8 +49,8 @@ export default function NewsList() {
           setTotalPages(1);
         } else {
           setArticles(data.items ?? []);
-          setTotal(data.total ?? 0);
-          setTotalPages(data.totalPages ?? 1);
+          setTotal(data.meta?.total ?? data.total ?? 0);
+          setTotalPages(data.meta?.totalPages ?? data.totalPages ?? 1);
         }
       })
       .catch(() => setArticles([]))
@@ -71,16 +71,16 @@ export default function NewsList() {
   };
 
   return (
-    <div style={{ background: '#f2f0eb', minHeight: '80vh' }}>
+    <div className="client-surface min-h-[80vh]">
       {/* Hero */}
-      <section style={{ background: '#1E3932' }} className="py-14">
+      <section style={{ background: '#0B0F19' }} className="py-14">
         <div className="mx-auto max-w-4xl px-6 text-center">
-          <p className="mb-2 text-xs font-bold uppercase tracking-[0.3em]" style={{ color: '#d4e9e2' }}>
+          <p className="mb-2 text-xs font-bold uppercase tracking-[0.3em]" style={{ color: '#DBEAFE' }}>
             Tin tức & Kiến thức
           </p>
-          <h1 className="text-4xl font-black text-white">Nông nghiệp hôm nay</h1>
+          <h1 className="text-4xl font-black text-white">Phong cách hôm nay</h1>
           <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.65)' }}>
-            Cập nhật kiến thức nông nghiệp, kỹ thuật canh tác, và thông tin thị trường vật tư.
+            Cập nhật xu hướng thời trang, mẹo chọn size, phối đồ và ưu đãi mới.
           </p>
           <form onSubmit={handleSearch} className="mx-auto mt-6 flex max-w-md gap-2">
             <input
@@ -91,8 +91,7 @@ export default function NewsList() {
             />
             <button
               type="submit"
-              className="flex items-center gap-2 rounded-full px-5 py-3 text-sm font-bold text-white"
-              style={{ background: '#00754A' }}
+              className="client-pill-primary flex items-center gap-2 px-5 py-3 text-sm font-bold"
             >
               <Search size={16} />
             </button>
@@ -110,13 +109,13 @@ export default function NewsList() {
         {loading ? (
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="h-80 animate-pulse rounded-2xl bg-white" />
+              <div key={i} className="client-card h-80 animate-pulse" />
             ))}
           </div>
         ) : articles.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
-            <Newspaper size={48} className="mb-4 text-[#006241]/20" />
-            <h2 className="font-black text-[#1E3932]">Chưa có bài viết</h2>
+            <Newspaper size={48} className="mb-4 text-[#2563EB]/20" />
+            <h2 className="font-black text-[#0B0F19]">Chưa có bài viết</h2>
             <p className="mt-1 text-sm text-gray-400">
               {search ? 'Không tìm thấy bài viết phù hợp.' : 'Hãy quay lại sau.'}
             </p>
@@ -127,9 +126,9 @@ export default function NewsList() {
             {page === 1 && articles[0] && (
               <Link
                 to={`/client/news/${articles[0].slug}`}
-                className="group mb-8 grid overflow-hidden rounded-2xl bg-white shadow-md transition-all hover:-translate-y-0.5 hover:shadow-xl md:grid-cols-2"
+                className="client-card group mb-8 grid overflow-hidden transition-all md:grid-cols-2"
               >
-                <div className="overflow-hidden bg-[#d4e9e2]">
+                <div className="overflow-hidden bg-[#DBEAFE]">
                   {articles[0].titleImageUrl ? (
                     <img
                       src={articles[0].titleImageUrl}
@@ -143,10 +142,10 @@ export default function NewsList() {
                   )}
                 </div>
                 <div className="flex flex-col justify-center p-8">
-                  <span className="mb-3 inline-block rounded-full bg-[#006241]/10 px-3 py-1 text-xs font-bold text-[#006241]">
+                  <span className="mb-3 inline-block rounded-full bg-[#2563EB]/10 px-3 py-1 text-xs font-bold text-[#2563EB]">
                     Nổi bật
                   </span>
-                  <h2 className="text-xl font-black leading-snug text-[#1E3932] group-hover:text-[#006241]">
+                  <h2 className="text-xl font-black leading-snug text-[#0B0F19] group-hover:text-[#2563EB]">
                     {articles[0].title}
                   </h2>
                   {articles[0].subTitle && (
@@ -159,7 +158,7 @@ export default function NewsList() {
                       year: 'numeric',
                     })}
                   </p>
-                  <p className="mt-4 flex items-center gap-1 text-sm font-bold text-[#006241]">
+                  <p className="mt-4 flex items-center gap-1 text-sm font-bold text-[#2563EB]">
                     Đọc bài viết <ArrowRight size={14} />
                   </p>
                 </div>
@@ -172,9 +171,9 @@ export default function NewsList() {
                 <Link
                   key={article._id}
                   to={`/client/news/${article.slug}`}
-                  className="group overflow-hidden rounded-2xl bg-white transition-all hover:-translate-y-1 hover:shadow-xl"
+                  className="client-card group overflow-hidden transition-all"
                 >
-                  <div className="overflow-hidden bg-[#d4e9e2]">
+                  <div className="overflow-hidden bg-[#DBEAFE]">
                     {article.titleImageUrl ? (
                       <img
                         src={article.titleImageUrl}
@@ -188,20 +187,20 @@ export default function NewsList() {
                     )}
                   </div>
                   <div className="p-5">
-                    <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-[#006241]">
+                    <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-[#2563EB]">
                       {new Date(article.createdAt).toLocaleDateString('vi-VN', {
                         day: '2-digit',
                         month: 'short',
                         year: 'numeric',
                       })}
                     </p>
-                    <h3 className="line-clamp-2 font-bold leading-snug text-[#1E3932] group-hover:text-[#006241]">
+                    <h3 className="line-clamp-2 font-bold leading-snug text-[#0B0F19] group-hover:text-[#2563EB]">
                       {article.title}
                     </h3>
                     {article.subTitle && (
                       <p className="mt-2 line-clamp-2 text-sm text-gray-500">{article.subTitle}</p>
                     )}
-                    <p className="mt-3 flex items-center gap-1 text-xs font-bold text-[#006241]">
+                    <p className="mt-3 flex items-center gap-1 text-xs font-bold text-[#2563EB]">
                       Đọc tiếp <ArrowRight size={12} />
                     </p>
                   </div>
@@ -224,9 +223,9 @@ export default function NewsList() {
                     key={p}
                     onClick={() => updateParam('page', String(p))}
                     className={`flex h-9 w-9 items-center justify-center rounded-full text-sm font-semibold transition ${
-                      p === page ? 'text-white' : 'border border-black/10 bg-white text-[#1E3932]'
+                      p === page ? 'text-white' : 'border border-black/10 bg-white text-[#0B0F19]'
                     }`}
-                    style={p === page ? { background: '#006241' } : {}}
+                    style={p === page ? { background: '#2563EB' } : {}}
                   >
                     {p}
                   </button>
@@ -246,3 +245,6 @@ export default function NewsList() {
     </div>
   );
 }
+
+
+

@@ -1,1 +1,2 @@
-export { default } from '../../../pages/Categories';
+﻿export { default } from '../../../pages/Categories';
+

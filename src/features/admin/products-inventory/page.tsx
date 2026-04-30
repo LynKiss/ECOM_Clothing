@@ -1,1 +1,2 @@
-export { default } from '../../../pages/ProductInventoryTransactions';
+﻿export { default } from '../../../pages/ProductInventoryTransactions';
+

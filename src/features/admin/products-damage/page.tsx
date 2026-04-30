@@ -1,1 +1,2 @@
-export { default } from '../../../pages/ProductInventoryDamage';
+﻿export { default } from '../../../pages/ProductInventoryDamage';
+

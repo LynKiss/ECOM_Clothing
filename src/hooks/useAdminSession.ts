@@ -1,4 +1,4 @@
-import { useSyncExternalStore } from 'react';
+﻿import { useSyncExternalStore } from 'react';
 import {
   getAdminSession,
   setAdminSession,
@@ -18,3 +18,4 @@ export function useAdminSession() {
     setSession: (nextSession: AdminSession | null) => setAdminSession(nextSession),
   };
 }
+

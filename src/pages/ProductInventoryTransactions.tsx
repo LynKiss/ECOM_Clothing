@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import { Eye, LoaderCircle, PackageSearch } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { apiClient } from '../lib/api';
@@ -118,7 +118,7 @@ export default function ProductInventoryTransactions() {
         </p>
       </div>
 
-      <section className="rounded-[2.5rem] border border-on-surface-variant/5 bg-white p-6 shadow-sm">
+      <section className="rounded-xl border border-on-surface-variant/5 bg-white p-6 shadow-sm">
         <div className="mb-6 grid gap-4 md:grid-cols-[1fr_220px]">
           <label className="grid gap-2">
             <span className="text-[10px] font-black uppercase tracking-[0.24em] text-on-surface-variant/50">
@@ -283,3 +283,5 @@ function DetailRow({ label, value }: { label: string; value: string }) {
     </div>
   );
 }
+
+

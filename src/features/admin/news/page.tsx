@@ -1,1 +1,2 @@
-export { default } from '../../../pages/News';
+﻿export { default } from '../../../pages/News';
+

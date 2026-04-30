@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+﻿import { Link } from 'react-router-dom';
 import { useLanguage } from '../../i18n/language-context';
 
 export default function NotFound() {
@@ -35,3 +35,5 @@ export default function NotFound() {
     </div>
   );
 }
+
+

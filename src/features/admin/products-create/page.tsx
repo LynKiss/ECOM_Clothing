@@ -1,1 +1,2 @@
-export { default } from '../../../pages/ProductCreate';
+﻿export { default } from '../../../pages/ProductCreate';
+

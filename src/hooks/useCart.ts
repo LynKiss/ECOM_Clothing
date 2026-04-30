@@ -1,27 +1,24 @@
-import { useState, useEffect, useCallback } from 'react';
+﻿import { useState, useEffect, useCallback } from 'react';
 import { clientApi } from '../lib/client-api';
 import { useClientSession } from './useClientSession';
 
-export type CartProduct = {
-  _id: string;
-  productName: string;
-  productPrice: number;
-  images?: Array<{ imageUrl: string; isPrimary: boolean }>;
-};
-
 export type CartItem = {
-  _id: string;
-  product: CartProduct;
+  id: string;
+  productId: string;
+  productName: string;
+  primaryImageUrl: string | null;
   quantity: number;
-  unitPrice: number;
-  subtotal: number;
+  unitPrice: string;
+  lineTotal: string;
+  availableQuantity: number | null;
 };
 
 export type Cart = {
-  _id: string;
+  id: string;
   items: CartItem[];
   totalItems: number;
-  totalAmount: number;
+  totalQuantity: number;
+  totalAmount: string;
 };
 
 let globalCartListeners = new Set<() => void>();
@@ -47,12 +44,9 @@ export function useCart() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const unsub = (() => {
-      const listener = () => setCart(globalCart);
-      globalCartListeners.add(listener);
-      return () => globalCartListeners.delete(listener);
-    })();
-    return unsub;
+    const listener = () => setCart(globalCart);
+    globalCartListeners.add(listener);
+    return () => { globalCartListeners.delete(listener); };
   }, []);
 
   const fetchCart = useCallback(async () => {
@@ -84,8 +78,8 @@ export function useCart() {
   }, [session, fetchCart]);
 
   const addItem = useCallback(
-    async (productId: string, quantity: number) => {
-      await clientApi.post('/cart/items', { productId, quantity });
+    async (productId: string, quantity: number, variantId?: string) => {
+      await clientApi.post('/cart/items', { productId, quantity, variantId });
       await fetchCart();
     },
     [fetchCart],
@@ -109,3 +103,5 @@ export function useCart() {
 
   return { cart, loading, fetchCart, addItem, updateItem, removeItem };
 }
+
+

@@ -1,1 +1,2 @@
-export { default } from '../../../pages/Security';
+﻿export { default } from '../../../pages/Security';
+

@@ -1,4 +1,4 @@
-import {
+﻿import {
   createContext,
   useContext,
   useEffect,
@@ -53,3 +53,4 @@ export function useLanguage() {
 
   return context;
 }
+

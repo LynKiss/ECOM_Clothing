@@ -1,5 +1,5 @@
-import { useSyncExternalStore } from 'react';
-import { getClientSession, subscribeClientSession } from '../lib/client-session';
+﻿import { useSyncExternalStore } from 'react';
+import { getClientSession, setClientSession, subscribeClientSession, type ClientSession } from '../lib/client-session';
 
 export function useClientSession() {
   const session = useSyncExternalStore(
@@ -7,5 +7,9 @@ export function useClientSession() {
     getClientSession,
     () => null,
   );
-  return { session };
+  return {
+    session,
+    setSession: (nextSession: ClientSession | null) => setClientSession(nextSession),
+  };
 }
+

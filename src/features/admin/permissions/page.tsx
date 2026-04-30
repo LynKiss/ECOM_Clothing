@@ -1,1 +1,2 @@
-export { default } from '../../../pages/Permissions';
+﻿export { default } from '../../../pages/Permissions';
+

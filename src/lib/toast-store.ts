@@ -1,4 +1,4 @@
-export type ToastTone = 'success' | 'error' | 'info';
+﻿export type ToastTone = 'success' | 'error' | 'info';
 
 export type ToastItem = {
   id: string;
@@ -41,3 +41,4 @@ export function dismissToast(id: string) {
   toasts = toasts.filter((toast) => toast.id !== id);
   emitChange();
 }
+

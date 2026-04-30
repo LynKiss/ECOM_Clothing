@@ -1,1 +1,2 @@
-export { default } from '../../../pages/Subcategories';
+﻿export { default } from '../../../pages/Subcategories';
+

@@ -1,1 +1,2 @@
-export { default } from '../../../pages/client/ProductDetail';
+﻿export { default } from '../../../pages/client/ProductDetail';
+

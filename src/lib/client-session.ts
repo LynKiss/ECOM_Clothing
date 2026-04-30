@@ -1,4 +1,4 @@
-export type ClientSession = {
+﻿export type ClientSession = {
   accessToken: string;
   user: {
     _id: string;
@@ -6,6 +6,7 @@ export type ClientSession = {
     email: string;
     fullName?: string;
     avatar?: string;
+    avatarUrl?: string | null;
     phoneNumber?: string;
     role: string;
   };
@@ -52,3 +53,4 @@ export function subscribeClientSession(listener: () => void) {
   listeners.add(listener);
   return () => listeners.delete(listener);
 }
+

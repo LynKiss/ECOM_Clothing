@@ -1,1 +1,2 @@
-export { default } from '../../../pages/Tags';
+﻿export { default } from '../../../pages/Tags';
+

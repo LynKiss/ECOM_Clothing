@@ -1,1 +1,2 @@
-export { default } from '../../../pages/client/ClientRegister';
+﻿export { default } from '../../../pages/client/ClientRegister';
+

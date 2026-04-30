@@ -1,4 +1,4 @@
-import { useSyncExternalStore } from 'react';
+﻿import { useSyncExternalStore } from 'react';
 import { dismissToast, getToasts, showToast, subscribeToasts } from '../lib/toast-store';
 
 export function useToast() {
@@ -10,3 +10,4 @@ export function useToast() {
     dismissToast,
   };
 }
+

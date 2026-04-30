@@ -1,1 +1,2 @@
-export { default } from '../../../pages/client/NewsList';
+﻿export { default } from '../../../pages/client/NewsList';
+

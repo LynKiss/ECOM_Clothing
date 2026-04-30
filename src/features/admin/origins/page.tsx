@@ -1,1 +1,2 @@
-export { default } from '../../../pages/Origins';
+﻿export { default } from '../../../pages/Origins';
+

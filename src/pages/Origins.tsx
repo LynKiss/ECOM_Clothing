@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+﻿import { useCallback, useEffect, useState } from 'react';
 import { Edit2, Globe, LoaderCircle, Plus, Save, Search, Trash2 } from 'lucide-react';
 import { apiClient } from '../lib/api';
 import { useLanguage } from '../i18n/language-context';
@@ -148,7 +148,7 @@ export default function Origins() {
         </button>
       </div>
 
-      <section className="rounded-[2.5rem] border border-on-surface-variant/5 bg-white p-6 shadow-sm space-y-5">
+      <section className="rounded-xl border border-on-surface-variant/5 bg-white p-6 shadow-sm space-y-5">
         <div className="relative">
           <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant/40" />
           <input
@@ -279,3 +279,5 @@ export default function Origins() {
     </div>
   );
 }
+
+

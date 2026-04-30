@@ -10,6 +10,7 @@ import {
   ImagePlus,
   LoaderCircle,
   PackageSearch,
+  Palette,
   Save,
   Search,
   Trash2,
@@ -27,6 +28,41 @@ type CategoryNode = { categoryId: string; categoryName: string; children: Catego
 type Origin = { originId: string; originName: string };
 type Subcategory = { subcategoryId: string; subcategoryName: string; categoryId: string };
 
+type ProductColor = { colorId: string; colorName: string; colorCode: string | null };
+type ProductSize = { sizeId: string; sizeName: string; sizeCode: string | null; sortOrder: number };
+type VariantImage = { imageId: string; imageUrl: string; sortOrder: number };
+type ProductVariant = {
+  variantId: string;
+  productId: string;
+  sku: string | null;
+  barcode: string | null;
+  price: string | null;
+  salePrice: string | null;
+  stockQuantity: number;
+  weightGrams: number | null;
+  isActive: boolean;
+  color: ProductColor | null;
+  size: ProductSize | null;
+  images: VariantImage[];
+};
+
+type VariantFormState = {
+  colorId: string;
+  newColorName: string;
+  newColorCode: string;
+  sizeId: string;
+  newSizeName: string;
+  newSizeCode: string;
+  sku: string;
+  barcode: string;
+  price: string;
+  salePrice: string;
+  stockQuantity: string;
+  weightGrams: string;
+  isActive: boolean;
+  imageFiles: File[];
+};
+
 type Product = {
   productId: string;
   productName: string;
@@ -37,6 +73,8 @@ type Product = {
   productPrice: string;
   productPriceSale: string | null;
   quantityAvailable: number;
+  quantityReserved?: number;
+  avgCost?: string | number | null;
   unit: string | null;
   description?: string | null;
   isShow: boolean | number;
@@ -51,6 +89,13 @@ type Product = {
 type ProductResponse = {
   items: Product[];
   meta: { page: number; limit: number; total: number; totalPages: number };
+};
+
+type ProductImage = {
+  productImageId: string;
+  imageUrl: string;
+  isPrimary: boolean;
+  sortOrder: number;
 };
 
 type ProductFormState = {
@@ -75,6 +120,23 @@ type ProductFormErrors = Partial<Record<keyof ProductFormState, string>>;
 
 type SortKey = 'product_name' | 'product_price' | 'created_at' | 'quantity_available';
 type SortDir = 'ASC' | 'DESC';
+
+const defaultVariantForm: VariantFormState = {
+  colorId: '',
+  newColorName: '',
+  newColorCode: '#2563eb',
+  sizeId: '',
+  newSizeName: '',
+  newSizeCode: '',
+  sku: '',
+  barcode: '',
+  price: '',
+  salePrice: '',
+  stockQuantity: '0',
+  weightGrams: '',
+  isActive: true,
+  imageFiles: [],
+};
 
 const defaultFormState: ProductFormState = {
   productName: '',
@@ -134,8 +196,21 @@ export default function Products() {
   const [formErrors, setFormErrors] = useState<ProductFormErrors>({});
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState('');
+  const [productImages, setProductImages] = useState<ProductImage[]>([]);
+  const [imageBusyId, setImageBusyId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  const [variantModalOpen, setVariantModalOpen] = useState(false);
+  const [variantProduct, setVariantProduct] = useState<Product | null>(null);
+  const [colors, setColors] = useState<ProductColor[]>([]);
+  const [sizes, setSizes] = useState<ProductSize[]>([]);
+  const [variants, setVariants] = useState<ProductVariant[]>([]);
+  const [variantForm, setVariantForm] = useState<VariantFormState>(defaultVariantForm);
+  const [variantEditingId, setVariantEditingId] = useState<string | null>(null);
+  const [variantLoading, setVariantLoading] = useState(false);
+  const [variantSaving, setVariantSaving] = useState(false);
+  const [variantBusyId, setVariantBusyId] = useState<string | null>(null);
 
   const currency = useMemo(
     () =>
@@ -323,6 +398,8 @@ export default function Products() {
     setFormErrors({});
     setSelectedImageFile(null);
     setImagePreviewUrl('');
+    setProductImages([]);
+    setImageBusyId(null);
     setProductModalOpen(false);
     setPreviewModalOpen(false);
   }
@@ -349,7 +426,12 @@ export default function Products() {
     });
     setSelectedImageFile(null);
     setImagePreviewUrl(product.primaryImageUrl ?? '');
+    setProductImages([]);
     setProductModalOpen(true);
+    void apiClient
+      .get<ProductImage[]>(`/products/${product.productId}/images`)
+      .then((images) => setProductImages(Array.isArray(images) ? images : []))
+      .catch(() => setProductImages([]));
   }
 
   function validateForm() {
@@ -374,6 +456,49 @@ export default function Products() {
   function handleImageChange(file: File | null) {
     setSelectedImageFile(file);
     setImagePreviewUrl(file ? URL.createObjectURL(file) : '');
+  }
+
+  async function uploadExtraImage(file: File | null) {
+    if (!file || !editingProductId) return;
+    setImageBusyId('upload');
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('isPrimary', productImages.length === 0 ? 'true' : 'false');
+      await apiClient.postForm(`/products/${editingProductId}/images`, fd);
+      const images = await apiClient.get<ProductImage[]>(`/products/${editingProductId}/images`);
+      setProductImages(Array.isArray(images) ? images : []);
+      setReloadKey((v) => v + 1);
+    } finally {
+      setSelectedImageFile(null);
+      setImagePreviewUrl('');
+      setImageBusyId(null);
+    }
+  }
+
+  async function setPrimaryImage(imageId: string) {
+    if (!editingProductId) return;
+    setImageBusyId(imageId);
+    try {
+      await apiClient.patch(`/products/${editingProductId}/images/${imageId}/set-primary`);
+      const images = await apiClient.get<ProductImage[]>(`/products/${editingProductId}/images`);
+      setProductImages(Array.isArray(images) ? images : []);
+      setReloadKey((v) => v + 1);
+    } finally {
+      setImageBusyId(null);
+    }
+  }
+
+  async function deleteProductImage(imageId: string) {
+    if (!editingProductId) return;
+    setImageBusyId(imageId);
+    try {
+      await apiClient.delete(`/products/${editingProductId}/images/${imageId}`);
+      setProductImages((images) => images.filter((image) => image.productImageId !== imageId));
+      setReloadKey((v) => v + 1);
+    } finally {
+      setImageBusyId(null);
+    }
   }
 
   async function saveProduct() {
@@ -443,6 +568,157 @@ export default function Products() {
     }
   }
 
+
+  async function loadVariantCatalogsAndRows(productId: string) {
+    const [colorData, sizeData, variantData] = await Promise.all([
+      apiClient.get<ProductColor[]>('/products/colors').catch(() => [] as ProductColor[]),
+      apiClient.get<ProductSize[]>('/products/sizes').catch(() => [] as ProductSize[]),
+      apiClient.get<ProductVariant[]>(`/products/${productId}/variants`).catch(() => [] as ProductVariant[]),
+    ]);
+    setColors(Array.isArray(colorData) ? colorData : []);
+    setSizes(Array.isArray(sizeData) ? sizeData : []);
+    setVariants(Array.isArray(variantData) ? variantData : []);
+  }
+
+  function resetVariantForm() {
+    setVariantForm(defaultVariantForm);
+    setVariantEditingId(null);
+  }
+
+  function closeVariantModal() {
+    setVariantModalOpen(false);
+    setVariantProduct(null);
+    setVariants([]);
+    resetVariantForm();
+  }
+
+  function openVariantModal(product: Product) {
+    setVariantProduct(product);
+    setVariantModalOpen(true);
+    setVariantLoading(true);
+    resetVariantForm();
+    void loadVariantCatalogsAndRows(product.productId).finally(() => setVariantLoading(false));
+  }
+
+  function editVariant(variant: ProductVariant) {
+    setVariantEditingId(variant.variantId);
+    setVariantForm({
+      colorId: variant.color?.colorId ?? '',
+      newColorName: '',
+      newColorCode: variant.color?.colorCode ?? '#2563eb',
+      sizeId: variant.size?.sizeId ?? '',
+      newSizeName: '',
+      newSizeCode: variant.size?.sizeCode ?? '',
+      sku: variant.sku ?? '',
+      barcode: variant.barcode ?? '',
+      price: variant.price ?? '',
+      salePrice: variant.salePrice ?? '',
+      stockQuantity: String(variant.stockQuantity ?? 0),
+      weightGrams: variant.weightGrams != null ? String(variant.weightGrams) : '',
+      isActive: Boolean(variant.isActive),
+      imageFiles: [],
+    });
+  }
+
+  async function resolveVariantColorId() {
+    if (variantForm.colorId) return variantForm.colorId;
+    if (!variantForm.newColorName.trim()) return undefined;
+    const created = await apiClient.post<ProductColor>('/products/colors', {
+      colorName: variantForm.newColorName.trim(),
+      colorCode: variantForm.newColorCode.trim() || undefined,
+    });
+    setColors((items) => (items.some((item) => item.colorId === created.colorId) ? items : [...items, created]));
+    return created.colorId;
+  }
+
+  async function resolveVariantSizeId() {
+    if (variantForm.sizeId) return variantForm.sizeId;
+    if (!variantForm.newSizeName.trim() && !variantForm.newSizeCode.trim()) return undefined;
+    const sizeName = variantForm.newSizeName.trim() || variantForm.newSizeCode.trim();
+    const created = await apiClient.post<ProductSize>('/products/sizes', {
+      sizeName,
+      sizeCode: variantForm.newSizeCode.trim() || sizeName,
+      sortOrder: sizes.length,
+    });
+    setSizes((items) => (items.some((item) => item.sizeId === created.sizeId) ? items : [...items, created]));
+    return created.sizeId;
+  }
+
+  async function saveVariant() {
+    if (!variantProduct) return;
+    if (!variantForm.colorId && !variantForm.newColorName.trim() && !variantForm.sizeId && !variantForm.newSizeName.trim() && !variantForm.newSizeCode.trim()) {
+      showToast({ tone: 'error', title: isVi ? 'C?n ch?n m?u ho?c size' : 'Select a color or size' });
+      return;
+    }
+    if (variantForm.salePrice.trim() && variantForm.price.trim() && Number(variantForm.salePrice) > Number(variantForm.price)) {
+      showToast({ tone: 'error', title: isVi ? 'Gi? KM bi?n th? kh?ng h?p l?' : 'Invalid variant sale price' });
+      return;
+    }
+
+    setVariantSaving(true);
+    try {
+      const colorId = await resolveVariantColorId();
+      const sizeId = await resolveVariantSizeId();
+      const payload = {
+        colorId,
+        sizeId,
+        sku: variantForm.sku.trim() || undefined,
+        barcode: variantForm.barcode.trim() || undefined,
+        price: variantForm.price.trim() || undefined,
+        salePrice: variantForm.salePrice.trim() || undefined,
+        stockQuantity: Number(variantForm.stockQuantity || 0),
+        weightGrams: variantForm.weightGrams.trim() ? Number(variantForm.weightGrams) : undefined,
+        isActive: variantForm.isActive,
+      };
+
+      const saved = variantEditingId
+        ? await apiClient.patch<ProductVariant>(`/products/${variantProduct.productId}/variants/${variantEditingId}`, payload)
+        : await apiClient.post<ProductVariant>(`/products/${variantProduct.productId}/variants`, payload);
+
+      for (const file of variantForm.imageFiles) {
+        const fd = new FormData();
+        fd.append('file', file);
+        await apiClient.postForm(`/products/${variantProduct.productId}/variants/${saved.variantId}/images`, fd);
+      }
+
+      await loadVariantCatalogsAndRows(variantProduct.productId);
+      resetVariantForm();
+      setReloadKey((v) => v + 1);
+      showToast({ tone: 'success', title: isVi ? '?? l?u bi?n th?' : 'Variant saved' });
+    } catch (e) {
+      showToast({
+        tone: 'error',
+        title: isVi ? 'L?u bi?n th? th?t b?i' : 'Unable to save variant',
+        description: e instanceof Error ? e.message : undefined,
+      });
+    } finally {
+      setVariantSaving(false);
+    }
+  }
+
+  async function deactivateVariant(variantId: string) {
+    if (!variantProduct) return;
+    setVariantBusyId(variantId);
+    try {
+      await apiClient.delete(`/products/${variantProduct.productId}/variants/${variantId}`);
+      await loadVariantCatalogsAndRows(variantProduct.productId);
+      setReloadKey((v) => v + 1);
+    } finally {
+      setVariantBusyId(null);
+    }
+  }
+
+  async function deleteVariantImage(variantId: string, imageId: string) {
+    if (!variantProduct) return;
+    setVariantBusyId(imageId);
+    try {
+      await apiClient.delete(`/products/${variantProduct.productId}/variants/${variantId}/images/${imageId}`);
+      await loadVariantCatalogsAndRows(variantProduct.productId);
+    } finally {
+      setVariantBusyId(null);
+    }
+  }
+
   const visibleSubcategories = subcategories.filter(
     (s) => !formState.categoryId || s.categoryId === formState.categoryId,
   );
@@ -458,7 +734,7 @@ export default function Products() {
         </div>
       </div>
 
-      <div className="rounded-[2rem] border border-on-surface-variant/5 bg-white p-5 shadow-sm">
+      <div className="rounded-xl border border-on-surface-variant/5 bg-white p-5 shadow-sm">
         <div className="grid gap-3 lg:grid-cols-[1.2fr_260px_auto]">
           <label className="relative">
             <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant/40" />
@@ -523,7 +799,7 @@ export default function Products() {
         <div className="rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700">{error}</div>
       ) : null}
 
-      <div className="rounded-[2.5rem] border border-on-surface-variant/5 bg-white p-6 shadow-sm">
+      <div className="rounded-xl border border-on-surface-variant/5 bg-white p-6 shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead>
@@ -614,7 +890,14 @@ export default function Products() {
                     <td className="px-4 py-4 text-on-surface-variant">
                       {product.productPriceSale ? currency.format(Number(product.productPriceSale)) : '-'}
                     </td>
-                    <td className="px-4 py-4 text-on-surface">{product.quantityAvailable}</td>
+                    <td className="px-4 py-4 text-on-surface">
+                      <div className="font-semibold">{product.quantityAvailable}</div>
+                      {product.quantityReserved && product.quantityReserved > 0 ? (
+                        <div className="text-[10px] font-medium text-amber-600">
+                          {isVi ? 'Đang giữ' : 'Reserved'}: {product.quantityReserved}
+                        </div>
+                      ) : null}
+                    </td>
                     <td className="px-4 py-4 text-on-surface-variant">{categoryPathMap.get(product.categoryId) ?? product.categoryId}</td>
                     <td className="px-4 py-4 text-on-surface-variant">
                       {origins.find((origin) => origin.originId === product.originId)?.originName ?? '-'}
@@ -633,9 +916,18 @@ export default function Products() {
                         <button
                           type="button"
                           onClick={() => openEditModal(product)}
+                          title={isVi ? 'S?a s?n ph?m' : 'Edit product'}
                           className="rounded-xl p-2 text-on-surface-variant transition hover:bg-primary/5 hover:text-primary"
                         >
                           <Edit2 size={16} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openVariantModal(product)}
+                          title={isVi ? 'M?u, size, ?nh bi?n th?' : 'Colors, sizes, variant images'}
+                          className="rounded-xl p-2 text-on-surface-variant transition hover:bg-primary/5 hover:text-primary"
+                        >
+                          <Palette size={16} />
                         </button>
                         <button
                           type="button"
@@ -677,6 +969,211 @@ export default function Products() {
           pageSizeOptions={[10, 20, 50]}
         />
       </div>
+
+
+      <Modal
+        open={variantModalOpen}
+        title={isVi ? 'Qu?n l? bi?n th?' : 'Manage variants'}
+        description={variantProduct ? variantProduct.productName : undefined}
+        onClose={closeVariantModal}
+        size="xl"
+        footer={
+          <div className="flex flex-wrap justify-end gap-3">
+            <button type="button" onClick={resetVariantForm} className="rounded-2xl border border-on-surface/10 px-5 py-2.5 text-sm font-bold">
+              {isVi ? 'L?m m?i form' : 'Reset form'}
+            </button>
+            <button
+              type="button"
+              onClick={() => void saveVariant()}
+              disabled={variantSaving || !variantProduct}
+              className="inline-flex items-center gap-2 rounded-2xl bg-primary px-5 py-2.5 text-sm font-black text-white disabled:opacity-60"
+            >
+              {variantSaving ? <LoaderCircle size={16} className="animate-spin" /> : <Save size={16} />}
+              {variantEditingId ? (isVi ? 'C?p nh?t bi?n th?' : 'Update variant') : (isVi ? 'Th?m bi?n th?' : 'Add variant')}
+            </button>
+          </div>
+        }
+      >
+        {variantLoading ? (
+          <div className="flex items-center justify-center py-12 text-sm font-bold text-on-surface-variant">
+            <LoaderCircle size={18} className="mr-2 animate-spin" />
+            {isVi ? '?ang t?i bi?n th?...' : 'Loading variants...'}
+          </div>
+        ) : (
+          <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
+            <section className="rounded-2xl border border-on-surface/8 bg-surface p-4">
+              <p className="mb-4 text-[11px] font-black uppercase tracking-[0.2em] text-on-surface-variant/60">
+                {variantEditingId ? (isVi ? 'S?a bi?n th?' : 'Edit variant') : (isVi ? 'Bi?n th? m?i' : 'New variant')}
+              </p>
+              <div className="space-y-4">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Field label={isVi ? 'M?u c? s?n' : 'Existing color'}>
+                    <select
+                      value={variantForm.colorId}
+                      onChange={(e) => setVariantForm((p) => ({ ...p, colorId: e.target.value }))}
+                      className="input-base"
+                    >
+                      <option value="">{isVi ? 'Kh?ng ch?n / t?o m?i' : 'None / create new'}</option>
+                      {colors.map((color) => (
+                        <option key={color.colorId} value={color.colorId}>{color.colorName}</option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Field label={isVi ? 'M? m?u m?i' : 'New color code'}>
+                    <input
+                      type="color"
+                      value={variantForm.newColorCode || '#2563eb'}
+                      onChange={(e) => setVariantForm((p) => ({ ...p, newColorCode: e.target.value }))}
+                      className="h-11 w-full rounded-2xl border border-on-surface/10 bg-white px-2"
+                    />
+                  </Field>
+                </div>
+                <Field label={isVi ? 'T?n m?u m?i' : 'New color name'}>
+                  <input
+                    value={variantForm.newColorName}
+                    onChange={(e) => setVariantForm((p) => ({ ...p, newColorName: e.target.value }))}
+                    placeholder={isVi ? 'V? d?: Xanh navy' : 'Example: Navy blue'}
+                    className="input-base"
+                  />
+                </Field>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Field label={isVi ? 'Size c? s?n' : 'Existing size'}>
+                    <select
+                      value={variantForm.sizeId}
+                      onChange={(e) => setVariantForm((p) => ({ ...p, sizeId: e.target.value }))}
+                      className="input-base"
+                    >
+                      <option value="">{isVi ? 'Kh?ng ch?n / t?o m?i' : 'None / create new'}</option>
+                      {sizes.map((size) => (
+                        <option key={size.sizeId} value={size.sizeId}>{size.sizeName}</option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Field label={isVi ? 'M? size m?i' : 'New size code'}>
+                    <input
+                      value={variantForm.newSizeCode}
+                      onChange={(e) => setVariantForm((p) => ({ ...p, newSizeCode: e.target.value }))}
+                      placeholder="S, M, L, XL"
+                      className="input-base"
+                    />
+                  </Field>
+                </div>
+                <Field label={isVi ? 'T?n size m?i' : 'New size name'}>
+                  <input
+                    value={variantForm.newSizeName}
+                    onChange={(e) => setVariantForm((p) => ({ ...p, newSizeName: e.target.value }))}
+                    placeholder={isVi ? 'V? d?: Size L' : 'Example: Size L'}
+                    className="input-base"
+                  />
+                </Field>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Field label="SKU">
+                    <input value={variantForm.sku} onChange={(e) => setVariantForm((p) => ({ ...p, sku: e.target.value }))} className="input-base" />
+                  </Field>
+                  <Field label="Barcode">
+                    <input value={variantForm.barcode} onChange={(e) => setVariantForm((p) => ({ ...p, barcode: e.target.value }))} className="input-base" />
+                  </Field>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Field label={isVi ? 'Gi? ri?ng' : 'Variant price'}>
+                    <input type="number" value={variantForm.price} onChange={(e) => setVariantForm((p) => ({ ...p, price: e.target.value }))} className="input-base" />
+                  </Field>
+                  <Field label={isVi ? 'Gi? KM ri?ng' : 'Variant sale price'}>
+                    <input type="number" value={variantForm.salePrice} onChange={(e) => setVariantForm((p) => ({ ...p, salePrice: e.target.value }))} className="input-base" />
+                  </Field>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Field label={isVi ? 'T?n kho' : 'Stock'}>
+                    <input type="number" min={0} value={variantForm.stockQuantity} onChange={(e) => setVariantForm((p) => ({ ...p, stockQuantity: e.target.value }))} className="input-base" />
+                  </Field>
+                  <Field label={isVi ? 'Kh?i l??ng gram' : 'Weight grams'}>
+                    <input type="number" min={0} value={variantForm.weightGrams} onChange={(e) => setVariantForm((p) => ({ ...p, weightGrams: e.target.value }))} className="input-base" />
+                  </Field>
+                </div>
+
+                <label className="flex cursor-pointer items-center gap-3 rounded-2xl bg-white px-4 py-3 text-sm font-bold text-on-surface">
+                  <input type="checkbox" checked={variantForm.isActive} onChange={(e) => setVariantForm((p) => ({ ...p, isActive: e.target.checked }))} className="h-4 w-4 accent-primary" />
+                  {isVi ? '?ang b?n bi?n th? n?y' : 'Variant active'}
+                </label>
+
+                <Field label={isVi ? '?nh ri?ng c?a bi?n th?' : 'Variant images'}>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={(e) => setVariantForm((p) => ({ ...p, imageFiles: Array.from(e.target.files ?? []) }))}
+                    className="input-base"
+                  />
+                  {variantForm.imageFiles.length > 0 ? (
+                    <p className="mt-2 text-xs font-semibold text-primary">{variantForm.imageFiles.length} ?nh ?? ch?n</p>
+                  ) : null}
+                </Field>
+              </div>
+            </section>
+
+            <section className="space-y-3">
+              {variants.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-on-surface/15 bg-white p-8 text-center text-sm text-on-surface-variant">
+                  {isVi ? 'Ch?a c? bi?n th?. H?y th?m m?u/size ??u ti?n cho s?n ph?m.' : 'No variants yet.'}
+                </div>
+              ) : (
+                variants.map((variant) => (
+                  <div key={variant.variantId} className={`rounded-2xl border bg-white p-4 ${variant.isActive ? 'border-on-surface/8' : 'border-red-100 opacity-70'}`}>
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          {variant.color ? (
+                            <span className="inline-flex items-center gap-2 rounded-full bg-surface px-3 py-1 text-xs font-black text-on-surface">
+                              <span className="h-4 w-4 rounded-full border border-black/10" style={{ backgroundColor: variant.color.colorCode ?? '#e5e7eb' }} />
+                              {variant.color.colorName}
+                            </span>
+                          ) : null}
+                          {variant.size ? <span className="rounded-full bg-surface px-3 py-1 text-xs font-black text-on-surface">{variant.size.sizeName}</span> : null}
+                          {!variant.isActive ? <span className="rounded-full bg-red-50 px-3 py-1 text-xs font-black text-red-600">Ng?ng b?n</span> : null}
+                        </div>
+                        <p className="mt-2 text-xs text-on-surface-variant">
+                          SKU: {variant.sku || '-'} ? T?n: <b>{variant.stockQuantity}</b>
+                          {variant.price ? ` ? Gi?: ${currency.format(Number(variant.price))}` : ''}
+                          {variant.salePrice ? ` ? KM: ${currency.format(Number(variant.salePrice))}` : ''}
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        <button type="button" onClick={() => editVariant(variant)} className="rounded-xl border border-on-surface/10 px-3 py-2 text-xs font-bold hover:border-primary/30 hover:text-primary">
+                          {isVi ? 'S?a' : 'Edit'}
+                        </button>
+                        <button type="button" disabled={variantBusyId === variant.variantId || !variant.isActive} onClick={() => void deactivateVariant(variant.variantId)} className="rounded-xl border border-red-100 px-3 py-2 text-xs font-bold text-red-500 disabled:opacity-50">
+                          {isVi ? 'Ng?ng b?n' : 'Deactivate'}
+                        </button>
+                      </div>
+                    </div>
+                    {variant.images.length > 0 ? (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {variant.images.map((image) => (
+                          <div key={image.imageId} className="group relative h-16 w-16 overflow-hidden rounded-xl border border-on-surface/10 bg-surface">
+                            <img src={image.imageUrl} alt="Variant" className="h-full w-full object-cover" />
+                            <button
+                              type="button"
+                              disabled={variantBusyId === image.imageId}
+                              onClick={() => void deleteVariantImage(variant.variantId, image.imageId)}
+                              className="absolute inset-0 hidden items-center justify-center bg-black/45 text-white group-hover:flex"
+                            >
+                              <X size={14} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                ))
+              )}
+            </section>
+          </div>
+        )}
+      </Modal>
 
       <Modal
         open={productModalOpen}
@@ -800,10 +1297,41 @@ export default function Products() {
                   type="file"
                   accept="image/*"
                   className="hidden"
-                  onChange={(event) => handleImageChange(event.target.files?.[0] ?? null)}
+                  onChange={(event) => {
+                    const file = event.target.files?.[0] ?? null;
+                    handleImageChange(file);
+                    void uploadExtraImage(file);
+                  }}
                 />
               </label>
-              {imagePreviewUrl ? <img src={imagePreviewUrl} alt="" className="h-28 w-28 rounded-2xl object-cover" /> : null}
+              {selectedImageFile ? <img src={imagePreviewUrl} alt="" className="h-28 w-28 rounded-2xl object-cover" /> : null}
+              {productImages.length > 0 ? (
+                <div className="mt-3 grid grid-cols-3 gap-2">
+                  {productImages.map((image) => (
+                    <div key={image.productImageId} className="overflow-hidden rounded-2xl border border-on-surface/10 bg-surface">
+                      <img src={image.imageUrl} alt="" className="h-20 w-full object-cover" />
+                      <div className="flex gap-1 p-1">
+                        <button
+                          type="button"
+                          disabled={image.isPrimary || imageBusyId === image.productImageId}
+                          onClick={() => void setPrimaryImage(image.productImageId)}
+                          className="flex-1 rounded-xl bg-white px-2 py-1 text-[10px] font-bold text-primary disabled:opacity-40"
+                        >
+                          {image.isPrimary ? 'Chinh' : 'Dat chinh'}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={imageBusyId === image.productImageId}
+                          onClick={() => void deleteProductImage(image.productImageId)}
+                          className="rounded-xl bg-red-50 px-2 py-1 text-[10px] font-bold text-red-500 disabled:opacity-40"
+                        >
+                          Xoa
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
             </Field>
 
             <label className="inline-flex items-center gap-3 rounded-2xl border border-on-surface/8 bg-surface px-4 py-3">
@@ -915,3 +1443,5 @@ function Field({
     </label>
   );
 }
+
+

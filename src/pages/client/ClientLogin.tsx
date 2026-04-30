@@ -1,6 +1,6 @@
-import { useState, type FormEvent } from 'react';
+﻿import { useState, type FormEvent } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Eye, EyeOff, Leaf, LoaderCircle, AlertCircle } from 'lucide-react';
+import { Eye, EyeOff, Shirt, LoaderCircle, AlertCircle } from 'lucide-react';
 import { loginClient } from '../../lib/client-api';
 import { useClientSession } from '../../hooks/useClientSession';
 import { refreshGlobalCart } from '../../hooks/useCart';
@@ -43,25 +43,22 @@ export default function ClientLogin() {
   };
 
   return (
-    <div
-      style={{ background: '#f2f0eb', minHeight: '100vh' }}
-      className="flex items-center justify-center px-4 py-12"
-    >
+    <div className="client-surface flex min-h-screen items-center justify-center px-4 py-12">
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="mb-8 text-center">
           <Link to="/client" className="inline-flex flex-col items-center gap-3">
             <div
-              className="flex h-14 w-14 items-center justify-center rounded-full shadow-lg"
-              style={{ background: '#1E3932' }}
+              className="flex h-14 w-14 items-center justify-center rounded-full"
+              style={{ background: '#0B0F19' }}
             >
-              <Leaf size={26} className="text-white" />
+              <Shirt size={26} className="text-white" />
             </div>
             <div>
-              <p className="text-xs font-bold uppercase tracking-[0.3em]" style={{ color: '#006241' }}>
-                Cultivated Ledger
+              <p className="text-xs font-bold uppercase tracking-[0.3em]" style={{ color: '#2563EB' }}>
+                Fashion Ledger
               </p>
-              <p className="text-lg font-black" style={{ color: '#1E3932' }}>
+              <p className="text-lg font-black" style={{ color: '#0B0F19' }}>
                 Đăng nhập
               </p>
             </div>
@@ -69,7 +66,7 @@ export default function ClientLogin() {
         </div>
 
         {/* Form card */}
-        <div className="rounded-2xl bg-white p-8 shadow-md">
+        <div className="client-card p-8">
           {error && (
             <div className="mb-4 flex items-start gap-2.5 rounded-xl bg-red-50 p-3.5 text-sm text-red-700">
               <AlertCircle size={16} className="mt-0.5 shrink-0" />
@@ -79,7 +76,7 @@ export default function ClientLogin() {
 
           <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
             <div>
-              <label className="mb-1.5 block text-sm font-semibold text-[#1E3932]">
+              <label className="mb-1.5 block text-sm font-semibold text-[#0B0F19]">
                 Tên đăng nhập hoặc Email
               </label>
               <input
@@ -89,11 +86,11 @@ export default function ClientLogin() {
                 placeholder="Nhập tên đăng nhập hoặc email..."
                 required
                 autoComplete="username"
-                className="w-full rounded-xl border border-black/10 bg-[#f2f0eb] px-4 py-3 text-sm outline-none focus:border-[#006241] focus:bg-white"
+                className="client-input w-full px-4 py-3 text-sm"
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-sm font-semibold text-[#1E3932]">
+              <label className="mb-1.5 block text-sm font-semibold text-[#0B0F19]">
                 Mật khẩu
               </label>
               <div className="relative">
@@ -104,7 +101,7 @@ export default function ClientLogin() {
                   placeholder="Nhập mật khẩu..."
                   required
                   autoComplete="current-password"
-                  className="w-full rounded-xl border border-black/10 bg-[#f2f0eb] px-4 py-3 pr-12 text-sm outline-none focus:border-[#006241] focus:bg-white"
+                  className="client-input w-full px-4 py-3 pr-12 text-sm"
                 />
                 <button
                   type="button"
@@ -118,8 +115,7 @@ export default function ClientLogin() {
             <button
               type="submit"
               disabled={loading}
-              className="flex w-full items-center justify-center gap-2 rounded-full py-3.5 text-sm font-bold text-white disabled:opacity-60 active:scale-95"
-              style={{ background: '#00754A' }}
+              className="client-pill-primary flex w-full items-center justify-center gap-2 py-3.5 text-sm font-bold disabled:opacity-60"
             >
               {loading && <LoaderCircle size={16} className="animate-spin" />}
               {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
@@ -131,7 +127,7 @@ export default function ClientLogin() {
             <Link
               to="/client/register"
               className="font-bold transition hover:underline"
-              style={{ color: '#006241' }}
+              style={{ color: '#2563EB' }}
             >
               Đăng ký ngay
             </Link>
@@ -140,7 +136,7 @@ export default function ClientLogin() {
 
         <p className="mt-4 text-center text-xs text-gray-400">
           Là nhân viên/quản trị?{' '}
-          <Link to="/login" className="text-[#006241] hover:underline">
+          <Link to="/login" className="text-[#2563EB] hover:underline">
             Đăng nhập trang quản trị
           </Link>
         </p>
@@ -148,3 +144,5 @@ export default function ClientLogin() {
     </div>
   );
 }
+
+

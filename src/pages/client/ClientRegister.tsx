@@ -1,6 +1,6 @@
-import { useState, type FormEvent, type ChangeEvent } from 'react';
+﻿import { useState, type FormEvent, type ChangeEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, Leaf, LoaderCircle, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Eye, EyeOff, Shirt, LoaderCircle, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { registerClient, loginClient } from '../../lib/client-api';
 import { refreshGlobalCart } from '../../hooks/useCart';
 
@@ -56,40 +56,37 @@ export default function ClientRegister() {
 
   if (success) {
     return (
-      <div style={{ background: '#f2f0eb', minHeight: '100vh' }} className="flex items-center justify-center px-4">
+      <div className="client-surface flex min-h-screen items-center justify-center px-4">
         <div className="text-center">
-          <CheckCircle2 size={56} className="mx-auto mb-4 text-[#006241]" />
-          <h2 className="text-2xl font-black text-[#1E3932]">Đăng ký thành công!</h2>
-          <p className="mt-2 text-sm text-gray-500">Chào mừng bạn đến với Cultivated Ledger 🌿</p>
+          <CheckCircle2 size={56} className="mx-auto mb-4 text-[#2563EB]" />
+          <h2 className="text-2xl font-black text-[#0B0F19]">Đăng ký thành công!</h2>
+          <p className="mt-2 text-sm text-gray-500">Chào mừng bạn đến với Fashion Ledger 🌿</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div
-      style={{ background: '#f2f0eb', minHeight: '100vh' }}
-      className="flex items-center justify-center px-4 py-12"
-    >
+    <div className="client-surface flex min-h-screen items-center justify-center px-4 py-12">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
           <Link to="/client" className="inline-flex flex-col items-center gap-3">
             <div
-              className="flex h-14 w-14 items-center justify-center rounded-full shadow-lg"
-              style={{ background: '#1E3932' }}
+              className="flex h-14 w-14 items-center justify-center rounded-full"
+              style={{ background: '#0B0F19' }}
             >
-              <Leaf size={26} className="text-white" />
+              <Shirt size={26} className="text-white" />
             </div>
             <div>
-              <p className="text-xs font-bold uppercase tracking-[0.3em]" style={{ color: '#006241' }}>
-                Cultivated Ledger
+              <p className="text-xs font-bold uppercase tracking-[0.3em]" style={{ color: '#2563EB' }}>
+                Fashion Ledger
               </p>
-              <p className="text-lg font-black" style={{ color: '#1E3932' }}>Tạo tài khoản</p>
+              <p className="text-lg font-black" style={{ color: '#0B0F19' }}>Tạo tài khoản</p>
             </div>
           </Link>
         </div>
 
-        <div className="rounded-2xl bg-white p-8 shadow-md">
+        <div className="client-card p-8">
           {error && (
             <div className="mb-4 flex items-start gap-2.5 rounded-xl bg-red-50 p-3.5 text-sm text-red-700">
               <AlertCircle size={16} className="mt-0.5 shrink-0" />
@@ -100,18 +97,18 @@ export default function ClientRegister() {
           <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
-                <label className="mb-1.5 block text-xs font-semibold text-[#1E3932]">
+                <label className="mb-1.5 block text-xs font-semibold text-[#0B0F19]">
                   Họ và tên
                 </label>
                 <input
                   value={form.fullName}
                   onChange={setField('fullName')}
                   placeholder="Nguyễn Văn A"
-                  className="w-full rounded-xl border border-black/10 bg-[#f2f0eb] px-4 py-2.5 text-sm outline-none focus:border-[#006241] focus:bg-white"
+                  className="client-input w-full px-4 py-2.5 text-sm"
                 />
               </div>
               <div>
-                <label className="mb-1.5 block text-xs font-semibold text-[#1E3932]">
+                <label className="mb-1.5 block text-xs font-semibold text-[#0B0F19]">
                   Tên đăng nhập *
                 </label>
                 <input
@@ -120,13 +117,13 @@ export default function ClientRegister() {
                   placeholder="user123"
                   required
                   autoComplete="username"
-                  className="w-full rounded-xl border border-black/10 bg-[#f2f0eb] px-4 py-2.5 text-sm outline-none focus:border-[#006241] focus:bg-white"
+                  className="client-input w-full px-4 py-2.5 text-sm"
                 />
               </div>
             </div>
 
             <div>
-              <label className="mb-1.5 block text-xs font-semibold text-[#1E3932]">
+              <label className="mb-1.5 block text-xs font-semibold text-[#0B0F19]">
                 Email *
               </label>
               <input
@@ -136,12 +133,12 @@ export default function ClientRegister() {
                 placeholder="email@example.com"
                 required
                 autoComplete="email"
-                className="w-full rounded-xl border border-black/10 bg-[#f2f0eb] px-4 py-2.5 text-sm outline-none focus:border-[#006241] focus:bg-white"
+                className="client-input w-full px-4 py-2.5 text-sm"
               />
             </div>
 
             <div>
-              <label className="mb-1.5 block text-xs font-semibold text-[#1E3932]">
+              <label className="mb-1.5 block text-xs font-semibold text-[#0B0F19]">
                 Số điện thoại
               </label>
               <input
@@ -150,12 +147,12 @@ export default function ClientRegister() {
                 onChange={setField('phoneNumber')}
                 placeholder="0901234567"
                 autoComplete="tel"
-                className="w-full rounded-xl border border-black/10 bg-[#f2f0eb] px-4 py-2.5 text-sm outline-none focus:border-[#006241] focus:bg-white"
+                className="client-input w-full px-4 py-2.5 text-sm"
               />
             </div>
 
             <div>
-              <label className="mb-1.5 block text-xs font-semibold text-[#1E3932]">
+              <label className="mb-1.5 block text-xs font-semibold text-[#0B0F19]">
                 Mật khẩu * (tối thiểu 6 ký tự)
               </label>
               <div className="relative">
@@ -167,7 +164,7 @@ export default function ClientRegister() {
                   required
                   minLength={6}
                   autoComplete="new-password"
-                  className="w-full rounded-xl border border-black/10 bg-[#f2f0eb] px-4 py-2.5 pr-12 text-sm outline-none focus:border-[#006241] focus:bg-white"
+                  className="client-input w-full px-4 py-2.5 pr-12 text-sm"
                 />
                 <button
                   type="button"
@@ -180,7 +177,7 @@ export default function ClientRegister() {
             </div>
 
             <div>
-              <label className="mb-1.5 block text-xs font-semibold text-[#1E3932]">
+              <label className="mb-1.5 block text-xs font-semibold text-[#0B0F19]">
                 Xác nhận mật khẩu *
               </label>
               <input
@@ -190,15 +187,14 @@ export default function ClientRegister() {
                 placeholder="••••••••"
                 required
                 autoComplete="new-password"
-                className="w-full rounded-xl border border-black/10 bg-[#f2f0eb] px-4 py-2.5 text-sm outline-none focus:border-[#006241] focus:bg-white"
+                className="client-input w-full px-4 py-2.5 text-sm"
               />
             </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="flex w-full items-center justify-center gap-2 rounded-full py-3.5 text-sm font-bold text-white disabled:opacity-60 active:scale-95"
-              style={{ background: '#00754A' }}
+              className="client-pill-primary flex w-full items-center justify-center gap-2 py-3.5 text-sm font-bold disabled:opacity-60"
             >
               {loading && <LoaderCircle size={16} className="animate-spin" />}
               {loading ? 'Đang tạo tài khoản...' : 'Tạo tài khoản'}
@@ -207,14 +203,14 @@ export default function ClientRegister() {
 
           <p className="mt-4 text-center text-xs text-gray-400">
             Bằng cách đăng ký, bạn đồng ý với{' '}
-            <a href="#" className="text-[#006241]">Điều khoản dịch vụ</a>
+            <a href="#" className="text-[#2563EB]">Điều khoản dịch vụ</a>
             {' '}và{' '}
-            <a href="#" className="text-[#006241]">Chính sách bảo mật</a>.
+            <a href="#" className="text-[#2563EB]">Chính sách bảo mật</a>.
           </p>
 
           <div className="mt-5 text-center text-sm text-gray-500">
             Đã có tài khoản?{' '}
-            <Link to="/client/login" className="font-bold text-[#006241] hover:underline">
+            <Link to="/client/login" className="font-bold text-[#2563EB] hover:underline">
               Đăng nhập
             </Link>
           </div>
@@ -223,3 +219,5 @@ export default function ClientRegister() {
     </div>
   );
 }
+
+

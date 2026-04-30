@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from 'react';
+﻿import { useEffect, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 
 type ModalProps = {
@@ -60,7 +60,7 @@ export default function Modal({
         className="absolute inset-0 bg-[#0b1f17]/55 backdrop-blur-sm"
         onClick={onClose}
       />
-      <div className={`relative z-[101] w-full ${sizeClasses[size]} overflow-hidden rounded-[2rem] border border-on-surface/10 bg-white shadow-[0_30px_80px_-30px_rgba(12,34,25,0.45)]`}>
+      <div className={`admin-modal relative z-[101] w-full ${sizeClasses[size]}`}>
         <div className="flex items-start justify-between gap-4 border-b border-on-surface/8 px-6 py-5">
           <div>
             <h3 className="text-2xl font-black tracking-tight text-primary">{title}</h3>
@@ -80,3 +80,4 @@ export default function Modal({
     </div>
   );
 }
+

@@ -1,4 +1,4 @@
-import { FormEvent, useMemo, useState } from 'react';
+﻿import { FormEvent, useMemo, useState } from 'react';
 import { LockKeyhole, LogOut, ServerCrash } from 'lucide-react';
 import { getApiBaseUrl, loginAdmin, logoutAdmin } from '../../lib/api';
 import { useAdminSession } from '../../hooks/useAdminSession';
@@ -135,3 +135,5 @@ export default function AdminAccessPanel({
     </div>
   );
 }
+
+

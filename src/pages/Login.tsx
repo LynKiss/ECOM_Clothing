@@ -1,5 +1,5 @@
-import { type FormEvent, type ReactNode, useEffect, useState } from 'react';
-import { Eye, EyeOff, Leaf, LockKeyhole, Mail, Sprout } from 'lucide-react';
+﻿import { type FormEvent, type ReactNode, useEffect, useState } from 'react';
+import { Eye, EyeOff, Shirt, LockKeyhole, Mail, Sparkles } from 'lucide-react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAdminSession } from '../hooks/useAdminSession';
 import { useToast } from '../hooks/useToast';
@@ -89,7 +89,7 @@ export default function LoginPage() {
               </div>
               <h1 className="mt-4 max-w-[460px] text-[2.5rem] font-black leading-[0.94] tracking-tight md:text-[3rem] xl:text-[3.2rem]">
                 {isVietnamese
-                  ? 'Kiểm soát hệ thống nông nghiệp trên một bảng điều khiển.'
+                  ? 'Kiểm soát hệ thống bán hàng thời trang trên một bảng điều khiển.'
                   : 'Run the agricultural platform from one unified control room.'}
               </h1>
               <p className="mt-3 max-w-[520px] text-[13px] leading-6 text-white/72">
@@ -117,7 +117,7 @@ export default function LoginPage() {
               <div className="mt-5 grid grid-cols-2 rounded-2xl bg-[#eef1ec] p-1">
                 <AudienceButton
                   active={audience === 'farmer'}
-                  label={isVietnamese ? 'Nông dân cá thể' : 'Independent growers'}
+                  label={isVietnamese ? 'Khách hàng cá nhân' : 'Independent growers'}
                   onClick={() => setAudience('farmer')}
                 />
                 <AudienceButton
@@ -209,16 +209,16 @@ export default function LoginPage() {
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <SecondaryLoginButton icon={<Leaf size={16} />} label="Google" />
+                <SecondaryLoginButton icon={<Shirt size={16} />} label="Google" />
                 <SecondaryLoginButton
-                  icon={<Sprout size={16} />}
+                  icon={<Sparkles size={16} />}
                   label={isVietnamese ? 'Đăng nhập SSO' : 'SSO Login'}
                 />
               </div>
 
               <p className="mt-8 text-center text-sm text-[#69776f]">
                 {isVietnamese
-                  ? 'Bạn muốn làm quen với nông nghiệp hiện đại?'
+                  ? 'Bạn muốn làm quen với vận hành shop thời trang?'
                   : 'Curious about modern agriculture?'}{' '}
                 <button
                   type="button"
@@ -291,3 +291,6 @@ function SecondaryLoginButton({ icon, label }: { icon: ReactNode; label: string 
     </button>
   );
 }
+
+
+
