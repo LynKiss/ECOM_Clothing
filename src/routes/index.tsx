@@ -67,6 +67,7 @@ const ClientWishlistPage = lazy(() => import('../features/client/wishlist/page')
 const ClientAddressesPage = lazy(() => import('../features/client/addresses/page'));
 const ClientRiceDiagnosisPage = lazy(() => import('../features/client/rice-diagnosis/page'));
 const ClientStyleAdvisorPage = lazy(() => import('../features/client/style-advisor/page'));
+const ClientVirtualTryOnPage = lazy(() => import('../features/client/virtual-try-on/page'));
 
 const LoginPage = lazy(() => import('../pages/Login'));
 
@@ -162,6 +163,7 @@ export const router = createBrowserRouter([
           { path: 'wishlist', element: clientSuspense(<ClientWishlistPage />) },
           { path: 'account/addresses', element: clientSuspense(<ClientAddressesPage />) },
           { path: 'style-advisor', element: clientSuspense(<ClientStyleAdvisorPage />) },
+          { path: 'virtual-try-on', element: clientSuspense(<ClientVirtualTryOnPage />) },
           { path: 'rice-diagnosis', element: clientSuspense(<ClientRiceDiagnosisPage />) },
         ],
       },

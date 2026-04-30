@@ -13,7 +13,21 @@ import { useToast } from '../../../hooks/useToast';
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type Supplier = { supplierId: string; name: string; code: string | null };
-type Product = { productId: string; productName: string; unit: string | null };
+type ProductVariant = {
+  variantId: string;
+  sku: string | null;
+  barcode: string | null;
+  stockQuantity: number;
+  isActive: boolean;
+  color: { colorName: string } | null;
+  size: { sizeName: string } | null;
+};
+type Product = {
+  productId: string;
+  productName: string;
+  unit: string | null;
+  variants?: ProductVariant[];
+};
 
 type PoStatus = 'draft' | 'ordered' | 'partial' | 'received' | 'cancelled';
 type GrStatus = 'draft' | 'confirmed' | 'cancelled';
@@ -21,6 +35,7 @@ type SrStatus = 'draft' | 'confirmed' | 'cancelled';
 
 type PoItem = {
   productId: string;
+  variantId?: string;
   unit: string;
   unitPerBase: number;
   qtyOrdered: number;
@@ -30,6 +45,7 @@ type PoItem = {
 
 type GrItem = {
   productId: string;
+  variantId?: string;
   unit: string;
   unitPerBase: number;
   qtyOrdered: number;
@@ -44,6 +60,7 @@ type GrItem = {
 
 type SrItem = {
   productId: string;
+  variantId?: string;
   qtyReturned: number;
   unitPrice: number;
   hasRefund: boolean;
@@ -94,6 +111,7 @@ type Meta = { page: number; limit: number; total: number; totalPages: number };
 
 type GrCostPreviewItem = {
   productId: string;
+  variantId?: string | null;
   qtyReceived: number;
   qtyReturned: number;
   qtyGood: number;
@@ -109,6 +127,24 @@ const fmt = (n: string | number) =>
   Number(n).toLocaleString('vi-VN', { maximumFractionDigits: 0 }) + '₫';
 
 const today = () => new Date().toISOString().slice(0, 10);
+
+function getProductVariants(products: Product[], productId: string) {
+  return products.find((p) => p.productId === productId)?.variants?.filter((v) => v.isActive) ?? [];
+}
+
+function getVariantLabel(variant?: ProductVariant | null) {
+  if (!variant) return 'Không phân bổ biến thể';
+  const optionName = [variant.color?.colorName, variant.size?.sizeName].filter(Boolean).join(' / ');
+  const code = variant.sku || variant.barcode || variant.variantId;
+  return optionName ? `${optionName} - ${code}` : code;
+}
+
+function getLineVariant(products: Product[], productId: string, variantId?: string | null) {
+  if (!variantId) return null;
+  return products
+    .find((p) => p.productId === productId)
+    ?.variants?.find((v) => v.variantId === variantId) ?? null;
+}
 
 const PO_STATUS_LABEL: Record<PoStatus, string> = {
   draft: 'Nháp',
@@ -151,13 +187,13 @@ const SR_STATUS_COLOR: Record<SrStatus, string> = {
 };
 
 function emptyPoItem(): PoItem {
-  return { productId: '', unit: 'cái', unitPerBase: 1, qtyOrdered: 1, unitPrice: 0, notes: '' };
+  return { productId: '', variantId: '', unit: 'cái', unitPerBase: 1, qtyOrdered: 1, unitPrice: 0, notes: '' };
 }
 function emptyGrItem(): GrItem {
-  return { productId: '', unit: 'cái', unitPerBase: 1, qtyOrdered: 0, qtyReceived: 1, qtyDefective: 0, qtyReturned: 0, hasRefund: true, refundAmount: 0, unitPrice: 0, notes: '' };
+  return { productId: '', variantId: '', unit: 'cái', unitPerBase: 1, qtyOrdered: 0, qtyReceived: 1, qtyDefective: 0, qtyReturned: 0, hasRefund: true, refundAmount: 0, unitPrice: 0, notes: '' };
 }
 function emptySrItem(): SrItem {
-  return { productId: '', qtyReturned: 1, unitPrice: 0, hasRefund: true, refundAmount: 0, reason: '' };
+  return { productId: '', variantId: '', qtyReturned: 1, unitPrice: 0, hasRefund: true, refundAmount: 0, reason: '' };
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -329,6 +365,7 @@ function PoTab({
         notes: notes || undefined,
         items: lines.map((l) => ({
           productId: l.productId,
+          variantId: l.variantId || undefined,
           unit: l.unit,
           unitPerBase: l.unitPerBase,
           qtyOrdered: l.qtyOrdered,
@@ -488,9 +525,13 @@ function PoTab({
                 <tbody className="divide-y divide-on-surface/6">
                   {(detail.items as any[]).map((item: any, idx: number) => {
                     const prod = products.find((p) => p.productId === item.productId);
+                    const variant = getLineVariant(products, item.productId, item.variantId);
                     return (
                       <tr key={idx}>
-                        <td className="py-2 pr-6">{prod?.productName ?? item.productId}</td>
+                        <td className="py-2 pr-6">
+                          <p className="font-semibold">{prod?.productName ?? item.productId}</p>
+                          <p className="text-xs text-on-surface-variant">{getVariantLabel(variant)}</p>
+                        </td>
                         <td className="py-2 pr-6 text-right text-on-surface-variant">{item.unit}</td>
                         <td className="py-2 pr-6 text-right">{item.qtyOrdered}</td>
                         <td className="py-2 pr-6 text-right">{item.qtyReceived}</td>
@@ -584,15 +625,31 @@ function PoTab({
                 </div>
                 <div className="space-y-3">
                   {lines.map((line, idx) => (
-                    <div key={idx} className="grid gap-2 rounded-xl border border-on-surface/8 bg-surface/50 p-3 sm:grid-cols-[1fr_80px_80px_100px_80px_32px]">
+                    <div key={idx} className="grid gap-2 rounded-xl border border-on-surface/8 bg-surface/50 p-3 sm:grid-cols-[1.3fr_1.1fr_80px_80px_100px_80px_32px]">
                       <select
                         value={line.productId}
-                        onChange={(e) => setLine(idx, { productId: e.target.value })}
+                        onChange={(e) => {
+                          const product = products.find((p) => p.productId === e.target.value);
+                          setLine(idx, { productId: e.target.value, variantId: '', unit: product?.unit ?? line.unit });
+                        }}
                         className={selectCls}
                       >
                         <option value="">— Sản phẩm —</option>
                         {products.map((p) => (
                           <option key={p.productId} value={p.productId}>{p.productName}</option>
+                        ))}
+                      </select>
+                      <select
+                        value={line.variantId ?? ''}
+                        onChange={(e) => setLine(idx, { variantId: e.target.value })}
+                        disabled={!line.productId}
+                        className={selectCls}
+                      >
+                        <option value="">Nhập tổng</option>
+                        {getProductVariants(products, line.productId).map((variant) => (
+                          <option key={variant.variantId} value={variant.variantId}>
+                            {getVariantLabel(variant)} - tồn {variant.stockQuantity}
+                          </option>
                         ))}
                       </select>
                       <input
@@ -735,6 +792,7 @@ function GrTab({
         otherCost,
         items: validLines.map((l) => ({
           productId: l.productId,
+          variantId: l.variantId || undefined,
           unit: l.unit,
           unitPerBase: l.unitPerBase,
           qtyOrdered: l.qtyOrdered,
@@ -764,8 +822,8 @@ function GrTab({
     setLines([emptyGrItem()]);
     setPreview([]);
     void apiClient
-      .get<{ items: Po[] }>('/procurement/purchase-orders?limit=200&status=ordered')
-      .then((d) => setAvailablePos(d.items ?? []));
+      .get<{ items: Po[] }>('/procurement/purchase-orders?limit=200&status=all')
+      .then((d) => setAvailablePos((d.items ?? []).filter((po) => po.status === 'ordered' || po.status === 'partial')));
     setModalOpen(true);
   }
 
@@ -786,6 +844,7 @@ function GrTab({
         notes: notes || undefined,
         items: lines.map((l) => ({
           productId: l.productId,
+          variantId: l.variantId || undefined,
           unit: l.unit,
           unitPerBase: l.unitPerBase,
           qtyOrdered: l.qtyOrdered,
@@ -941,9 +1000,13 @@ function GrTab({
                 <tbody className="divide-y divide-on-surface/6">
                   {detail.items.map((item: any, idx: number) => {
                     const prod = products.find((p) => p.productId === item.productId);
+                    const variant = getLineVariant(products, item.productId, item.variantId);
                     return (
                       <tr key={idx}>
-                        <td className="py-2 pr-4">{prod?.productName ?? item.productId}</td>
+                        <td className="py-2 pr-4">
+                          <p className="font-semibold">{prod?.productName ?? item.productId}</p>
+                          <p className="text-xs text-on-surface-variant">{getVariantLabel(variant)}</p>
+                        </td>
                         <td className="py-2 pr-4 text-right">{item.qtyReceived}</td>
                         <td className="py-2 pr-4 text-right text-amber-600">{item.qtyDefective}</td>
                         <td className="py-2 pr-4 text-right text-red-500">{item.qtyReturned}</td>
@@ -1010,6 +1073,7 @@ function GrTab({
                                 po.items.map((item) => ({
                                   ...emptyGrItem(),
                                   productId: item.productId,
+                                  variantId: item.variantId ?? '',
                                   unit: item.unit,
                                   unitPerBase: item.unitPerBase,
                                   qtyOrdered: item.qtyOrdered,
@@ -1053,14 +1117,40 @@ function GrTab({
                 </div>
                 <div className="space-y-3">
                   {lines.map((line, idx) => {
-                    const prev = preview.find((p) => p.productId === line.productId);
+                    const prev = preview.find(
+                      (p) =>
+                        p.productId === line.productId &&
+                        (p.variantId ?? '') === (line.variantId ?? ''),
+                    );
                     return (
                       <div key={idx} className="rounded-xl border border-on-surface/8 bg-surface/50 p-4 space-y-3">
-                        <div className="grid gap-2 sm:grid-cols-[1fr_1fr_80px_80px]">
+                        <div className="grid gap-2 sm:grid-cols-[1.2fr_1.1fr_1fr_80px_80px]">
                           <FieldWrap label="Sản phẩm *">
-                            <select value={line.productId} onChange={(e) => setLine(idx, { productId: e.target.value })} className={selectCls}>
+                            <select
+                              value={line.productId}
+                              onChange={(e) => {
+                                const product = products.find((p) => p.productId === e.target.value);
+                                setLine(idx, { productId: e.target.value, variantId: '', unit: product?.unit ?? line.unit });
+                              }}
+                              className={selectCls}
+                            >
                               <option value="">— Chọn sản phẩm —</option>
                               {products.map((p) => <option key={p.productId} value={p.productId}>{p.productName}</option>)}
+                            </select>
+                          </FieldWrap>
+                          <FieldWrap label="Biến thể">
+                            <select
+                              value={line.variantId ?? ''}
+                              onChange={(e) => setLine(idx, { variantId: e.target.value })}
+                              disabled={!line.productId}
+                              className={selectCls}
+                            >
+                              <option value="">Nhập tổng</option>
+                              {getProductVariants(products, line.productId).map((variant) => (
+                                <option key={variant.variantId} value={variant.variantId}>
+                                  {getVariantLabel(variant)} - tồn {variant.stockQuantity}
+                                </option>
+                              ))}
                             </select>
                           </FieldWrap>
                           <FieldWrap label="Đơn giá nhập (₫) *">
@@ -1209,6 +1299,7 @@ function SrTab({
         notes: notes || undefined,
         items: lines.map((l) => ({
           productId: l.productId,
+          variantId: l.variantId || undefined,
           qtyReturned: l.qtyReturned,
           unitPrice: l.unitPrice,
           hasRefund: l.hasRefund,
@@ -1346,9 +1437,13 @@ function SrTab({
               <tbody className="divide-y divide-on-surface/6">
                 {detail.items.map((item: any, idx: number) => {
                   const prod = products.find((p) => p.productId === item.productId);
+                  const variant = getLineVariant(products, item.productId, item.variantId);
                   return (
                     <tr key={idx}>
-                      <td className="py-2 pr-6">{prod?.productName ?? item.productId}</td>
+                      <td className="py-2 pr-6">
+                        <p className="font-semibold">{prod?.productName ?? item.productId}</p>
+                        <p className="text-xs text-on-surface-variant">{getVariantLabel(variant)}</p>
+                      </td>
                       <td className="py-2 pr-6 text-right">{item.qtyReturned}</td>
                       <td className="py-2 pr-6 text-right">{fmt(item.unitPrice)}</td>
                       <td className="py-2 pr-6 text-right">{item.hasRefund ? fmt(item.refundAmount) : '—'}</td>
@@ -1398,7 +1493,33 @@ function SrTab({
                   <input type="date" value={returnDate} onChange={(e) => setReturnDate(e.target.value)} className={inputCls} />
                 </FieldWrap>
                 <FieldWrap label="GR liên kết (tùy chọn)">
-                  <select value={grId} onChange={(e) => setGrId(e.target.value)} className={selectCls}>
+                  <select
+                    value={grId}
+                    onChange={(e) => {
+                      const selectedGrId = e.target.value;
+                      setGrId(selectedGrId);
+                      if (selectedGrId) {
+                        void apiClient
+                          .get<Gr & { items: GrItem[] }>(`/procurement/goods-receipts/${selectedGrId}`)
+                          .then((gr) => {
+                            if (gr.items?.length) {
+                              setLines(
+                                gr.items.map((item) => ({
+                                  ...emptySrItem(),
+                                  productId: item.productId,
+                                  variantId: item.variantId ?? '',
+                                  qtyReturned: Math.max(1, item.qtyReturned || 1),
+                                  unitPrice: Number(item.unitPrice),
+                                  refundAmount: Number(item.refundAmount ?? 0),
+                                  reason: item.qtyDefective > 0 ? 'Hàng lỗi từ phiếu nhận' : '',
+                                })),
+                              );
+                            }
+                          });
+                      }
+                    }}
+                    className={selectCls}
+                  >
                     <option value="">— Không liên kết GR —</option>
                     {availableGrs
                       .filter((g) => !supplierId || g.supplierId === supplierId)
@@ -1423,11 +1544,30 @@ function SrTab({
                 <div className="space-y-3">
                   {lines.map((line, idx) => (
                     <div key={idx} className="rounded-xl border border-on-surface/8 bg-surface/50 p-4 space-y-3">
-                      <div className="grid gap-3 sm:grid-cols-[1fr_100px_120px]">
+                      <div className="grid gap-3 sm:grid-cols-[1.2fr_1.1fr_100px_120px]">
                         <FieldWrap label="Sản phẩm *">
-                          <select value={line.productId} onChange={(e) => setLine(idx, { productId: e.target.value })} className={selectCls}>
+                          <select
+                            value={line.productId}
+                            onChange={(e) => setLine(idx, { productId: e.target.value, variantId: '' })}
+                            className={selectCls}
+                          >
                             <option value="">— Chọn sản phẩm —</option>
                             {products.map((p) => <option key={p.productId} value={p.productId}>{p.productName}</option>)}
+                          </select>
+                        </FieldWrap>
+                        <FieldWrap label="Biến thể">
+                          <select
+                            value={line.variantId ?? ''}
+                            onChange={(e) => setLine(idx, { variantId: e.target.value })}
+                            disabled={!line.productId}
+                            className={selectCls}
+                          >
+                            <option value="">Trả từ tồn tổng</option>
+                            {getProductVariants(products, line.productId).map((variant) => (
+                              <option key={variant.variantId} value={variant.variantId}>
+                                {getVariantLabel(variant)} - tồn {variant.stockQuantity}
+                              </option>
+                            ))}
                           </select>
                         </FieldWrap>
                         <FieldWrap label="SL trả *">

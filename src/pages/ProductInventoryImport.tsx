@@ -7,11 +7,23 @@ import { useToast } from '../hooks/useToast';
 type Product = {
   productId: string;
   productName: string;
+  barcode?: string | null;
   productPrice: string;
   productPriceSale: string | null;
   quantityAvailable: number;
   unit: string | null;
   primaryImageUrl?: string | null;
+  variants?: ProductVariant[];
+};
+
+type ProductVariant = {
+  variantId: string;
+  sku: string | null;
+  barcode: string | null;
+  stockQuantity: number;
+  isActive: boolean;
+  color: { colorName: string } | null;
+  size: { sizeName: string } | null;
 };
 
 type ProductResponse = {
@@ -20,7 +32,9 @@ type ProductResponse = {
 
 type ScanItem = {
   productId: string;
+  variantId?: string;
   productName: string;
+  variantLabel?: string;
   quantity: number;
 };
 
@@ -49,6 +63,7 @@ export default function ProductInventoryImport() {
   const [products, setProducts] = useState<Product[]>([]);
   const [search, setSearch] = useState('');
   const [selectedProductId, setSelectedProductId] = useState('');
+  const [selectedVariantId, setSelectedVariantId] = useState('');
   const [quantity, setQuantity] = useState('1');
   const [note, setNote] = useState('');
   const [loading, setLoading] = useState(true);
@@ -121,20 +136,54 @@ export default function ProductInventoryImport() {
   );
   const selectedProduct =
     products.find((product) => product.productId === selectedProductId) ?? null;
+  const activeVariants = (selectedProduct?.variants ?? []).filter(
+    (variant) => variant.isActive,
+  );
+  const selectedVariant =
+    activeVariants.find((variant) => variant.variantId === selectedVariantId) ??
+    null;
+
+  function getVariantLabel(variant: ProductVariant) {
+    const options = [variant.color?.colorName, variant.size?.sizeName]
+      .filter(Boolean)
+      .join(' / ');
+    return options || variant.sku || variant.barcode || variant.variantId;
+  }
 
   const processBarcodeScan = useCallback(
     (value: string) => {
       const trimmed = value.trim();
       if (!trimmed) return;
 
-      const matched = products.find(
-        (p) =>
-          p.productId === trimmed ||
-          p.productId.startsWith(trimmed) ||
-          trimmed.startsWith(p.productId),
-      );
+      let matchedProduct: Product | undefined;
+      let matchedVariant: ProductVariant | undefined;
 
-      if (!matched) {
+      for (const product of products) {
+        const variant = (product.variants ?? []).find(
+          (item) =>
+            item.isActive &&
+            (item.barcode === trimmed ||
+              item.sku === trimmed ||
+              item.variantId === trimmed),
+        );
+        if (variant) {
+          matchedProduct = product;
+          matchedVariant = variant;
+          break;
+        }
+      }
+
+      if (!matchedProduct) {
+        matchedProduct = products.find(
+          (p) =>
+            p.barcode === trimmed ||
+            p.productId === trimmed ||
+            p.productId.startsWith(trimmed) ||
+            trimmed.startsWith(p.productId),
+        );
+      }
+
+      if (!matchedProduct) {
         showToast({
           tone: 'error',
           title: isVietnamese ? 'Không tìm thấy sản phẩm' : 'Product not found',
@@ -144,21 +193,36 @@ export default function ProductInventoryImport() {
       }
 
       playBeep();
-      setScanConfirm(matched.productName);
+      setScanConfirm(
+        matchedVariant
+          ? `${matchedProduct.productName} - ${getVariantLabel(matchedVariant)}`
+          : matchedProduct.productName,
+      );
       setTimeout(() => setScanConfirm(null), 1800);
 
       setScanItems((prev) => {
-        const existing = prev.find((item) => item.productId === matched.productId);
+        const existing = prev.find(
+          (item) =>
+            item.productId === matchedProduct!.productId &&
+            (item.variantId ?? '') === (matchedVariant?.variantId ?? ''),
+        );
         if (existing) {
           return prev.map((item) =>
-            item.productId === matched.productId
+            item.productId === matchedProduct!.productId &&
+            (item.variantId ?? '') === (matchedVariant?.variantId ?? '')
               ? { ...item, quantity: item.quantity + 1 }
               : item,
           );
         }
         return [
           ...prev,
-          { productId: matched.productId, productName: matched.productName, quantity: 1 },
+          {
+            productId: matchedProduct!.productId,
+            variantId: matchedVariant?.variantId,
+            productName: matchedProduct!.productName,
+            variantLabel: matchedVariant ? getVariantLabel(matchedVariant) : undefined,
+            quantity: 1,
+          },
         ];
       });
     },
@@ -289,6 +353,7 @@ export default function ProductInventoryImport() {
     try {
       await apiClient.post('/inventory/transactions/import', {
         productId: selectedProductId,
+        variantId: selectedVariantId || undefined,
         quantity: Number(quantity),
         note: note.trim() || undefined,
       });
@@ -322,6 +387,7 @@ export default function ProductInventoryImport() {
       try {
         await apiClient.post('/inventory/transactions/import', {
           productId: item.productId,
+          variantId: item.variantId,
           quantity: item.quantity,
         });
         successCount++;
@@ -513,7 +579,11 @@ export default function ProductInventoryImport() {
                   >
                     <div className="min-w-0 flex-1">
                       <p className="truncate font-semibold text-on-surface">{item.productName}</p>
-                      <p className="text-xs text-on-surface-variant">{item.productId}</p>
+                      <p className="text-xs text-on-surface-variant">
+                        {item.variantLabel
+                          ? `${item.variantLabel} - ${item.variantId}`
+                          : item.productId}
+                      </p>
                     </div>
                     <div className="flex items-center gap-2">
                       <button
@@ -521,9 +591,16 @@ export default function ProductInventoryImport() {
                         onClick={() =>
                           setScanItems((prev) =>
                             item.quantity <= 1
-                              ? prev.filter((i) => i.productId !== item.productId)
+                              ? prev.filter(
+                                  (i) =>
+                                    !(
+                                      i.productId === item.productId &&
+                                      (i.variantId ?? '') === (item.variantId ?? '')
+                                    ),
+                                )
                               : prev.map((i) =>
-                                  i.productId === item.productId
+                                  i.productId === item.productId &&
+                                  (i.variantId ?? '') === (item.variantId ?? '')
                                     ? { ...i, quantity: i.quantity - 1 }
                                     : i,
                                 ),
@@ -541,7 +618,8 @@ export default function ProductInventoryImport() {
                         onClick={() =>
                           setScanItems((prev) =>
                             prev.map((i) =>
-                              i.productId === item.productId
+                              i.productId === item.productId &&
+                              (i.variantId ?? '') === (item.variantId ?? '')
                                 ? { ...i, quantity: i.quantity + 1 }
                                 : i,
                             ),
@@ -601,7 +679,10 @@ export default function ProductInventoryImport() {
                 </span>
                 <select
                   value={selectedProductId}
-                  onChange={(event) => setSelectedProductId(event.target.value)}
+                  onChange={(event) => {
+                    setSelectedProductId(event.target.value);
+                    setSelectedVariantId('');
+                  }}
                   className="rounded-2xl border border-on-surface/10 bg-surface px-4 py-3 text-sm outline-none"
                 >
                   <option value="">
@@ -610,6 +691,29 @@ export default function ProductInventoryImport() {
                   {filteredProducts.map((product) => (
                     <option key={product.productId} value={product.productId}>
                       {product.productName}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="grid gap-2">
+                <span className="text-[10px] font-black uppercase tracking-[0.24em] text-on-surface-variant/50">
+                  {isVietnamese ? 'Biến thể nhập kho' : 'Inventory target'}
+                </span>
+                <select
+                  value={selectedVariantId}
+                  onChange={(event) => setSelectedVariantId(event.target.value)}
+                  disabled={!selectedProduct}
+                  className="rounded-2xl border border-on-surface/10 bg-surface px-4 py-3 text-sm outline-none disabled:opacity-50"
+                >
+                  <option value="">
+                    {isVietnamese
+                      ? 'Nhập tổng sản phẩm (không phân bổ biến thể)'
+                      : 'Product-level stock (unallocated)'}
+                  </option>
+                  {activeVariants.map((variant) => (
+                    <option key={variant.variantId} value={variant.variantId}>
+                      {getVariantLabel(variant)} - {variant.stockQuantity} tồn
                     </option>
                   ))}
                 </select>
@@ -723,6 +827,10 @@ export default function ProductInventoryImport() {
                     <InfoCard
                       label={isVietnamese ? 'Tồn hiện tại' : 'Current stock'}
                       value={`${selectedProduct.quantityAvailable}`}
+                    />
+                    <InfoCard
+                      label={isVietnamese ? 'Tồn biến thể' : 'Variant stock'}
+                      value={selectedVariant ? `${selectedVariant.stockQuantity}` : '-'}
                     />
                     <InfoCard
                       label={isVietnamese ? 'Đơn vị' : 'Unit'}

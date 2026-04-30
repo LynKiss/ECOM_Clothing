@@ -6,16 +6,26 @@ import { useToast } from '../hooks/useToast';
 import { Link } from 'react-router-dom';
 
 type LowStockProduct = {
+  rowType?: 'product' | 'variant';
   productId: string;
+  variantId: string | null;
   productName: string;
+  variantSku: string | null;
+  colorName: string | null;
+  sizeName: string | null;
   quantityAvailable: number;
   unit: string | null;
   barcode: string | null;
 };
 
 type SummaryRow = {
+  rowType?: 'product' | 'variant';
   productId: string;
+  variantId: string | null;
   productName: string;
+  variantSku: string | null;
+  colorName: string | null;
+  sizeName: string | null;
   quantityAvailable: string;
   barcode: string | null;
   unit: string | null;
@@ -172,6 +182,11 @@ export default function ProductInventoryLowStock() {
                       <td className="px-4 py-4">
                         <p className="font-bold text-on-surface">{p.productName}</p>
                         <p className="mt-0.5 text-xs text-on-surface-variant/50">{p.productId}</p>
+                        {p.variantId ? (
+                          <p className="mt-1 text-xs font-semibold text-primary">
+                            {[p.colorName, p.sizeName].filter(Boolean).join(' / ') || p.variantSku || p.variantId}
+                          </p>
+                        ) : null}
                       </td>
                       <td className="px-4 py-4 text-sm text-on-surface-variant font-mono">
                         {p.barcode ?? '—'}
@@ -240,6 +255,11 @@ export default function ProductInventoryLowStock() {
                     <tr key={row.productId} className="hover:bg-on-surface-variant/[0.02]">
                       <td className="px-4 py-4">
                         <p className="font-bold text-on-surface">{row.productName}</p>
+                        {row.variantId && (
+                          <p className="mt-0.5 text-xs font-semibold text-primary">
+                            {[row.colorName, row.sizeName].filter(Boolean).join(' / ') || row.variantSku || row.variantId}
+                          </p>
+                        )}
                         {row.barcode && (
                           <p className="mt-0.5 text-xs font-mono text-on-surface-variant/50">{row.barcode}</p>
                         )}

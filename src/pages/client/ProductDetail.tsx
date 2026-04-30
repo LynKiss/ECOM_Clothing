@@ -1,4 +1,4 @@
-﻿import { useEffect, useState, type FormEvent } from 'react';
+﻿import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
   Shirt,
@@ -16,8 +16,20 @@ import {
   LoaderCircle,
   ThumbsUp,
   ThumbsDown,
+  Camera,
+  Upload,
+  X,
+  Sparkles,
+  AlertCircle,
+  RotateCcw,
 } from 'lucide-react';
 import { clientApi } from '../../lib/client-api';
+import {
+  createVirtualTryOnSession,
+  getVirtualTryOnErrorMessage,
+  getVirtualTryOnWarningLabel,
+  type VirtualTryOnResult,
+} from '../../lib/virtual-try-on';
 import { useCart } from '../../hooks/useCart';
 import { useClientSession } from '../../hooks/useClientSession';
 
@@ -51,6 +63,7 @@ type Product = {
   isShow: boolean;
   ratingAverage: string;
   ratingCount: number;
+  primaryImageUrl?: string | null;
   images: ProductImage[];
   category: { categoryId: string; categoryName: string; categorySlug: string } | null;
   subcategory: { subcategoryId: string; subcategoryName: string } | null;
@@ -121,6 +134,27 @@ function findSelectedVariant(product: Product | null, colorId: string | null, si
   );
 }
 
+function formatFileSize(bytes: number) {
+  if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+  return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+}
+
+function validateTryOnImage(file: File) {
+  const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+  if (!allowedTypes.includes(file.type)) {
+    return 'Chỉ hỗ trợ ảnh JPG, PNG hoặc WEBP';
+  }
+  if (file.size > 8 * 1024 * 1024) {
+    return 'Ảnh không được vượt quá 8MB';
+  }
+  return null;
+}
+
+function isUsableImageUrl(value?: string | null) {
+  if (!value) return false;
+  return !/\/\/example\.com\//i.test(value);
+}
+
 function StarRating({ value, onChange }: { value: number; onChange?: (v: number) => void }) {
   const [hover, setHover] = useState(0);
   return (
@@ -162,6 +196,13 @@ export default function ProductDetail() {
   const [addedMsg, setAddedMsg] = useState(false);
   const [selectedColorId, setSelectedColorId] = useState<string | null>(null);
   const [selectedSizeId, setSelectedSizeId] = useState<string | null>(null);
+  const tryOnInputRef = useRef<HTMLInputElement | null>(null);
+  const [tryOnOpen, setTryOnOpen] = useState(false);
+  const [tryOnFile, setTryOnFile] = useState<File | null>(null);
+  const [tryOnPreviewUrl, setTryOnPreviewUrl] = useState<string | null>(null);
+  const [tryOnLoading, setTryOnLoading] = useState(false);
+  const [tryOnError, setTryOnError] = useState<string | null>(null);
+  const [tryOnResult, setTryOnResult] = useState<VirtualTryOnResult | null>(null);
 
   // Reviews
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -220,6 +261,12 @@ export default function ProductDetail() {
     setSelectedImage(0);
     setQuantity(1);
   }, [product?.productId]);
+
+  useEffect(() => {
+    return () => {
+      if (tryOnPreviewUrl) URL.revokeObjectURL(tryOnPreviewUrl);
+    };
+  }, [tryOnPreviewUrl]);
 
   // Check wishlist status
   useEffect(() => {
@@ -301,6 +348,64 @@ export default function ProductDetail() {
     } catch {}
   };
 
+  const handleTryOnFileChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] ?? null;
+    event.target.value = '';
+    if (!file) return;
+
+    const validationError = validateTryOnImage(file);
+    if (validationError) {
+      setTryOnError(validationError);
+      setTryOnFile(null);
+      setTryOnPreviewUrl(null);
+      return;
+    }
+
+    setTryOnFile(file);
+    setTryOnPreviewUrl(URL.createObjectURL(file));
+    setTryOnResult(null);
+    setTryOnError(null);
+  };
+
+  const resetTryOn = () => {
+    setTryOnFile(null);
+    setTryOnPreviewUrl(null);
+    setTryOnResult(null);
+    setTryOnError(null);
+  };
+
+  const handleCreateTryOn = async () => {
+    if (!product || !id) return;
+    if (!currentImage) {
+      setTryOnError('Sản phẩm chưa có ảnh để thử đồ');
+      return;
+    }
+    if (!tryOnFile) {
+      setTryOnError('Vui lòng chọn ảnh của bạn');
+      return;
+    }
+
+    setTryOnLoading(true);
+    setTryOnError(null);
+    try {
+      const result = await createVirtualTryOnSession({
+        productId: id,
+        variantId: selectedVariant?.variantId,
+        personImage: tryOnFile,
+        posePreference: 'auto',
+      });
+      setTryOnResult(result);
+    } catch (err) {
+      setTryOnError(
+        err instanceof Error
+          ? getVirtualTryOnErrorMessage(err.message)
+          : 'Không thể tạo ảnh thử đồ',
+      );
+    } finally {
+      setTryOnLoading(false);
+    }
+  };
+
   const handleSubmitReview = async (e: FormEvent) => {
     e.preventDefault();
     if (!eligibleOrderItemId || !id) return;
@@ -372,19 +477,37 @@ export default function ProductDetail() {
   const selectedVariant = findSelectedVariant(product, selectedColorId, selectedSizeId);
   const selectedStock = hasVariants ? selectedVariant?.stockQuantity ?? 0 : product.quantityAvailable;
   const variantImages: ProductImage[] =
-    selectedVariant?.images?.map((image) => ({
-      imageId: image.imageId,
-      imageUrl: image.imageUrl,
-      isPrimary: false,
-      sortOrder: image.sortOrder,
-    })) ?? [];
+    selectedVariant?.images
+      ?.filter((image) => isUsableImageUrl(image.imageUrl))
+      .map((image) => ({
+        imageId: image.imageId,
+        imageUrl: image.imageUrl,
+        isPrimary: false,
+        sortOrder: image.sortOrder,
+      })) ?? [];
   const productImages = [...(product.images ?? [])].sort((a, b) => {
     if (a.isPrimary) return -1;
     if (b.isPrimary) return 1;
     return a.sortOrder - b.sortOrder;
-  });
+  }).filter((image) => isUsableImageUrl(image.imageUrl));
+  const fallbackImages: ProductImage[] =
+    productImages.length > 0
+      ? productImages
+      : isUsableImageUrl(product.primaryImageUrl)
+        ? [
+            {
+              imageId: 'primary-image',
+              imageUrl: product.primaryImageUrl!,
+              isPrimary: true,
+              sortOrder: 0,
+            },
+          ]
+        : [];
   const sortedImages = variantImages.length > 0 ? variantImages : productImages;
-  const currentImage = sortedImages[selectedImage]?.imageUrl;
+  const visibleImages = sortedImages.length > 0 ? sortedImages : fallbackImages;
+  const currentImage = visibleImages[selectedImage]?.imageUrl ?? visibleImages[0]?.imageUrl;
+  const tryOnOutputImage = tryOnResult?.resultImageUrl ?? tryOnResult?.resultImageDataUrl ?? null;
+  const canTryOn = Boolean(currentImage);
   const displayPrice = Number(selectedVariant?.salePrice ?? selectedVariant?.price ?? product.effectivePrice);
   const originalPrice = Number(selectedVariant?.price ?? product.basePrice);
   const hasDiscount = displayPrice < originalPrice;
@@ -432,9 +555,9 @@ export default function ProductDetail() {
                 </div>
               )}
             </div>
-            {sortedImages.length > 1 && (
+            {visibleImages.length > 1 && (
               <div className="mt-3 flex gap-2 overflow-x-auto">
-                {sortedImages.map((img, idx) => (
+                {visibleImages.map((img, idx) => (
                   <button
                     key={img.imageId}
                     onClick={() => setSelectedImage(idx)}
@@ -528,7 +651,7 @@ export default function ProductDetail() {
                 {(product.colorOptions?.length ?? 0) > 0 && (
                   <div>
                     <p className="mb-2 text-sm font-semibold text-[#0B0F19]">
-                      Mau sac: <span className="font-normal text-gray-500">{selectedVariant?.color?.colorName ?? 'Chon mau'}</span>
+                      Màu sắc: <span className="font-normal text-gray-500">{selectedVariant?.color?.colorName ?? 'Chọn màu'}</span>
                     </p>
                     <div className="flex flex-wrap gap-2">
                       {product.colorOptions?.map((color) => {
@@ -563,7 +686,7 @@ export default function ProductDetail() {
                 {(product.sizeOptions?.length ?? 0) > 0 && (
                   <div>
                     <p className="mb-2 text-sm font-semibold text-[#0B0F19]">
-                      Kich thuoc: <span className="font-normal text-gray-500">{selectedVariant?.size?.sizeName ?? 'Chon size'}</span>
+                      Kích thước: <span className="font-normal text-gray-500">{selectedVariant?.size?.sizeName ?? 'Chọn size'}</span>
                     </p>
                     <div className="flex flex-wrap gap-2">
                       {product.sizeOptions?.map((size) => {
@@ -597,6 +720,34 @@ export default function ProductDetail() {
                 ))}
               </div>
             )}
+
+            <div className="mt-5 flex flex-col gap-3 rounded-xl border border-[#DBEAFE] bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-3">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#DBEAFE] text-[#2563EB]">
+                  <Camera size={20} />
+                </div>
+                <div>
+                  <p className="text-sm font-black text-[#0B0F19]">Virtual Try-on</p>
+                  <p className="text-xs text-gray-500">
+                    {selectedVariant?.color?.colorName || selectedVariant?.size?.sizeCode
+                      ? [selectedVariant?.color?.colorName, selectedVariant?.size?.sizeCode ?? selectedVariant?.size?.sizeName].filter(Boolean).join(' / ')
+                      : product.productName}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setTryOnOpen(true);
+                  setTryOnError(canTryOn ? null : 'Sản phẩm chưa có ảnh để thử đồ');
+                }}
+                disabled={!canTryOn}
+                className="client-pill-primary inline-flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-black disabled:opacity-45"
+              >
+                <Sparkles size={16} />
+                Thử đồ bằng ảnh
+              </button>
+            </div>
 
             {/* Quantity */}
             <div className="mt-6">
@@ -962,6 +1113,173 @@ export default function ProductDetail() {
           </div>
         )}
       </div>
+
+      {tryOnOpen && (
+        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/55 px-4 py-6">
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="max-h-[92vh] w-full max-w-5xl overflow-y-auto rounded-xl bg-white shadow-2xl"
+          >
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-black/10 bg-white px-5 py-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#DBEAFE] text-[#2563EB]">
+                  <Camera size={19} />
+                </div>
+                <div>
+                  <p className="text-base font-black text-[#0B0F19]">Virtual Try-on</p>
+                  <p className="line-clamp-1 text-xs text-gray-500">{product.productName}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setTryOnOpen(false)}
+                className="flex h-9 w-9 items-center justify-center rounded-full text-gray-500 transition hover:bg-black/5 hover:text-black"
+                aria-label="Dong thu do"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="grid gap-5 p-5 lg:grid-cols-[0.95fr_1.05fr]">
+              <div className="space-y-4">
+                <div>
+                  <div className="mb-2 flex items-center justify-between">
+                    <p className="text-sm font-black text-[#0B0F19]">Ảnh của bạn</p>
+                    {tryOnFile && <span className="text-xs text-gray-400">{formatFileSize(tryOnFile.size)}</span>}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => tryOnInputRef.current?.click()}
+                    className="flex aspect-[3/4] w-full items-center justify-center overflow-hidden rounded-xl border border-dashed border-[#2563EB]/40 bg-[#F8FAFC] text-[#2563EB] transition hover:border-[#2563EB]"
+                  >
+                    {tryOnPreviewUrl ? (
+                      <img src={tryOnPreviewUrl} alt="Ảnh người mặc" className="h-full w-full object-contain" />
+                    ) : (
+                      <span className="flex flex-col items-center gap-3 text-sm font-black">
+                        <Upload size={28} />
+                        Chọn ảnh
+                      </span>
+                    )}
+                  </button>
+                  <input
+                    ref={tryOnInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="hidden"
+                    onChange={handleTryOnFileChange}
+                  />
+                  {tryOnFile && (
+                    <p className="mt-2 truncate text-xs text-gray-500">{tryOnFile.name}</p>
+                  )}
+                </div>
+
+                <div className="rounded-xl border border-black/10 p-3">
+                  <div className="mb-2 flex items-center justify-between">
+                    <p className="text-sm font-black text-[#0B0F19]">Sản phẩm</p>
+                    <span className="text-xs font-semibold text-gray-500">
+                      {selectedVariant?.sku ?? product.unit ?? 'Fashion Ledger'}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-[96px_1fr] gap-3">
+                    <div className="flex aspect-square items-center justify-center overflow-hidden rounded-xl bg-[#F8FAFC]">
+                      {currentImage ? (
+                        <img src={currentImage} alt={product.productName} className="h-full w-full object-contain" />
+                      ) : (
+                        <Shirt size={28} className="text-[#2563EB]/25" />
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="line-clamp-2 text-sm font-bold text-[#0B0F19]">{product.productName}</p>
+                      <p className="mt-1 text-xs text-gray-500">
+                        {[selectedVariant?.color?.colorName, selectedVariant?.size?.sizeCode ?? selectedVariant?.size?.sizeName]
+                          .filter(Boolean)
+                          .join(' / ') || 'Mẫu mặc định'}
+                      </p>
+                      <p className="mt-2 text-sm font-black text-[#2563EB]">{formatPrice(displayPrice)}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <div className="mb-2 flex items-center justify-between">
+                    <p className="text-sm font-black text-[#0B0F19]">Kết quả</p>
+                    {tryOnResult?.confidence !== null && tryOnResult?.confidence !== undefined && (
+                      <span className="rounded-full bg-[#DBEAFE] px-2.5 py-1 text-xs font-black text-[#2563EB]">
+                        {Math.round(tryOnResult.confidence * 100)}%
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex aspect-[3/4] w-full items-center justify-center overflow-hidden rounded-xl bg-[#0B0F19]">
+                    {tryOnOutputImage ? (
+                      <img src={tryOnOutputImage} alt="Ket qua thu do" className="h-full w-full object-contain" />
+                    ) : tryOnLoading ? (
+                      <div className="flex flex-col items-center gap-3 text-white">
+                        <LoaderCircle size={32} className="animate-spin" />
+                        <span className="text-sm font-semibold">Đang tạo ảnh</span>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center gap-3 text-white/65">
+                        <Sparkles size={34} />
+                        <span className="text-sm font-semibold">Chưa có kết quả</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {tryOnError && (
+                  <div className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                    <AlertCircle size={16} className="mt-0.5 shrink-0" />
+                    <span>{tryOnError}</span>
+                  </div>
+                )}
+
+                {tryOnResult && (
+                  <div className="rounded-xl border border-black/10 p-4">
+                    <p className="text-sm font-black text-[#0B0F19]">{tryOnResult.advisory.headline}</p>
+                    <p className="mt-2 text-xs leading-5 text-gray-500">{tryOnResult.advisory.disclaimer}</p>
+                    {tryOnResult.warnings.length > 0 && (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {tryOnResult.warnings.map((warning) => (
+                          <span
+                            key={warning}
+                            className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700"
+                          >
+                            {getVirtualTryOnWarningLabel(warning)}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="sticky bottom-0 flex flex-col gap-3 border-t border-black/10 bg-white px-5 py-4 sm:flex-row sm:items-center sm:justify-end">
+              <button
+                type="button"
+                onClick={resetTryOn}
+                disabled={tryOnLoading || (!tryOnFile && !tryOnResult && !tryOnError)}
+                className="client-pill-outline inline-flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-black disabled:opacity-45"
+              >
+                <RotateCcw size={15} />
+                Làm lại
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleCreateTryOn()}
+                disabled={tryOnLoading || !tryOnFile || !canTryOn}
+                className="client-pill-primary inline-flex items-center justify-center gap-2 px-6 py-2.5 text-sm font-black disabled:opacity-45"
+              >
+                {tryOnLoading ? <LoaderCircle size={16} className="animate-spin" /> : <Sparkles size={16} />}
+                {tryOnLoading ? 'Đang tạo...' : 'Tạo thử đồ'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

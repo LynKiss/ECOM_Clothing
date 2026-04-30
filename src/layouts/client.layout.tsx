@@ -17,6 +17,8 @@ import {
   Youtube,
   Heart,
   Bell,
+  Camera,
+  Sparkles,
 } from 'lucide-react';
 import { useClientSession } from '../hooks/useClientSession';
 import { useCart } from '../hooks/useCart';
@@ -51,11 +53,11 @@ type CategoryTreeNode = {
 };
 
 const FALLBACK_CATEGORY_TREE: CategoryTreeNode[] = [
-  { categoryId: 'new', categoryName: 'NEW', categorySlug: 'new', children: [{ categoryId: 'new-1', categoryName: 'San pham moi', categorySlug: 'san-pham-moi' }, { categoryId: 'new-2', categoryName: 'Ban chay nhat', categorySlug: 'ban-chay' }] },
-  { categoryId: 'nam', categoryName: 'NAM', categorySlug: 'nam', children: [{ categoryId: 'nam-ao', categoryName: 'Ao nam', categorySlug: 'ao-nam' }, { categoryId: 'nam-quan', categoryName: 'Quan nam', categorySlug: 'quan-nam' }, { categoryId: 'nam-sport', categoryName: 'Do the thao', categorySlug: 'do-the-thao' }] },
-  { categoryId: 'nu', categoryName: 'NU', categorySlug: 'nu', children: [{ categoryId: 'nu-ao', categoryName: 'Ao nu', categorySlug: 'ao-nu' }, { categoryId: 'nu-vay', categoryName: 'Dam va chan vay', categorySlug: 'dam-vay' }, { categoryId: 'nu-sport', categoryName: 'Do the thao nu', categorySlug: 'do-the-thao-nu' }] },
-  { categoryId: 'the-thao', categoryName: 'THE THAO', categorySlug: 'the-thao', children: [{ categoryId: 'running', categoryName: 'Running', categorySlug: 'running' }, { categoryId: 'training', categoryName: 'Training', categorySlug: 'training' }, { categoryId: 'pickleball', categoryName: 'Pickleball', categorySlug: 'pickleball' }] },
-  { categoryId: 'phu-kien', categoryName: 'PHU KIEN', categorySlug: 'phu-kien', children: [{ categoryId: 'tat', categoryName: 'Tat', categorySlug: 'tat' }, { categoryId: 'mu', categoryName: 'Mu', categorySlug: 'mu' }, { categoryId: 'tui', categoryName: 'Tui', categorySlug: 'tui' }] },
+  { categoryId: 'new', categoryName: 'MỚI', categorySlug: 'new', children: [{ categoryId: 'new-1', categoryName: 'Sản phẩm mới', categorySlug: 'san-pham-moi' }, { categoryId: 'new-2', categoryName: 'Bán chạy nhất', categorySlug: 'ban-chay' }] },
+  { categoryId: 'nam', categoryName: 'NAM', categorySlug: 'nam', children: [{ categoryId: 'nam-ao', categoryName: 'Áo nam', categorySlug: 'ao-nam' }, { categoryId: 'nam-quan', categoryName: 'Quần nam', categorySlug: 'quan-nam' }, { categoryId: 'nam-sport', categoryName: 'Đồ thể thao', categorySlug: 'do-the-thao' }] },
+  { categoryId: 'nu', categoryName: 'NỮ', categorySlug: 'nu', children: [{ categoryId: 'nu-ao', categoryName: 'Áo nữ', categorySlug: 'ao-nu' }, { categoryId: 'nu-vay', categoryName: 'Đầm và chân váy', categorySlug: 'dam-vay' }, { categoryId: 'nu-sport', categoryName: 'Đồ thể thao nữ', categorySlug: 'do-the-thao-nu' }] },
+  { categoryId: 'the-thao', categoryName: 'THỂ THAO', categorySlug: 'the-thao', children: [{ categoryId: 'running', categoryName: 'Running', categorySlug: 'running' }, { categoryId: 'training', categoryName: 'Training', categorySlug: 'training' }, { categoryId: 'pickleball', categoryName: 'Pickleball', categorySlug: 'pickleball' }] },
+  { categoryId: 'phu-kien', categoryName: 'PHỤ KIỆN', categorySlug: 'phu-kien', children: [{ categoryId: 'tat', categoryName: 'Tất', categorySlug: 'tat' }, { categoryId: 'mu', categoryName: 'Mũ', categorySlug: 'mu' }, { categoryId: 'tui', categoryName: 'Túi', categorySlug: 'tui' }] },
 ];
 
 function categoryHref(category: CategoryTreeNode) {
@@ -292,22 +294,22 @@ export default function ClientLayout() {
                 <div className="grid grid-cols-5 gap-8">
                   <div>
                     <Link to="/client/products" className="mb-5 flex items-center justify-between text-base font-black uppercase text-black">
-                      Tat ca san pham <span className="text-[#2538d5]">-&gt;</span>
+                      Tất cả sản phẩm <span className="text-[#2538d5]">→</span>
                     </Link>
                     <div className="space-y-4 text-sm font-bold">
-                      <Link to="/client/products?sortBy=created_at&sortOrder=DESC" className="block text-[#2538d5]">San pham moi</Link>
-                      <Link to="/client/products?sort=popular" className="block text-black">Ban chay nhat</Link>
-                      <Link to="/client/products" className="block text-gray-500">Kham pha bo suu tap</Link>
-                      <Link to="/client/products?onSale=1" className="block text-gray-500">Uu dai</Link>
+                      <Link to="/client/products?sortBy=created_at&sortOrder=DESC" className="block text-[#2538d5]">Sản phẩm mới</Link>
+                      <Link to="/client/products?sort=popular" className="block text-black">Bán chạy nhất</Link>
+                      <Link to="/client/products" className="block text-gray-500">Khám phá bộ sưu tập</Link>
+                      <Link to="/client/products?onSale=1" className="block text-gray-500">Ưu đãi</Link>
                     </div>
                   </div>
                   {[activeMega, ...navCategories.filter((item) => item.categoryId !== activeMega.categoryId)].slice(0, 4).map((category) => (
                     <div key={category.categoryId}>
                       <Link to={categoryHref(category)} className="mb-5 flex items-center justify-between text-base font-black uppercase text-black">
-                        {category.categoryName} <span className="text-[#2538d5]">-&gt;</span>
+                        {category.categoryName} <span className="text-[#2538d5]">→</span>
                       </Link>
                       <div className="space-y-4 text-sm font-semibold text-gray-600">
-                        <Link to={categoryHref(category)} className="block">Tat ca</Link>
+                        <Link to={categoryHref(category)} className="block">Tất cả</Link>
                         {(category.children ?? []).slice(0, 9).map((child) => (
                           <Link key={child.categoryId} to={categoryHref(child)} className="block hover:text-black">{child.categoryName}</Link>
                         ))}
@@ -320,13 +322,13 @@ export default function ClientLayout() {
                     <ShoppingCart className="absolute right-5 top-5 opacity-40" size={58} />
                     <p className="relative text-sm font-black uppercase">Fashion sale</p>
                     <p className="relative mt-7 text-2xl font-black">-50%</p>
-                    <p className="relative text-sm font-bold">San pham chon loc</p>
+                    <p className="relative text-sm font-bold">Sản phẩm chọn lọc</p>
                   </Link>
                   <Link to="/client/style-advisor" className="relative block h-36 overflow-hidden rounded-xl bg-black p-5 text-white">
                     <Shirt className="absolute right-5 top-5 opacity-30" size={62} />
                     <p className="relative text-sm font-black uppercase">AI Style</p>
-                    <p className="relative mt-7 text-xl font-black">Chon size nhanh</p>
-                    <p className="relative text-sm font-bold text-white/70">Goi y theo nhu cau</p>
+                    <p className="relative mt-7 text-xl font-black">Chọn size nhanh</p>
+                    <p className="relative text-sm font-bold text-white/70">Gợi ý theo nhu cầu</p>
                   </Link>
                 </div>
               </div>
@@ -346,7 +348,7 @@ export default function ClientLayout() {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
-                  placeholder="Tim kiem..."
+                  placeholder="Tìm kiếm..."
                   className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-gray-400"
                 />
                 {searchQuery ? (
@@ -354,12 +356,12 @@ export default function ClientLayout() {
                     type="button"
                     onClick={() => { setShowSuggestions(false); setSearchQuery(''); }}
                     className="mr-2 text-gray-400 hover:text-black"
-                    aria-label="Xoa tim kiem"
+                    aria-label="Xóa tìm kiếm"
                   >
                     <X size={15} />
                   </button>
                 ) : null}
-                <button type="submit" className="text-gray-600 hover:text-black" aria-label="Tim kiem">
+                <button type="submit" className="text-gray-600 hover:text-black" aria-label="Tìm kiếm">
                   <Search size={22} />
                 </button>
               </form>
@@ -399,7 +401,7 @@ export default function ClientLayout() {
                     }}
                     className="flex w-full items-center justify-center gap-1.5 border-t border-black/5 py-3 text-xs font-black text-[#2538d5] hover:bg-gray-50"
                   >
-                    <Search size={12} /> Xem tat ca ket qua
+                    <Search size={12} /> Xem tất cả kết quả
                   </button>
                 </div>
               )}
@@ -578,7 +580,7 @@ export default function ClientLayout() {
               <input
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Tim kiem..."
+                placeholder="Tìm kiếm..."
                 className="min-w-0 flex-1 bg-transparent text-sm outline-none"
               />
               <button type="submit" className="text-black"><Search size={19} /></button>
@@ -606,12 +608,12 @@ export default function ClientLayout() {
                 onClick={() => setMobileOpen(false)}
                 className="rounded-xl border border-[#2538d5]/20 bg-[#eef2ff] px-4 py-3 text-sm font-black text-[#2538d5]"
               >
-                AI Tu van phoi do
+                AI Tư vấn phối đồ
               </Link>
               {!session ? (
                 <div className="mt-3 flex gap-2 border-t border-black/5 pt-3">
-                  <Link to="/client/login" onClick={() => setMobileOpen(false)} className="flex-1 rounded-full bg-black py-3 text-center text-sm font-black text-white">Dang nhap</Link>
-                  <Link to="/client/register" onClick={() => setMobileOpen(false)} className="flex-1 rounded-full border border-black py-3 text-center text-sm font-black text-black">Dang ky</Link>
+                  <Link to="/client/login" onClick={() => setMobileOpen(false)} className="flex-1 rounded-full bg-black py-3 text-center text-sm font-black text-white">Đăng nhập</Link>
+                  <Link to="/client/register" onClick={() => setMobileOpen(false)} className="flex-1 rounded-full border border-black py-3 text-center text-sm font-black text-black">Đăng ký</Link>
                 </div>
               ) : null}
             </nav>
@@ -706,6 +708,16 @@ export default function ClientLayout() {
         </div>
       </footer>
       {/* Chatbox */}
+      <Link
+        to="/client/virtual-try-on"
+        className="group fixed bottom-[10.5rem] right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-[#2563EB] text-white shadow-[0_0_6px_rgba(0,0,0,0.24),0_8px_12px_rgba(0,0,0,0.14)] transition-all hover:scale-105 active:scale-95"
+        aria-label="Thu do bang anh"
+        title="Thử đồ bằng ảnh"
+      >
+        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#2563EB] opacity-35" />
+        <Camera size={23} className="relative" />
+        <Sparkles size={13} className="absolute right-3 top-3 text-white" />
+      </Link>
       <Suspense fallback={null}>
         <VoucherWalletModal />
         <Chatbox />

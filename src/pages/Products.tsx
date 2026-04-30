@@ -84,6 +84,7 @@ type Product = {
   barcode?: string | null;
   boxBarcode?: string | null;
   quantityPerBox?: number | null;
+  variants?: ProductVariant[];
 };
 
 type ProductResponse = {
@@ -647,11 +648,11 @@ export default function Products() {
   async function saveVariant() {
     if (!variantProduct) return;
     if (!variantForm.colorId && !variantForm.newColorName.trim() && !variantForm.sizeId && !variantForm.newSizeName.trim() && !variantForm.newSizeCode.trim()) {
-      showToast({ tone: 'error', title: isVi ? 'C?n ch?n m?u ho?c size' : 'Select a color or size' });
+      showToast({ tone: 'error', title: isVi ? 'Cần chọn màu hoặc size' : 'Select a color or size' });
       return;
     }
     if (variantForm.salePrice.trim() && variantForm.price.trim() && Number(variantForm.salePrice) > Number(variantForm.price)) {
-      showToast({ tone: 'error', title: isVi ? 'Gi? KM bi?n th? kh?ng h?p l?' : 'Invalid variant sale price' });
+      showToast({ tone: 'error', title: isVi ? 'Giá KM biến thể không hợp lệ' : 'Invalid variant sale price' });
       return;
     }
 
@@ -684,11 +685,11 @@ export default function Products() {
       await loadVariantCatalogsAndRows(variantProduct.productId);
       resetVariantForm();
       setReloadKey((v) => v + 1);
-      showToast({ tone: 'success', title: isVi ? '?? l?u bi?n th?' : 'Variant saved' });
+      showToast({ tone: 'success', title: isVi ? 'Đã lưu biến thể' : 'Variant saved' });
     } catch (e) {
       showToast({
         tone: 'error',
-        title: isVi ? 'L?u bi?n th? th?t b?i' : 'Unable to save variant',
+        title: isVi ? 'Lưu biến thể thất bại' : 'Unable to save variant',
         description: e instanceof Error ? e.message : undefined,
       });
     } finally {
@@ -722,6 +723,12 @@ export default function Products() {
   const visibleSubcategories = subcategories.filter(
     (s) => !formState.categoryId || s.categoryId === formState.categoryId,
   );
+
+  function getAllocatedVariantStock(product: Product) {
+    return (product.variants ?? [])
+      .filter((variant) => variant.isActive)
+      .reduce((sum, variant) => sum + Number(variant.stockQuantity ?? 0), 0);
+  }
 
   return (
     <div className="space-y-5 pb-10">
@@ -892,6 +899,14 @@ export default function Products() {
                     </td>
                     <td className="px-4 py-4 text-on-surface">
                       <div className="font-semibold">{product.quantityAvailable}</div>
+                      {(product.variants ?? []).length > 0 ? (
+                        <div className="text-[10px] font-medium text-on-surface-variant">
+                          {isVi ? 'Theo biến thể' : 'Variant stock'}: {getAllocatedVariantStock(product)}
+                          {product.quantityAvailable - getAllocatedVariantStock(product) !== 0
+                            ? ` · ${isVi ? 'Chưa phân bổ' : 'Unallocated'}: ${product.quantityAvailable - getAllocatedVariantStock(product)}`
+                            : ''}
+                        </div>
+                      ) : null}
                       {product.quantityReserved && product.quantityReserved > 0 ? (
                         <div className="text-[10px] font-medium text-amber-600">
                           {isVi ? 'Đang giữ' : 'Reserved'}: {product.quantityReserved}
@@ -916,7 +931,7 @@ export default function Products() {
                         <button
                           type="button"
                           onClick={() => openEditModal(product)}
-                          title={isVi ? 'S?a s?n ph?m' : 'Edit product'}
+                          title={isVi ? 'Sửa sản phẩm' : 'Edit product'}
                           className="rounded-xl p-2 text-on-surface-variant transition hover:bg-primary/5 hover:text-primary"
                         >
                           <Edit2 size={16} />
@@ -924,7 +939,7 @@ export default function Products() {
                         <button
                           type="button"
                           onClick={() => openVariantModal(product)}
-                          title={isVi ? 'M?u, size, ?nh bi?n th?' : 'Colors, sizes, variant images'}
+                          title={isVi ? 'Màu, size, ảnh biến thể' : 'Colors, sizes, variant images'}
                           className="rounded-xl p-2 text-on-surface-variant transition hover:bg-primary/5 hover:text-primary"
                         >
                           <Palette size={16} />
@@ -973,14 +988,14 @@ export default function Products() {
 
       <Modal
         open={variantModalOpen}
-        title={isVi ? 'Qu?n l? bi?n th?' : 'Manage variants'}
+        title={isVi ? 'Quản lý biến thể' : 'Manage variants'}
         description={variantProduct ? variantProduct.productName : undefined}
         onClose={closeVariantModal}
         size="xl"
         footer={
           <div className="flex flex-wrap justify-end gap-3">
             <button type="button" onClick={resetVariantForm} className="rounded-2xl border border-on-surface/10 px-5 py-2.5 text-sm font-bold">
-              {isVi ? 'L?m m?i form' : 'Reset form'}
+              {isVi ? 'Làm mới form' : 'Reset form'}
             </button>
             <button
               type="button"
@@ -989,7 +1004,7 @@ export default function Products() {
               className="inline-flex items-center gap-2 rounded-2xl bg-primary px-5 py-2.5 text-sm font-black text-white disabled:opacity-60"
             >
               {variantSaving ? <LoaderCircle size={16} className="animate-spin" /> : <Save size={16} />}
-              {variantEditingId ? (isVi ? 'C?p nh?t bi?n th?' : 'Update variant') : (isVi ? 'Th?m bi?n th?' : 'Add variant')}
+              {variantEditingId ? (isVi ? 'Cập nhật biến thể' : 'Update variant') : (isVi ? 'Thêm biến thể' : 'Add variant')}
             </button>
           </div>
         }
@@ -997,29 +1012,29 @@ export default function Products() {
         {variantLoading ? (
           <div className="flex items-center justify-center py-12 text-sm font-bold text-on-surface-variant">
             <LoaderCircle size={18} className="mr-2 animate-spin" />
-            {isVi ? '?ang t?i bi?n th?...' : 'Loading variants...'}
+            {isVi ? 'Đang tải biến thể...' : 'Loading variants...'}
           </div>
         ) : (
           <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
             <section className="rounded-2xl border border-on-surface/8 bg-surface p-4">
               <p className="mb-4 text-[11px] font-black uppercase tracking-[0.2em] text-on-surface-variant/60">
-                {variantEditingId ? (isVi ? 'S?a bi?n th?' : 'Edit variant') : (isVi ? 'Bi?n th? m?i' : 'New variant')}
+                {variantEditingId ? (isVi ? 'Sửa biến thể' : 'Edit variant') : (isVi ? 'Biến thể mới' : 'New variant')}
               </p>
               <div className="space-y-4">
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <Field label={isVi ? 'M?u c? s?n' : 'Existing color'}>
+                  <Field label={isVi ? 'Màu có sẵn' : 'Existing color'}>
                     <select
                       value={variantForm.colorId}
                       onChange={(e) => setVariantForm((p) => ({ ...p, colorId: e.target.value }))}
                       className="input-base"
                     >
-                      <option value="">{isVi ? 'Kh?ng ch?n / t?o m?i' : 'None / create new'}</option>
+                      <option value="">{isVi ? 'Không chọn / tạo mới' : 'None / create new'}</option>
                       {colors.map((color) => (
                         <option key={color.colorId} value={color.colorId}>{color.colorName}</option>
                       ))}
                     </select>
                   </Field>
-                  <Field label={isVi ? 'M? m?u m?i' : 'New color code'}>
+                  <Field label={isVi ? 'Mã màu mới' : 'New color code'}>
                     <input
                       type="color"
                       value={variantForm.newColorCode || '#2563eb'}
@@ -1028,29 +1043,29 @@ export default function Products() {
                     />
                   </Field>
                 </div>
-                <Field label={isVi ? 'T?n m?u m?i' : 'New color name'}>
+                <Field label={isVi ? 'Tên màu mới' : 'New color name'}>
                   <input
                     value={variantForm.newColorName}
                     onChange={(e) => setVariantForm((p) => ({ ...p, newColorName: e.target.value }))}
-                    placeholder={isVi ? 'V? d?: Xanh navy' : 'Example: Navy blue'}
+                    placeholder={isVi ? 'Ví dụ: Xanh navy' : 'Example: Navy blue'}
                     className="input-base"
                   />
                 </Field>
 
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <Field label={isVi ? 'Size c? s?n' : 'Existing size'}>
+                  <Field label={isVi ? 'Size có sẵn' : 'Existing size'}>
                     <select
                       value={variantForm.sizeId}
                       onChange={(e) => setVariantForm((p) => ({ ...p, sizeId: e.target.value }))}
                       className="input-base"
                     >
-                      <option value="">{isVi ? 'Kh?ng ch?n / t?o m?i' : 'None / create new'}</option>
+                      <option value="">{isVi ? 'Không chọn / tạo mới' : 'None / create new'}</option>
                       {sizes.map((size) => (
                         <option key={size.sizeId} value={size.sizeId}>{size.sizeName}</option>
                       ))}
                     </select>
                   </Field>
-                  <Field label={isVi ? 'M? size m?i' : 'New size code'}>
+                  <Field label={isVi ? 'Mã size mới' : 'New size code'}>
                     <input
                       value={variantForm.newSizeCode}
                       onChange={(e) => setVariantForm((p) => ({ ...p, newSizeCode: e.target.value }))}
@@ -1059,11 +1074,11 @@ export default function Products() {
                     />
                   </Field>
                 </div>
-                <Field label={isVi ? 'T?n size m?i' : 'New size name'}>
+                <Field label={isVi ? 'Tên size mới' : 'New size name'}>
                   <input
                     value={variantForm.newSizeName}
                     onChange={(e) => setVariantForm((p) => ({ ...p, newSizeName: e.target.value }))}
-                    placeholder={isVi ? 'V? d?: Size L' : 'Example: Size L'}
+                    placeholder={isVi ? 'Ví dụ: Size L' : 'Example: Size L'}
                     className="input-base"
                   />
                 </Field>
@@ -1078,29 +1093,29 @@ export default function Products() {
                 </div>
 
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <Field label={isVi ? 'Gi? ri?ng' : 'Variant price'}>
+                  <Field label={isVi ? 'Giá riêng' : 'Variant price'}>
                     <input type="number" value={variantForm.price} onChange={(e) => setVariantForm((p) => ({ ...p, price: e.target.value }))} className="input-base" />
                   </Field>
-                  <Field label={isVi ? 'Gi? KM ri?ng' : 'Variant sale price'}>
+                  <Field label={isVi ? 'Giá KM riêng' : 'Variant sale price'}>
                     <input type="number" value={variantForm.salePrice} onChange={(e) => setVariantForm((p) => ({ ...p, salePrice: e.target.value }))} className="input-base" />
                   </Field>
                 </div>
 
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <Field label={isVi ? 'T?n kho' : 'Stock'}>
+                  <Field label={isVi ? 'Tồn kho' : 'Stock'}>
                     <input type="number" min={0} value={variantForm.stockQuantity} onChange={(e) => setVariantForm((p) => ({ ...p, stockQuantity: e.target.value }))} className="input-base" />
                   </Field>
-                  <Field label={isVi ? 'Kh?i l??ng gram' : 'Weight grams'}>
+                  <Field label={isVi ? 'Khối lượng gram' : 'Weight grams'}>
                     <input type="number" min={0} value={variantForm.weightGrams} onChange={(e) => setVariantForm((p) => ({ ...p, weightGrams: e.target.value }))} className="input-base" />
                   </Field>
                 </div>
 
                 <label className="flex cursor-pointer items-center gap-3 rounded-2xl bg-white px-4 py-3 text-sm font-bold text-on-surface">
                   <input type="checkbox" checked={variantForm.isActive} onChange={(e) => setVariantForm((p) => ({ ...p, isActive: e.target.checked }))} className="h-4 w-4 accent-primary" />
-                  {isVi ? '?ang b?n bi?n th? n?y' : 'Variant active'}
+                  {isVi ? 'Đang bán biến thể này' : 'Variant active'}
                 </label>
 
-                <Field label={isVi ? '?nh ri?ng c?a bi?n th?' : 'Variant images'}>
+                <Field label={isVi ? 'Ảnh riêng của biến thể' : 'Variant images'}>
                   <input
                     type="file"
                     accept="image/*"
@@ -1109,7 +1124,7 @@ export default function Products() {
                     className="input-base"
                   />
                   {variantForm.imageFiles.length > 0 ? (
-                    <p className="mt-2 text-xs font-semibold text-primary">{variantForm.imageFiles.length} ?nh ?? ch?n</p>
+                    <p className="mt-2 text-xs font-semibold text-primary">{variantForm.imageFiles.length} ảnh đã chọn</p>
                   ) : null}
                 </Field>
               </div>
@@ -1118,7 +1133,7 @@ export default function Products() {
             <section className="space-y-3">
               {variants.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-on-surface/15 bg-white p-8 text-center text-sm text-on-surface-variant">
-                  {isVi ? 'Ch?a c? bi?n th?. H?y th?m m?u/size ??u ti?n cho s?n ph?m.' : 'No variants yet.'}
+                  {isVi ? 'Chưa có biến thể. Hãy thêm màu/size đầu tiên cho sản phẩm.' : 'No variants yet.'}
                 </div>
               ) : (
                 variants.map((variant) => (
@@ -1133,20 +1148,20 @@ export default function Products() {
                             </span>
                           ) : null}
                           {variant.size ? <span className="rounded-full bg-surface px-3 py-1 text-xs font-black text-on-surface">{variant.size.sizeName}</span> : null}
-                          {!variant.isActive ? <span className="rounded-full bg-red-50 px-3 py-1 text-xs font-black text-red-600">Ng?ng b?n</span> : null}
+                          {!variant.isActive ? <span className="rounded-full bg-red-50 px-3 py-1 text-xs font-black text-red-600">Ngừng bán</span> : null}
                         </div>
                         <p className="mt-2 text-xs text-on-surface-variant">
-                          SKU: {variant.sku || '-'} ? T?n: <b>{variant.stockQuantity}</b>
-                          {variant.price ? ` ? Gi?: ${currency.format(Number(variant.price))}` : ''}
-                          {variant.salePrice ? ` ? KM: ${currency.format(Number(variant.salePrice))}` : ''}
+                          SKU: {variant.sku || '-'} · Tồn: <b>{variant.stockQuantity}</b>
+                          {variant.price ? ` · Giá: ${currency.format(Number(variant.price))}` : ''}
+                          {variant.salePrice ? ` · KM: ${currency.format(Number(variant.salePrice))}` : ''}
                         </p>
                       </div>
                       <div className="flex gap-2">
                         <button type="button" onClick={() => editVariant(variant)} className="rounded-xl border border-on-surface/10 px-3 py-2 text-xs font-bold hover:border-primary/30 hover:text-primary">
-                          {isVi ? 'S?a' : 'Edit'}
+                          {isVi ? 'Sửa' : 'Edit'}
                         </button>
                         <button type="button" disabled={variantBusyId === variant.variantId || !variant.isActive} onClick={() => void deactivateVariant(variant.variantId)} className="rounded-xl border border-red-100 px-3 py-2 text-xs font-bold text-red-500 disabled:opacity-50">
-                          {isVi ? 'Ng?ng b?n' : 'Deactivate'}
+                          {isVi ? 'Ngừng bán' : 'Deactivate'}
                         </button>
                       </div>
                     </div>
@@ -1317,7 +1332,7 @@ export default function Products() {
                           onClick={() => void setPrimaryImage(image.productImageId)}
                           className="flex-1 rounded-xl bg-white px-2 py-1 text-[10px] font-bold text-primary disabled:opacity-40"
                         >
-                          {image.isPrimary ? 'Chinh' : 'Dat chinh'}
+                          {image.isPrimary ? 'Chính' : 'Đặt chính'}
                         </button>
                         <button
                           type="button"
@@ -1325,7 +1340,7 @@ export default function Products() {
                           onClick={() => void deleteProductImage(image.productImageId)}
                           className="rounded-xl bg-red-50 px-2 py-1 text-[10px] font-bold text-red-500 disabled:opacity-40"
                         >
-                          Xoa
+                          Xoá
                         </button>
                       </div>
                     </div>

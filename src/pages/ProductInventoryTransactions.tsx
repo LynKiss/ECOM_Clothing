@@ -9,10 +9,17 @@ import Pagination from '../components/shared/Pagination';
 type InventoryTransaction = {
   id: string;
   productId: string;
+  variantId: string | null;
   productName: string;
+  variantSku: string | null;
+  variantBarcode: string | null;
+  colorName: string | null;
+  sizeName: string | null;
   performedBy: string | null;
   transactionType: string;
   quantityChange: number;
+  quantityBefore: number | null;
+  quantityAfter: number | null;
   note: string | null;
   relatedOrderId: string | null;
   createdAt: string;
@@ -198,10 +205,20 @@ export default function ProductInventoryTransactions() {
                     <td className="px-4 py-4">
                       <p className="font-bold text-on-surface">{item.productName}</p>
                       <p className="mt-1 text-xs text-on-surface-variant/60">{item.productId}</p>
+                      {item.variantId ? (
+                        <p className="mt-1 text-xs font-semibold text-primary">
+                          {[item.colorName, item.sizeName].filter(Boolean).join(' / ') || item.variantSku || item.variantId}
+                        </p>
+                      ) : null}
                     </td>
                     <td className="px-4 py-4 text-sm font-semibold text-on-surface">{item.transactionType}</td>
                     <td className={`px-4 py-4 text-sm font-black ${item.quantityChange >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
                       {item.quantityChange >= 0 ? `+${item.quantityChange}` : item.quantityChange}
+                      {item.quantityBefore !== null && item.quantityAfter !== null ? (
+                        <div className="mt-1 text-[10px] font-semibold text-on-surface-variant">
+                          {item.quantityBefore} → {item.quantityAfter}
+                        </div>
+                      ) : null}
                     </td>
                     <td className="px-4 py-4 text-sm text-on-surface-variant">{item.note || '-'}</td>
                     <td className="px-4 py-4 text-sm text-on-surface-variant">{item.performedBy || 'system'}</td>
@@ -246,6 +263,14 @@ export default function ProductInventoryTransactions() {
             <DetailRow label="ID" value={selectedTransaction.id} />
             <DetailRow label={isVietnamese ? 'Sản phẩm' : 'Product'} value={selectedTransaction.productName} />
             <DetailRow label="Product ID" value={selectedTransaction.productId} />
+            <DetailRow
+              label={isVietnamese ? 'Biến thể' : 'Variant'}
+              value={
+                selectedTransaction.variantId
+                  ? `${[selectedTransaction.colorName, selectedTransaction.sizeName].filter(Boolean).join(' / ') || selectedTransaction.variantSku || selectedTransaction.variantId}`
+                  : isVietnamese ? 'Nhập tổng sản phẩm' : 'Product-level stock'
+              }
+            />
             <DetailRow label={isVietnamese ? 'Loại giao dịch' : 'Transaction type'} value={selectedTransaction.transactionType} />
             <DetailRow
               label={isVietnamese ? 'Thay đổi số lượng' : 'Quantity change'}
@@ -253,6 +278,14 @@ export default function ProductInventoryTransactions() {
                 selectedTransaction.quantityChange >= 0
                   ? `+${selectedTransaction.quantityChange}`
                   : String(selectedTransaction.quantityChange)
+              }
+            />
+            <DetailRow
+              label={isVietnamese ? 'Trước / sau' : 'Before / after'}
+              value={
+                selectedTransaction.quantityBefore !== null && selectedTransaction.quantityAfter !== null
+                  ? `${selectedTransaction.quantityBefore} → ${selectedTransaction.quantityAfter}`
+                  : '-'
               }
             />
             <DetailRow
