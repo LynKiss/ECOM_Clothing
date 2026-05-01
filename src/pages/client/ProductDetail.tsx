@@ -627,6 +627,25 @@ export default function ProductDetail() {
                 ))}
               </div>
             )}
+
+            <div className="mt-5 grid gap-3 sm:grid-cols-2">
+              {[
+                { icon: ShieldCheck, text: 'Cam kết chính hãng' },
+                { icon: Truck, text: 'Giao hàng 2-4 ngày' },
+                { icon: RotateCcw, text: 'Đổi trả 7 ngày' },
+                { icon: Package, text: 'Nguồn gốc rõ ràng' },
+              ].map((item) => (
+                <div
+                  key={item.text}
+                  className="flex min-h-[54px] items-center gap-3 rounded-xl border border-[#DBEAFE] bg-white px-4 py-3 text-sm font-semibold text-gray-600 shadow-sm"
+                >
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#DBEAFE] text-[#2563EB]">
+                    <item.icon size={16} />
+                  </span>
+                  <span>{item.text}</span>
+                </div>
+              ))}
+            </div>
           </div>
 
           {/* Info */}
@@ -703,7 +722,7 @@ export default function ProductDetail() {
               </div>
             </div>
 
-{hasVariants && (
+            {hasVariants && (
               <div className="mt-5 space-y-4">
                 {(product.colorOptions?.length ?? 0) > 0 && (
                   <div>
@@ -892,20 +911,6 @@ export default function ProductDetail() {
               </button>
             </div>
 
-            {/* Trust badges */}
-            <div className="mt-5 grid grid-cols-2 gap-2">
-              {[
-                { icon: ShieldCheck, text: 'Cam kết chính hãng' },
-                { icon: Truck, text: 'Giao hàng 2–4 ngày' },
-                { icon: Package, text: 'Đổi trả trong 7 ngày' },
-                { icon: Shirt, text: 'Sản phẩm chứng nhận' },
-              ].map((t) => (
-                <div key={t.text} className="flex items-center gap-2 rounded-xl bg-white p-3 text-xs text-gray-500">
-                  <t.icon size={14} className="shrink-0 text-[#2563EB]" />
-                  {t.text}
-                </div>
-              ))}
-            </div>
           </div>
         </div>
 

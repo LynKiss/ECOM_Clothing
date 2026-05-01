@@ -215,7 +215,7 @@ export default function ClientLayout() {
             </span>
             <span className="flex items-center gap-1.5">
               <Mail size={11} />
-              support@fashionledger.vn
+              support@coolmate.vn
             </span>
           </div>
           <span className="flex items-center gap-1.5">
@@ -244,10 +244,10 @@ export default function ClientLayout() {
             </div>
             <div className="hidden sm:block">
               <p className="text-[10px] font-bold uppercase tracking-[0.3em]" style={{ color: '#2563EB' }}>
-                Fashion Ledger
+                Coolmate
               </p>
               <p className="text-xs font-black leading-none" style={{ color: '#0B0F19' }}>
-                Thời Trang Ứng Dụng
+                Thời Trang Coolmate
               </p>
             </div>
           </Link>
@@ -636,12 +636,12 @@ export default function ClientLayout() {
                   <Shirt size={20} className="text-white" />
                 </div>
                 <div>
-                  <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-white/50">Fashion Ledger</p>
-                  <p className="text-sm font-black text-white">Thời Trang Ứng Dụng</p>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-white/50">Coolmate</p>
+                  <p className="text-sm font-black text-white">Thời Trang Coolmate</p>
                 </div>
               </div>
               <p className="mt-4 text-sm leading-relaxed text-white/60">
-                Shop quần áo hiện đại với sản phẩm chọn lọc, size rõ ràng, đổi trả linh hoạt và giao hàng nhanh toàn quốc.
+                Cửa hàng thời trang Coolmate với sản phẩm basic dễ mặc, size rõ ràng, đổi trả linh hoạt và giao hàng nhanh toàn quốc.
               </p>
               <div className="mt-5 flex gap-3">
                 {(socialLinks.facebook || '#') && (
@@ -688,8 +688,8 @@ export default function ClientLayout() {
               <h3 className="mb-4 text-sm font-black uppercase tracking-[0.2em] text-white/40">Liên hệ</h3>
               <ul className="space-y-3 text-sm text-white/60">
                 <li className="flex items-start gap-2.5"><Phone size={14} className="mt-0.5 shrink-0" /><span>1800 6863 miễn phí</span></li>
-                <li className="flex items-start gap-2.5"><Mail size={14} className="mt-0.5 shrink-0" /><span>support@fashionledger.vn</span></li>
-                <li className="flex items-start gap-2.5"><MapPin size={14} className="mt-0.5 shrink-0" /><span>123 Fashion Street, Quần 1, TP.HCM</span></li>
+                <li className="flex items-start gap-2.5"><Mail size={14} className="mt-0.5 shrink-0" /><span>support@coolmate.vn</span></li>
+                <li className="flex items-start gap-2.5"><MapPin size={14} className="mt-0.5 shrink-0" /><span>123 Coolmate Store, Quận 1, TP.HCM</span></li>
               </ul>
               <div className="mt-5 rounded-xl border border-white/10 bg-white/5 p-3 text-center">
                 <p className="text-[11px] text-white/40">Mở cửa</p>
@@ -699,7 +699,7 @@ export default function ClientLayout() {
           </div>
 
           <div className="mt-10 flex flex-col items-center justify-between gap-4 border-t border-white/8 pt-8 text-xs text-white/30 sm:flex-row">
-            <p>© 2026 Fashion Ledger. Bảo lưu mọi quyền.</p>
+            <p>© 2026 Coolmate. Bảo lưu mọi quyền.</p>
             <div className="flex gap-6">
               <a href="#" className="transition hover:text-white/60">Chính sách bảo mật</a>
               <a href="#" className="transition hover:text-white/60">Điều khoản sử dụng</a>

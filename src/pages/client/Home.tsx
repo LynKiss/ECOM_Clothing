@@ -70,7 +70,7 @@ type Banner = {
 const FALLBACK_BANNERS: Banner[] = [
   {
     bannerId: 'campaign-blue',
-    title: 'Coolmate Summer Collection',
+    title: 'Bộ sưu tập hè Coolmate',
     subtitle: 'Nhập mã COOL12 giảm 12% tối đa 150K cho đơn từ 399K',
     imageUrl: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=1800&q=85',
     linkUrl: '/client/products',
@@ -78,7 +78,7 @@ const FALLBACK_BANNERS: Banner[] = [
   },
   {
     bannerId: 'sport-edit',
-    title: 'Coolmate Sport Edit',
+    title: 'Đồ thể thao Coolmate',
     subtitle: 'Áo thể thao, đồ mặc hằng ngày và phụ kiện thoáng mát cho mùa hè',
     imageUrl: 'https://images.unsplash.com/photo-1516478177764-9fe5bd7e9717?auto=format&fit=crop&w=1800&q=85',
     linkUrl: '/client/products?search=the%20thao',
@@ -147,8 +147,8 @@ function isUsableImageUrl(value?: string | null) {
 
 function formatBannerTitle(value?: string | null) {
   const text = value?.trim();
-  if (!text) return 'Coolmate Summer Collection';
-  if (/summer collection/i.test(text)) return 'Coolmate Summer Collection';
+  if (!text) return 'Bộ sưu tập hè Coolmate';
+  if (/summer collection/i.test(text)) return 'Bộ sưu tập hè Coolmate';
   if (/fashion ledger/i.test(text)) return text.replace(/fashion ledger/gi, 'Coolmate');
   return text;
 }
@@ -338,7 +338,7 @@ export default function Home() {
         {banners.length > 1 && <><button onClick={prevBanner} className="absolute left-6 top-1/2 z-10 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full text-white transition hover:bg-white/20 md:flex" aria-label="Banner trước"><ChevronLeft size={26} /></button><button onClick={nextBanner} className="absolute right-6 top-1/2 z-10 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full text-white transition hover:bg-white/20 md:flex" aria-label="Banner sau"><ChevronRight size={26} /></button></>}
         <div className="relative mx-auto flex min-h-[620px] max-w-[1760px] items-center px-6 lg:px-20">
           <div className="max-w-5xl py-20 text-white">
-            <p className="mb-4 text-sm font-black uppercase tracking-[0.28em] text-white/80">Coolmate Official Store</p>
+            <p className="mb-4 text-sm font-black uppercase tracking-[0.28em] text-white/80">Cửa hàng Coolmate chính hãng</p>
             <h1 className="text-6xl font-black uppercase leading-[0.98] tracking-tight md:text-8xl">{bannerTitle}</h1>
             <p className="mt-6 text-2xl font-bold md:text-4xl">{bannerSubtitle}</p>
             <Link to={currentBanner.linkUrl || '/client/products'} className="mt-12 inline-flex items-center gap-3 rounded-full bg-white px-12 py-5 text-base font-black uppercase text-black transition hover:bg-black hover:text-white">{bannerCta} <ArrowRight size={24} /></Link>
@@ -380,19 +380,19 @@ export default function Home() {
 
       <section className="mx-auto max-w-7xl px-4 py-16 lg:px-6">
         <div className="grid gap-6 lg:grid-cols-[0.85fr_1.15fr]">
-          <div className="client-card bg-[#0B0F19] p-8 text-white md:p-10"><p className="text-xs font-black uppercase tracking-[0.2em] text-[#DBEAFE]">Dữ liệu sản phẩm</p><h2 className="mt-3 text-3xl font-black">Mua quần áo theo đúng biến thể</h2><p className="mt-4 text-sm leading-7 text-white/70">Fashion Ledger dùng mô hình sản phẩm có thương hiệu, màu, size, chất liệu, form dáng và SKU biến thể. Vì vậy trang sản phẩm, giỏ hàng và đơn hàng đều hiển thị rõ lựa chọn thật của khách.</p><Link to="/client/products" className="mt-7 inline-flex items-center gap-2 rounded-full bg-white px-6 py-3 text-sm font-black text-[#2563EB] transition hover:bg-[#DBEAFE]">Xem sản phẩm <ShoppingBag size={16} /></Link></div>
+          <div className="rounded-xl border border-[#0B0F19] bg-[#0B0F19] p-8 text-white shadow-sm md:p-10"><p className="text-xs font-black uppercase tracking-[0.2em] text-[#DBEAFE]">Dữ liệu sản phẩm Coolmate</p><h2 className="mt-3 text-3xl font-black">Mua đúng màu, đúng size, đúng form</h2><p className="mt-4 text-sm leading-7 text-white/70">Coolmate được quản lý theo thương hiệu, màu, size, chất liệu, form dáng và SKU biến thể. Trang sản phẩm, giỏ hàng và đơn hàng đều hiển thị rõ lựa chọn thật của khách.</p><Link to="/client/products" className="mt-7 inline-flex items-center gap-2 rounded-full bg-white px-6 py-3 text-sm font-black text-[#2563EB] transition hover:bg-[#DBEAFE]">Xem sản phẩm <ShoppingBag size={16} /></Link></div>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{DATA_FEATURES.map((item) => <div key={item.label} className="client-card p-5"><p className="text-sm font-black text-[#2563EB]">{item.label}</p><p className="mt-2 text-sm leading-6 text-gray-500">{item.value}</p></div>)}</div>
         </div>
       </section>
 
       <section className="bg-white py-16"><div className="mx-auto max-w-7xl px-4 lg:px-6"><div className="mb-8"><p className="text-xs font-black uppercase tracking-[0.2em] text-[#2563EB]">Mua hàng dễ kiểm soát</p><h2 className="mt-2 text-3xl font-black text-[#0B0F19]">Từ chọn size tới đổi trả</h2></div><div className="grid gap-4 md:grid-cols-4">{BUYING_STEPS.map((step, index) => <div key={step.title} className="client-card p-6"><div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#2563EB] text-sm font-black text-white">{index + 1}</div><h3 className="mt-5 text-base font-black text-[#0B0F19]">{step.title}</h3><p className="mt-2 text-sm leading-6 text-gray-500">{step.desc}</p></div>)}</div><div className="mt-6 grid gap-4 md:grid-cols-3">{FIT_GUIDES.map((fit) => <div key={fit.label} className="rounded-xl border border-[#DBEAFE] bg-[#F8FAFC] p-5"><p className="font-black text-[#0B0F19]">{fit.label}</p><p className="mt-2 text-sm leading-6 text-gray-500">{fit.desc}</p></div>)}</div></div></section>
 
-      <section className="bg-[#0B0F19] py-16 text-white"><div className="mx-auto grid max-w-7xl gap-10 px-4 lg:grid-cols-[0.9fr_1.1fr] lg:px-6"><div><p className="text-xs font-black uppercase tracking-[0.2em] text-[#DBEAFE]">AI Style Advisor</p><h2 className="mt-3 text-3xl font-black">Cần phối đồ hoặc chọn size?</h2><p className="mt-4 text-sm leading-7 text-white/70">Mô tả phong cách, chiều cao, cân nặng và dịp sử dụng. Hệ thống sẽ gợi ý size, chất liệu và sản phẩm phù hợp trong shop.</p><Link to="/client/style-advisor" className="mt-7 inline-flex items-center gap-2 rounded-full bg-white px-6 py-3 text-sm font-black text-[#2563EB] transition hover:bg-[#DBEAFE]">Thử tư vấn ngay <Sparkles size={16} /></Link></div><div className="grid gap-4 sm:grid-cols-3">{['Đi làm', 'Đi chơi', 'Du lịch'].map((label, index) => <div key={label} className="rounded-xl border border-white/15 bg-white/8 p-5"><Palette className="text-[#DBEAFE]" size={24} /><p className="mt-5 text-lg font-black">{label}</p><p className="mt-2 text-sm text-white/65">Gợi ý outfit #{index + 1} theo phong cách của bạn.</p></div>)}</div></div></section>
+      <section className="bg-[#0B0F19] py-16 text-white"><div className="mx-auto grid max-w-7xl gap-10 px-4 lg:grid-cols-[0.9fr_1.1fr] lg:px-6"><div><p className="text-xs font-black uppercase tracking-[0.2em] text-[#DBEAFE]">Coolmate Style Advisor</p><h2 className="mt-3 text-3xl font-black">Cần phối đồ hoặc chọn size?</h2><p className="mt-4 text-sm leading-7 text-white/70">Mô tả phong cách, chiều cao, cân nặng và dịp sử dụng. Hệ thống sẽ gợi ý size, chất liệu và sản phẩm Coolmate phù hợp trong shop.</p><Link to="/client/style-advisor" className="mt-7 inline-flex items-center gap-2 rounded-full bg-white px-6 py-3 text-sm font-black text-[#2563EB] transition hover:bg-[#DBEAFE]">Thử tư vấn ngay <Sparkles size={16} /></Link></div><div className="grid gap-4 sm:grid-cols-3">{['Đi làm', 'Đi chơi', 'Du lịch'].map((label, index) => <div key={label} className="rounded-xl border border-white/15 bg-white/8 p-5"><Palette className="text-[#DBEAFE]" size={24} /><p className="mt-5 text-lg font-black">{label}</p><p className="mt-2 text-sm text-white/65">Gợi ý outfit Coolmate #{index + 1} theo phong cách của bạn.</p></div>)}</div></div></section>
 
       <SectionTitle eyebrow="Cảm hứng mặc đẹp" title="Tin tức và gợi ý phong cách" cta="Đọc thêm" href="/client/news" />
-      <section className="mx-auto grid max-w-7xl gap-5 px-4 pb-16 md:grid-cols-3 lg:px-6">{news.slice(0, 3).map((item) => <Link key={item.newsId} to={`/client/news/${item.slug}`} className="client-card-soft group overflow-hidden"><div className="h-48 bg-[#DBEAFE]">{item.titleImageUrl ? <img src={item.titleImageUrl} alt={item.title} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" /> : <div className="flex h-full items-center justify-center"><ShoppingBag size={42} className="text-[#2563EB]/50" /></div>}</div><div className="p-5"><p className="text-xs font-bold uppercase tracking-[0.12em] text-[#2563EB]">Fashion Journal</p><h3 className="mt-2 line-clamp-2 text-lg font-black text-[#0B0F19] group-hover:text-[#2563EB]">{item.title}</h3>{item.subTitle && <p className="mt-2 line-clamp-2 text-sm leading-6 text-gray-500">{item.subTitle}</p>}</div></Link>)}</section>
+      <section className="mx-auto grid max-w-7xl gap-5 px-4 pb-16 md:grid-cols-3 lg:px-6">{news.slice(0, 3).map((item) => <Link key={item.newsId} to={`/client/news/${item.slug}`} className="client-card-soft group overflow-hidden"><div className="h-48 bg-[#DBEAFE]">{item.titleImageUrl ? <img src={item.titleImageUrl} alt={item.title} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" /> : <div className="flex h-full items-center justify-center"><ShoppingBag size={42} className="text-[#2563EB]/50" /></div>}</div><div className="p-5"><p className="text-xs font-bold uppercase tracking-[0.12em] text-[#2563EB]">Coolmate Journal</p><h3 className="mt-2 line-clamp-2 text-lg font-black text-[#0B0F19] group-hover:text-[#2563EB]">{item.title}</h3>{item.subTitle && <p className="mt-2 line-clamp-2 text-sm leading-6 text-gray-500">{item.subTitle}</p>}</div></Link>)}</section>
 
-      <section className="mx-auto max-w-7xl px-4 pb-20 lg:px-6"><div className="client-card grid gap-8 bg-white p-8 md:grid-cols-[1fr_0.9fr] md:p-10"><div><p className="text-xs font-black uppercase tracking-[0.2em] text-[#2563EB]">Newsletter</p><h2 className="mt-3 text-3xl font-black text-[#0B0F19]">Nhận lookbook và ưu đãi mới</h2><p className="mt-3 max-w-xl text-sm leading-7 text-gray-500">Cập nhật bộ sưu tập, mã giảm giá và gợi ý phối đồ hằng tuần từ Fashion Ledger.</p></div><form onSubmit={handleNewsletter} className="flex flex-col justify-center gap-3 sm:flex-row md:flex-col lg:flex-row"><input value={newsletterEmail} onChange={(event) => setNewsletterEmail(event.target.value)} type="email" placeholder="Email của bạn" className="min-h-[48px] flex-1 rounded-full border border-gray-200 bg-[#F8FAFC] px-5 text-sm outline-none focus:border-[#2563EB]" /><button className="client-pill-primary px-7 py-3 text-sm font-black">Đăng ký</button>{newsletterStatus && <p className="text-xs font-semibold text-gray-500 sm:basis-full md:basis-auto lg:basis-full">{newsletterStatus}</p>}</form></div></section>
+      <section className="mx-auto max-w-7xl px-4 pb-20 lg:px-6"><div className="client-card grid gap-8 bg-white p-8 md:grid-cols-[1fr_0.9fr] md:p-10"><div><p className="text-xs font-black uppercase tracking-[0.2em] text-[#2563EB]">Coolmate Newsletter</p><h2 className="mt-3 text-3xl font-black text-[#0B0F19]">Nhận lookbook và ưu đãi mới</h2><p className="mt-3 max-w-xl text-sm leading-7 text-gray-500">Cập nhật bộ sưu tập Coolmate, mã giảm giá và gợi ý phối đồ hằng tuần.</p></div><form onSubmit={handleNewsletter} className="flex flex-col justify-center gap-3 sm:flex-row md:flex-col lg:flex-row"><input value={newsletterEmail} onChange={(event) => setNewsletterEmail(event.target.value)} type="email" placeholder="Email của bạn" className="min-h-[48px] flex-1 rounded-full border border-gray-200 bg-[#F8FAFC] px-5 text-sm outline-none focus:border-[#2563EB]" /><button className="client-pill-primary px-7 py-3 text-sm font-black">Đăng ký</button>{newsletterStatus && <p className="text-xs font-semibold text-gray-500 sm:basis-full md:basis-auto lg:basis-full">{newsletterStatus}</p>}</form></div></section>
     </div>
   );
 }

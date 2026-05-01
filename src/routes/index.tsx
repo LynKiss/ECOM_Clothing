@@ -58,7 +58,6 @@ const ClientPaymentPage = lazy(() => import('../features/client/payment/page'));
 const ClientNewsListPage = lazy(() => import('../features/client/news/page'));
 const ClientNewsDetailPage = lazy(() => import('../features/client/news-detail/page'));
 const ClientSupportPage = lazy(() => import('../pages/client/SupportLanding'));
-const ClientLoginPage = lazy(() => import('../features/client/login/page'));
 const ClientRegisterPage = lazy(() => import('../features/client/register/page'));
 const ClientAccountPage = lazy(() => import('../features/client/account/page'));
 const ClientOrdersPage = lazy(() => import('../features/client/orders/page'));
@@ -155,7 +154,6 @@ export const router = createBrowserRouter([
           { path: 'news', element: clientSuspense(<ClientNewsListPage />) },
           { path: 'news/:slug', element: clientSuspense(<ClientNewsDetailPage />) },
           { path: 'support/:slug', element: clientSuspense(<ClientSupportPage />) },
-          { path: 'login', element: clientSuspense(<ClientLoginPage />) },
           { path: 'register', element: clientSuspense(<ClientRegisterPage />) },
           { path: 'account', element: clientSuspense(<ClientAccountPage />) },
           { path: 'orders', element: clientSuspense(<ClientOrdersPage />) },
@@ -167,6 +165,7 @@ export const router = createBrowserRouter([
           { path: 'rice-diagnosis', element: clientSuspense(<ClientRiceDiagnosisPage />) },
         ],
       },
+      { path: 'client/login', element: withSuspense(<LoginPage />) },
       { path: 'login', element: withSuspense(<LoginPage />) },
     ],
   },
