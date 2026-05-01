@@ -647,11 +647,14 @@ export default function Products() {
 
   async function saveVariant() {
     if (!variantProduct) return;
-    if (!variantForm.colorId && !variantForm.newColorName.trim() && !variantForm.sizeId && !variantForm.newSizeName.trim() && !variantForm.newSizeCode.trim()) {
-      showToast({ tone: 'error', title: isVi ? 'Cần chọn màu hoặc size' : 'Select a color or size' });
+    const hasColor = Boolean(variantForm.colorId || variantForm.newColorName.trim());
+    const hasSize = Boolean(variantForm.sizeId || variantForm.newSizeName.trim() || variantForm.newSizeCode.trim());
+    if (!hasColor || !hasSize) {
+      showToast({ tone: 'error', title: isVi ? 'Cần chọn đủ màu và size' : 'Select both color and size' });
       return;
     }
-    if (variantForm.salePrice.trim() && variantForm.price.trim() && Number(variantForm.salePrice) > Number(variantForm.price)) {
+    const baseVariantPrice = Number(variantForm.price.trim() || variantProduct.productPrice || 0);
+    if (variantForm.salePrice.trim() && Number(variantForm.salePrice) > baseVariantPrice) {
       showToast({ tone: 'error', title: isVi ? 'Giá KM biến thể không hợp lệ' : 'Invalid variant sale price' });
       return;
     }

@@ -277,9 +277,10 @@ export default function ProductCreate() {
     }
 
     const invalidVariant = variantDrafts.find((variant) => {
-      const hasOption =
+      const hasColor =
         variant.colorId ||
-        variant.newColorName.trim() ||
+        variant.newColorName.trim();
+      const hasSize =
         variant.sizeId ||
         variant.newSizeName.trim() ||
         variant.newSizeCode.trim();
@@ -290,15 +291,15 @@ export default function ProductCreate() {
       const invalidStock =
         Number.isNaN(Number(variant.stockQuantity)) ||
         Number(variant.stockQuantity) < 0;
-      return !hasOption || invalidSale || invalidStock;
+      return !hasColor || !hasSize || invalidSale || invalidStock;
     });
     if (invalidVariant) {
       showToast({
         tone: 'error',
         title: isVietnamese ? 'Biến thể không hợp lệ' : 'Invalid variant',
         description: isVietnamese
-          ? 'Mỗi biến thể cần có màu hoặc size, tồn không âm và giá KM không cao hơn giá bán.'
-          : 'Each variant needs a color or size, non-negative stock, and valid sale price.',
+          ? 'Mỗi biến thể cần đủ màu và size, tồn không âm và giá KM không cao hơn giá bán.'
+          : 'Each variant needs both color and size, non-negative stock, and valid sale price.',
       });
       return;
     }

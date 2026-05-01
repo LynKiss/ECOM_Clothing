@@ -33,7 +33,16 @@ import {
 import { useCart } from '../../hooks/useCart';
 import { useClientSession } from '../../hooks/useClientSession';
 
-type ProductImage = { imageId: string; imageUrl: string; isPrimary: boolean; sortOrder: number };
+type ProductImage = {
+  imageId?: string;
+  productImageId?: string;
+  imageUrl: string;
+  isPrimary: boolean;
+  sortOrder: number;
+  variantId?: string;
+  variantColorId?: string | null;
+  variantSizeId?: string | null;
+};
 type VariantImage = { imageId: string; imageUrl: string; sortOrder: number };
 type ColorOption = { colorId: string; colorName: string; colorCode: string | null };
 type SizeOption = { sizeId: string; sizeName: string; sizeCode: string | null; sortOrder?: number };
@@ -153,6 +162,16 @@ function validateTryOnImage(file: File) {
 function isUsableImageUrl(value?: string | null) {
   if (!value) return false;
   return !/\/\/example\.com\//i.test(value);
+}
+
+function uniqueImages(images: ProductImage[]) {
+  const seen = new Set<string>();
+  return images.filter((image) => {
+    const key = image.imageUrl.trim();
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 function StarRating({ value, onChange }: { value: number; onChange?: (v: number) => void }) {
@@ -484,12 +503,38 @@ export default function ProductDetail() {
         imageUrl: image.imageUrl,
         isPrimary: false,
         sortOrder: image.sortOrder,
+        variantId: selectedVariant.variantId,
+        variantColorId: selectedVariant.color?.colorId ?? null,
+        variantSizeId: selectedVariant.size?.sizeId ?? null,
       })) ?? [];
-  const productImages = [...(product.images ?? [])].sort((a, b) => {
-    if (a.isPrimary) return -1;
-    if (b.isPrimary) return 1;
-    return a.sortOrder - b.sortOrder;
-  }).filter((image) => isUsableImageUrl(image.imageUrl));
+  const otherVariantImages: ProductImage[] = activeVariants
+    .filter((variant) => variant.variantId !== selectedVariant?.variantId)
+    .flatMap((variant) =>
+      (variant.images ?? [])
+        .filter((image) => isUsableImageUrl(image.imageUrl))
+        .map((image) => ({
+          imageId: image.imageId,
+          imageUrl: image.imageUrl,
+          isPrimary: false,
+          sortOrder: image.sortOrder,
+          variantId: variant.variantId,
+          variantColorId: variant.color?.colorId ?? null,
+          variantSizeId: variant.size?.sizeId ?? null,
+        })),
+    );
+  const productImages = [...(product.images ?? [])]
+    .sort((a, b) => {
+      if (a.isPrimary) return -1;
+      if (b.isPrimary) return 1;
+      return a.sortOrder - b.sortOrder;
+    })
+    .filter((image) => isUsableImageUrl(image.imageUrl))
+    .map((image, index) => ({
+      imageId: image.imageId ?? image.productImageId ?? `product-image-${index}`,
+      imageUrl: image.imageUrl,
+      isPrimary: Boolean(image.isPrimary),
+      sortOrder: image.sortOrder ?? index,
+    }));
   const fallbackImages: ProductImage[] =
     productImages.length > 0
       ? productImages
@@ -503,8 +548,11 @@ export default function ProductDetail() {
             },
           ]
         : [];
-  const sortedImages = variantImages.length > 0 ? variantImages : productImages;
-  const visibleImages = sortedImages.length > 0 ? sortedImages : fallbackImages;
+  const visibleImages = uniqueImages([
+    ...variantImages,
+    ...fallbackImages,
+    ...otherVariantImages,
+  ]);
   const currentImage = visibleImages[selectedImage]?.imageUrl ?? visibleImages[0]?.imageUrl;
   const tryOnOutputImage = tryOnResult?.resultImageUrl ?? tryOnResult?.resultImageDataUrl ?? null;
   const canTryOn = Boolean(currentImage);
@@ -560,7 +608,16 @@ export default function ProductDetail() {
                 {visibleImages.map((img, idx) => (
                   <button
                     key={img.imageId}
-                    onClick={() => setSelectedImage(idx)}
+                    onClick={() => {
+                      if (img.variantId) {
+                        setSelectedColorId(img.variantColorId ?? null);
+                        setSelectedSizeId(img.variantSizeId ?? null);
+                        setQuantity(1);
+                        setSelectedImage(0);
+                        return;
+                      }
+                      setSelectedImage(idx);
+                    }}
                     className={`h-16 w-16 shrink-0 overflow-hidden rounded-xl border-2 transition ${
                       selectedImage === idx ? 'border-[#2563EB]' : 'border-transparent'
                     }`}
