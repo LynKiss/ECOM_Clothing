@@ -70,42 +70,42 @@ type Banner = {
 const FALLBACK_BANNERS: Banner[] = [
   {
     bannerId: 'campaign-blue',
-    title: 'Mot bau troi Fashion Ledger',
-    subtitle: 'Nhap FL12 giam 12% toi da 150K cho don tu 399K',
+    title: 'Coolmate Summer Collection',
+    subtitle: 'Nhập mã COOL12 giảm 12% tối đa 150K cho đơn từ 399K',
     imageUrl: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=1800&q=85',
     linkUrl: '/client/products',
     ctaText: 'Mua ngay',
   },
   {
     bannerId: 'sport-edit',
-    title: 'Pickleball edit',
-    subtitle: 'Ao the thao, vay thun va phu kien san dau cho mua he',
+    title: 'Coolmate Sport Edit',
+    subtitle: 'Áo thể thao, đồ mặc hằng ngày và phụ kiện thoáng mát cho mùa hè',
     imageUrl: 'https://images.unsplash.com/photo-1516478177764-9fe5bd7e9717?auto=format&fit=crop&w=1800&q=85',
     linkUrl: '/client/products?search=the%20thao',
-    ctaText: 'Kham pha',
+    ctaText: 'Khám phá',
   },
 ];
 
 const QUICK_LINKS = [
-  { label: 'New', href: '/client/products?sortBy=created_at&sortOrder=DESC' },
+  { label: 'Mới', href: '/client/products?sortBy=created_at&sortOrder=DESC' },
   { label: 'Nam', href: '/client/products?search=nam' },
-  { label: 'Nu', href: '/client/products?search=nu' },
-  { label: 'The thao', href: '/client/products?search=the%20thao' },
+  { label: 'Nữ', href: '/client/products?search=nu' },
+  { label: 'Thể thao', href: '/client/products?search=the%20thao' },
   { label: 'Sale', href: '/client/products?onSale=1' },
 ];
 
 const STATS = [
-  { value: '20.000+', label: 'khách hàng tin chọn' },
-  { value: '800+', label: 'mẫu thời trang' },
-  { value: '48h', label: 'xử lý đơn nhanh' },
+  { value: '20.000+', label: 'khách hàng Coolmate tin chọn' },
+  { value: '800+', label: 'mẫu basic dễ mặc' },
+  { value: '48h', label: 'xử lý đơn Coolmate' },
   { value: '7 ngày', label: 'đổi trả linh hoạt' },
 ];
 
 const STYLE_CARDS = [
-  { title: 'Chọn đúng size', desc: 'Bảng size rõ ràng, gợi ý theo chiều cao, cân nặng và form mong muốn.', icon: Ruler },
-  { title: 'Chất liệu dễ mặc', desc: 'Cotton, denim, linen và poly blend được mô tả minh bạch.', icon: BadgeCheck },
-  { title: 'Phối đồ nhanh', desc: 'AI gợi ý outfit theo nhu cầu đi làm, đi chơi hoặc du lịch.', icon: Sparkles },
-  { title: 'Giao hàng toàn quốc', desc: 'Đóng gói gọn, cập nhật trạng thái đơn và hỗ trợ đổi trả.', icon: Truck },
+  { title: 'Chọn đúng size Coolmate', desc: 'Bảng size rõ ràng, gợi ý theo chiều cao, cân nặng và form mặc mong muốn.', icon: Ruler },
+  { title: 'Chất liệu dễ mặc', desc: 'Cotton, denim, linen và poly blend được mô tả rõ để chọn đúng cảm giác mặc.', icon: BadgeCheck },
+  { title: 'Phối đồ nhanh', desc: 'Gợi ý outfit Coolmate cho đi làm, đi chơi, tập luyện hoặc du lịch.', icon: Sparkles },
+  { title: 'Giao hàng toàn quốc', desc: 'Đóng gói gọn, cập nhật trạng thái đơn và hỗ trợ đổi trả nhanh.', icon: Truck },
 ];
 
 const SHOP_BY_STYLE = [
@@ -116,11 +116,11 @@ const SHOP_BY_STYLE = [
 ];
 
 const DATA_FEATURES = [
-  { label: 'Thương hiệu', value: 'Lọc theo brand từ DB clothing để xem đúng bộ sưu tập.' },
-  { label: 'Màu sắc', value: 'Swatch màu giúp chọn nhanh đen, trắng, xanh, beige, denim.' },
-  { label: 'Kích cỡ', value: 'Size S-XL và biến thể tồn kho theo từng sản phẩm.' },
-  { label: 'Chất liệu', value: 'Cotton, denim, linen, poly blend và mô tả cảm giác mặc.' },
-  { label: 'Form dáng', value: 'Regular, slim, oversize, relaxed để tránh chọn sai fit.' },
+  { label: 'Thương hiệu Coolmate', value: 'Lọc nhanh các dòng basic, activewear, denim và đồ mặc hằng ngày.' },
+  { label: 'Màu sắc', value: 'Swatch màu giúp chọn nhanh đen, trắng, xanh navy, beige và denim.' },
+  { label: 'Kích cỡ', value: 'Size S-XL và tồn kho theo từng biến thể Coolmate.' },
+  { label: 'Chất liệu', value: 'Cotton, denim, linen, poly blend và mô tả cảm giác mặc rõ ràng.' },
+  { label: 'Form dáng', value: 'Regular, slim, oversize, relaxed để hạn chế chọn sai fit.' },
   { label: 'SKU biến thể', value: 'Giỏ hàng và đơn hàng lưu màu, size, SKU rõ ràng.' },
 ];
 
@@ -141,6 +141,35 @@ function formatPrice(price: number) {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price);
 }
 
+function isUsableImageUrl(value?: string | null) {
+  return Boolean(value && !/\/\/example\.com\//i.test(value));
+}
+
+function formatBannerTitle(value?: string | null) {
+  const text = value?.trim();
+  if (!text) return 'Coolmate Summer Collection';
+  if (/summer collection/i.test(text)) return 'Coolmate Summer Collection';
+  if (/fashion ledger/i.test(text)) return text.replace(/fashion ledger/gi, 'Coolmate');
+  return text;
+}
+
+function formatBannerSubtitle(value?: string | null) {
+  const text = value?.trim();
+  if (!text) return 'Nhập mã COOL12 giảm 12% tối đa 150K';
+  return text
+    .replace(/Nhap ma FL12 giam 12% toi da 150K/gi, 'Nhập mã COOL12 giảm 12% tối đa 150K')
+    .replace(/Nhap FL12 giam 12% toi da 150K/gi, 'Nhập mã COOL12 giảm 12% tối đa 150K')
+    .replace(/Fashion Ledger/gi, 'Coolmate');
+}
+
+function formatBannerCta(value?: string | null) {
+  const text = value?.trim();
+  if (!text) return 'Mua ngay';
+  return text
+    .replace(/^Mua ngay$/i, 'Mua ngay')
+    .replace(/^Kham pha$/i, 'Khám phá');
+}
+
 function ProductCard({ product, onAddToCart, adding }: {
   product: Product;
   onAddToCart: (e: MouseEvent<HTMLButtonElement>) => void;
@@ -157,13 +186,14 @@ function ProductCard({ product, onAddToCart, adding }: {
   const badgeText = outOfStock ? 'Tạm hết hàng' : hasDiscount ? '-' + discountPct + '%' : product.isFeatured ? 'Nổi bật' : product.ratingCount && product.ratingCount >= 5 ? 'Được yêu thích' : null;
   const stripTitle = hasVariants || colorCount > 0 ? 'Có biến thể' : (product.category?.categoryName ?? product.brand?.brandName ?? 'Sản phẩm chọn lọc');
   const stripDesc = hasVariants || colorCount > 0 ? [colorCount ? colorCount + ' màu' : null, hasVariants ? 'chọn size ở chi tiết' : null].filter(Boolean).join(' - ') : 'Xem màu, size và tồn kho';
+  const imageUrl = isUsableImageUrl(product.primaryImageUrl) ? product.primaryImageUrl : null;
 
   return (
     <article className="group min-w-[280px] flex-1">
       <Link to={`/client/products/${product.productId}`} className="relative block overflow-hidden rounded-lg bg-[#f1f1f1]">
         <div className="aspect-[4/5] overflow-hidden">
-          {product.primaryImageUrl ? (
-            <img src={product.primaryImageUrl} alt={product.productName} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
+          {imageUrl ? (
+            <img src={imageUrl} alt={product.productName} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
           ) : (
             <div className="flex h-full w-full items-center justify-center bg-gray-100"><Shirt size={60} className="text-gray-300" /></div>
           )}
@@ -173,7 +203,7 @@ function ProductCard({ product, onAddToCart, adding }: {
           <span className="rounded-full bg-white px-4 py-1 text-sm font-black text-[#2538d5]">{stripTitle}</span>
           <span className="line-clamp-1 text-sm font-black uppercase">{stripDesc}</span>
         </div>
-        {outOfStock && <div className="absolute inset-0 flex items-center justify-center bg-black/35"><span className="rounded-full bg-white px-4 py-2 text-sm font-black">Tam het hang</span></div>}
+        {outOfStock && <div className="absolute inset-0 flex items-center justify-center bg-black/35"><span className="rounded-full bg-white px-4 py-2 text-sm font-black">Tạm hết hàng</span></div>}
       </Link>
       <div className="mt-3 flex gap-1.5">
         {(product.colorOptions ?? []).slice(0, 5).map((color) => (
@@ -271,6 +301,9 @@ export default function Home() {
   }, [paused, banners.length]);
 
   const currentBanner = banners[activeBanner] ?? FALLBACK_BANNERS[0];
+  const bannerTitle = formatBannerTitle(currentBanner.title);
+  const bannerSubtitle = formatBannerSubtitle(currentBanner.subtitle);
+  const bannerCta = formatBannerCta(currentBanner.ctaText);
   const nextBanner = () => setActiveBanner((current) => (current + 1) % banners.length);
   const prevBanner = () => setActiveBanner((current) => (current - 1 + banners.length) % banners.length);
 
@@ -302,15 +335,16 @@ export default function Home() {
       <section className="relative min-h-[620px] overflow-hidden bg-[#58adff]" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}>
         {currentBanner.imageUrl && <img src={currentBanner.imageUrl} alt="" className="absolute inset-0 h-full w-full object-cover opacity-55" />}
         <div className="absolute inset-0 bg-gradient-to-r from-[#58adff] via-[#58adff]/85 to-[#b7f4ff]/55" />
-        {banners.length > 1 && <><button onClick={prevBanner} className="absolute left-6 top-1/2 z-10 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full text-white transition hover:bg-white/20 md:flex" aria-label="Banner truoc"><ChevronLeft size={26} /></button><button onClick={nextBanner} className="absolute right-6 top-1/2 z-10 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full text-white transition hover:bg-white/20 md:flex" aria-label="Banner sau"><ChevronRight size={26} /></button></>}
+        {banners.length > 1 && <><button onClick={prevBanner} className="absolute left-6 top-1/2 z-10 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full text-white transition hover:bg-white/20 md:flex" aria-label="Banner trước"><ChevronLeft size={26} /></button><button onClick={nextBanner} className="absolute right-6 top-1/2 z-10 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full text-white transition hover:bg-white/20 md:flex" aria-label="Banner sau"><ChevronRight size={26} /></button></>}
         <div className="relative mx-auto flex min-h-[620px] max-w-[1760px] items-center px-6 lg:px-20">
           <div className="max-w-5xl py-20 text-white">
-            <h1 className="text-6xl font-black uppercase leading-[0.98] tracking-tight md:text-8xl">{currentBanner.title}</h1>
-            <p className="mt-6 text-2xl font-bold md:text-4xl">{currentBanner.subtitle ?? 'Nhap ma FL12 giam 12% toi da 150K'}</p>
-            <Link to={currentBanner.linkUrl || '/client/products'} className="mt-12 inline-flex items-center gap-3 rounded-full bg-white px-12 py-5 text-base font-black uppercase text-black transition hover:bg-black hover:text-white">{currentBanner.ctaText || 'Mua ngay'} <ArrowRight size={24} /></Link>
+            <p className="mb-4 text-sm font-black uppercase tracking-[0.28em] text-white/80">Coolmate Official Store</p>
+            <h1 className="text-6xl font-black uppercase leading-[0.98] tracking-tight md:text-8xl">{bannerTitle}</h1>
+            <p className="mt-6 text-2xl font-bold md:text-4xl">{bannerSubtitle}</p>
+            <Link to={currentBanner.linkUrl || '/client/products'} className="mt-12 inline-flex items-center gap-3 rounded-full bg-white px-12 py-5 text-base font-black uppercase text-black transition hover:bg-black hover:text-white">{bannerCta} <ArrowRight size={24} /></Link>
           </div>
         </div>
-        {banners.length > 1 && <div className="absolute bottom-5 left-1/2 flex -translate-x-1/2 gap-3">{banners.map((banner, index) => <button key={banner.bannerId} onClick={() => setActiveBanner(index)} className={'h-2 rounded-full transition-all ' + (index === activeBanner ? 'w-10 bg-white' : 'w-2 bg-white/45')} aria-label={'Chon banner ' + (index + 1)} />)}</div>}
+        {banners.length > 1 && <div className="absolute bottom-5 left-1/2 flex -translate-x-1/2 gap-3">{banners.map((banner, index) => <button key={banner.bannerId} onClick={() => setActiveBanner(index)} className={'h-2 rounded-full transition-all ' + (index === activeBanner ? 'w-10 bg-white' : 'w-2 bg-white/45')} aria-label={'Chọn banner ' + (index + 1)} />)}</div>}
       </section>
 
       <section className="mx-auto flex max-w-[1320px] justify-center gap-6 overflow-x-auto px-6 py-8">
@@ -332,8 +366,8 @@ export default function Home() {
       <section className="bg-white py-16">
         <div className="mx-auto max-w-[1760px] px-6 lg:px-20">
           <div className="mb-6 flex items-end justify-between gap-4">
-            <h2 className="text-4xl font-black uppercase tracking-tight text-black">San pham noi bat</h2>
-            <Link to="/client/products" className="text-lg font-semibold text-black underline underline-offset-4">Xem them</Link>
+            <h2 className="text-4xl font-black uppercase tracking-tight text-black">Sản phẩm Coolmate nổi bật</h2>
+            <Link to="/client/products" className="text-lg font-semibold text-black underline underline-offset-4">Xem thêm</Link>
           </div>
           <ProductCarousel products={products} loading={loadingProducts} loadError={productLoadError} addingId={addingId} onAddToCart={handleAddToCart} />
         </div>

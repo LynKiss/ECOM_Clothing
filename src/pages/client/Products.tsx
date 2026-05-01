@@ -75,6 +75,12 @@ type RecommendationResponse = {
   items?: Product[];
 };
 
+type PublicCommerceSettings = {
+  clientFeatures?: {
+    productRecommendationsEnabled?: boolean;
+  };
+};
+
 type ProductsResponse = {
   items: Product[];
   meta: {
@@ -283,9 +289,22 @@ export default function Products() {
   useEffect(() => {
     let cancelled = false;
     clientApi
-      .get<RecommendationResponse>('/intelligence/product-recommendations?limit=8&historyDays=180')
+      .get<PublicCommerceSettings>('/settings/public/commerce')
+      .then((settings) => {
+        const enabled =
+          settings.clientFeatures?.productRecommendationsEnabled ?? true;
+        if (!enabled) {
+          if (!cancelled) setRecommendations([]);
+          return null;
+        }
+        return clientApi.get<RecommendationResponse>(
+          '/intelligence/product-recommendations?limit=8&historyDays=180',
+        );
+      })
       .then((data) => {
-        if (!cancelled) setRecommendations(Array.isArray(data.items) ? data.items : []);
+        if (!cancelled && data) {
+          setRecommendations(Array.isArray(data.items) ? data.items : []);
+        }
       })
       .catch(() => {
         if (!cancelled) setRecommendations([]);

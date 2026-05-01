@@ -15,6 +15,7 @@ import {
   Globe,
   MapPin,
   PanelLeft,
+  Sparkles,
 } from 'lucide-react';
 import { apiClient } from '../lib/api';
 import { useLanguage } from '../i18n/language-context';
@@ -40,10 +41,14 @@ export function getSocialLinks(): SocialLinks {
   return { facebook: '', youtube: '', zalo: '', instagram: '' };
 }
 
-type Section = 'general' | 'shipping' | 'social' | 'language' | 'sidebar';
+type Section = 'general' | 'shipping' | 'social' | 'language' | 'sidebar' | 'client';
 
 type AdminSidebarSettings = {
   hiddenItemIds: string[];
+};
+
+type ClientFeatureSettings = {
+  productRecommendationsEnabled: boolean;
 };
 
 const ADMIN_SIDEBAR_ITEMS = [
@@ -848,6 +853,109 @@ function SidebarTab() {
   );
 }
 
+function ClientFeaturesTab() {
+  const { showToast } = useToast();
+  const [settings, setSettings] = useState<ClientFeatureSettings>({
+    productRecommendationsEnabled: true,
+  });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    apiClient
+      .get<ClientFeatureSettings>('/settings/admin/client-features')
+      .then((data) => {
+        if (!cancelled) {
+          setSettings({
+            productRecommendationsEnabled:
+              data.productRecommendationsEnabled ?? true,
+          });
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setSettings({ productRecommendationsEnabled: true });
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      const data = await apiClient.put<ClientFeatureSettings>(
+        '/settings/admin/client-features',
+        settings,
+      );
+      setSettings(data);
+      showToast({ tone: 'success', title: 'Đã lưu cấu hình client' });
+    } catch (err) {
+      showToast({
+        tone: 'error',
+        title: err instanceof Error ? err.message : 'Không lưu được cấu hình client',
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="max-w-3xl space-y-6">
+      <div>
+        <h2 className="text-xl font-black text-on-surface">Tính năng client</h2>
+        <p className="mt-1 text-sm text-on-surface-variant">
+          Bật hoặc tắt các khối trải nghiệm trên trang khách hàng.
+        </p>
+      </div>
+
+      <div className="rounded-xl border border-on-surface-variant/10 bg-white p-5">
+        {loading ? (
+          <div className="py-8 text-center text-sm text-on-surface-variant">
+            Đang tải cấu hình...
+          </div>
+        ) : (
+          <label className="flex cursor-pointer items-center justify-between gap-5 rounded-2xl border border-on-surface-variant/10 bg-surface px-5 py-4">
+            <span>
+              <span className="block text-sm font-black text-on-surface">
+                AI gợi ý sản phẩm
+              </span>
+              <span className="mt-1 block text-xs leading-5 text-on-surface-variant">
+                Hiển thị khối “AI gợi ý cho bạn” trên trang danh sách sản phẩm.
+              </span>
+            </span>
+            <input
+              type="checkbox"
+              checked={settings.productRecommendationsEnabled}
+              onChange={(event) =>
+                setSettings((current) => ({
+                  ...current,
+                  productRecommendationsEnabled: event.target.checked,
+                }))
+              }
+              className="h-4 w-4 shrink-0 accent-primary"
+            />
+          </label>
+        )}
+      </div>
+
+      <button
+        onClick={() => void save()}
+        disabled={saving || loading}
+        className="inline-flex items-center gap-2 rounded-2xl bg-primary px-6 py-3 text-sm font-bold text-white transition hover:opacity-90 disabled:opacity-60"
+      >
+        <Save size={16} /> {saving ? 'Đang lưu...' : 'Lưu cấu hình client'}
+      </button>
+    </div>
+  );
+}
+
 // ── Settings Hub Sections ─────────────────────────────────────────────────────
 
 type SectionConfig = {
@@ -899,6 +1007,14 @@ const SECTIONS: SectionConfig[] = [
     icon: <PanelLeft size={22} />,
     iconBg: 'bg-emerald-50',
     iconColor: 'text-emerald-600',
+  },
+  {
+    key: 'client',
+    label: 'Tính năng client',
+    description: 'Bật tắt các khối gợi ý và trải nghiệm khách hàng',
+    icon: <Sparkles size={22} />,
+    iconBg: 'bg-indigo-50',
+    iconColor: 'text-indigo-600',
   },
 ];
 
@@ -1031,6 +1147,7 @@ export default function Settings() {
             {active === 'social' && <SocialTab />}
             {active === 'language' && <LanguageTab />}
             {active === 'sidebar' && <SidebarTab />}
+            {active === 'client' && <ClientFeaturesTab />}
           </div>
         </div>
       )}
