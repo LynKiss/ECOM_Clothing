@@ -1,9 +1,17 @@
-﻿import { useEffect, useMemo, useState } from 'react';
-import { LoaderCircle, Save, ShieldCheck } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import {
+  AlertTriangle,
+  LoaderCircle,
+  Save,
+  ShieldCheck,
+  UserRoundCog,
+} from 'lucide-react';
 import { apiClient } from '../lib/api';
+import { superApiClient } from '../lib/super-admin-api';
 import { useLanguage } from '../i18n/language-context';
 import { useToast } from '../hooks/useToast';
 import { useAdminSession } from '../hooks/useAdminSession';
+import { useSuperAdminSession } from '../hooks/useSuperAdminSession';
 
 type Permission = {
   _id: string;
@@ -11,15 +19,26 @@ type Permission = {
   name: string;
 };
 
-type Role = {
+type PermissionUser = {
   _id: string;
-  name: string;
+  username: string;
+  email: string;
+  fullName?: string | null;
+  role: { _id: string; name: string };
+  isActive: boolean;
+  isSelf?: boolean;
   permissions: Permission[];
 };
 
-type RolePermissionsResponse = {
-  role: string;
+type UserPermissionsResponse = {
+  user: Omit<PermissionUser, 'permissions' | 'isSelf'>;
+  source: 'user' | 'role';
   permissions: Permission[];
+};
+
+type PermissionApiClient = {
+  get: <T>(path: string) => Promise<T>;
+  put: <T>(path: string, body?: unknown) => Promise<T>;
 };
 
 const GROUP_LABELS: Record<string, { vi: string; en: string }> = {
@@ -43,25 +62,53 @@ function getGroupLabel(key: string, isVietnamese: boolean): string {
   return key.charAt(0).toUpperCase() + key.slice(1);
 }
 
+function getPermissionGroup(key: string) {
+  const parts = key.split('_');
+  return parts[1] ?? parts[0] ?? 'general';
+}
+
 export default function Permissions() {
   const { language } = useLanguage();
   const isVietnamese = language === 'vi';
   const { showToast } = useToast();
-  const { session } = useAdminSession();
+  const { session: adminSession } = useAdminSession();
+  const { session: superSession } = useSuperAdminSession();
 
-  const [roles, setRoles] = useState<Role[]>([]);
+  const isSuperAdmin = Boolean(superSession);
+  const activeClient: PermissionApiClient = isSuperAdmin ? superApiClient : apiClient;
+  const currentAdminPermissionIds = new Set(
+    adminSession?.user.permissions?.map((permission) => permission._id).filter(Boolean) ??
+      [],
+  );
+  const currentAdminPermissionKeys = new Set(
+    adminSession?.user.permissions?.map((permission) => permission.key).filter(Boolean) ??
+      [],
+  );
+
+  const canManagePermissions =
+    isSuperAdmin ||
+    (adminSession?.user.permissions?.some(
+      (permission) => permission.key === 'manage_permissions',
+    ) ??
+      false);
+
+  const [users, setUsers] = useState<PermissionUser[]>([]);
   const [permissions, setPermissions] = useState<Permission[]>([]);
-  const [selectedRole, setSelectedRole] = useState('admin');
+  const [selectedUserId, setSelectedUserId] = useState('');
   const [selectedPermissionIds, setSelectedPermissionIds] = useState<string[]>([]);
+  const [permissionSource, setPermissionSource] = useState<'user' | 'role'>('role');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const canManagePermissions =
-    session?.user.permissions?.some((p) => p.key === 'manage_permissions') ?? false;
+  const selectedUser = users.find((user) => user._id === selectedUserId);
+  const isSelfSelection = !isSuperAdmin && Boolean(selectedUser?.isSelf);
 
   useEffect(() => {
-    if (!canManagePermissions) return;
+    if (!canManagePermissions) {
+      setLoading(false);
+      return;
+    }
 
     let cancelled = false;
 
@@ -70,18 +117,16 @@ export default function Permissions() {
       setError(null);
 
       try {
-        const [rolesData, permissionsData] = await Promise.all([
-          apiClient.get<Role[]>('/roles'),
-          apiClient.get<Permission[]>('/permissions'),
+        const [usersData, permissionsData] = await Promise.all([
+          activeClient.get<PermissionUser[]>('/permissions/users'),
+          activeClient.get<Permission[]>('/permissions'),
         ]);
 
         if (cancelled) return;
 
-        setRoles(rolesData);
+        setUsers(usersData);
         setPermissions(permissionsData);
-
-        const initialRole = rolesData[0]?.name ?? 'admin';
-        setSelectedRole(initialRole);
+        setSelectedUserId((current) => current || usersData[0]?._id || '');
       } catch (loadError) {
         if (!cancelled) {
           setError(
@@ -101,57 +146,100 @@ export default function Permissions() {
     return () => {
       cancelled = true;
     };
-  }, [canManagePermissions, isVietnamese]);
+  }, [activeClient, canManagePermissions, isVietnamese]);
 
   useEffect(() => {
-    if (!canManagePermissions || !selectedRole) return;
+    if (!canManagePermissions || !selectedUserId) return;
 
     let cancelled = false;
 
-    async function loadRolePermissions() {
+    async function loadUserPermissions() {
       try {
-        const response = await apiClient.get<RolePermissionsResponse>(
-          `/permissions/roles/${selectedRole}`,
+        const response = await activeClient.get<UserPermissionsResponse>(
+          `/permissions/users/${selectedUserId}`,
         );
         if (!cancelled) {
-          setSelectedPermissionIds(response.permissions.map((p) => p._id));
+          setSelectedPermissionIds(response.permissions.map((permission) => permission._id));
+          setPermissionSource(response.source);
         }
       } catch (loadError) {
         if (!cancelled) {
           showToast({
             tone: 'error',
             title: isVietnamese
-              ? 'Không tải được quyền của vai trò'
-              : 'Unable to load role permissions',
+              ? 'Không tải được quyền của tài khoản'
+              : 'Unable to load user permissions',
             description: loadError instanceof Error ? loadError.message : '',
           });
         }
       }
     }
 
-    void loadRolePermissions();
+    void loadUserPermissions();
     return () => {
       cancelled = true;
     };
-  }, [canManagePermissions, selectedRole, isVietnamese, showToast]);
+  }, [activeClient, canManagePermissions, selectedUserId, isVietnamese, showToast]);
 
   const groupedPermissions = useMemo(() => {
     const groups = new Map<string, Permission[]>();
     for (const permission of permissions) {
-      const prefix = permission.key.split('_')[1] ?? 'general';
-      const bucket = groups.get(prefix) ?? [];
+      const group = getPermissionGroup(permission.key);
+      const bucket = groups.get(group) ?? [];
       bucket.push(permission);
-      groups.set(prefix, bucket);
+      groups.set(group, bucket);
     }
     return [...groups.entries()].sort(([a], [b]) => a.localeCompare(b));
   }, [permissions]);
 
+  function canGrant(permission: Permission) {
+    if (isSuperAdmin) return true;
+    return (
+      currentAdminPermissionIds.has(permission._id) ||
+      currentAdminPermissionKeys.has(permission.key)
+    );
+  }
+
+  function togglePermission(permission: Permission) {
+    if (isSelfSelection || !canGrant(permission)) return;
+    setSelectedPermissionIds((current) =>
+      current.includes(permission._id)
+        ? current.filter((item) => item !== permission._id)
+        : [...current, permission._id],
+    );
+  }
+
+  function toggleGroup(items: Permission[]) {
+    if (isSelfSelection) return;
+    const grantableIds = items
+      .filter((permission) => canGrant(permission))
+      .map((permission) => permission._id);
+    const allSelected = grantableIds.every((id) => selectedPermissionIds.includes(id));
+    setSelectedPermissionIds((current) =>
+      allSelected
+        ? current.filter((id) => !grantableIds.includes(id))
+        : [...new Set([...current, ...grantableIds])],
+    );
+  }
+
   async function handleSave() {
+    if (!selectedUserId || isSelfSelection) return;
+
     setSaving(true);
     try {
-      await apiClient.put(`/permissions/roles/${selectedRole}`, {
-        permissionIds: selectedPermissionIds,
-      });
+      const response = await activeClient.put<UserPermissionsResponse>(
+        `/permissions/users/${selectedUserId}`,
+        { permissionIds: selectedPermissionIds },
+      );
+      setSelectedPermissionIds(response.permissions.map((permission) => permission._id));
+      setPermissionSource(response.source);
+      setUsers((current) =>
+        current.map((user) =>
+          user._id === selectedUserId
+            ? { ...user, permissions: response.permissions }
+            : user,
+        ),
+      );
       showToast({
         tone: 'success',
         title: isVietnamese ? 'Đã cập nhật phân quyền' : 'Permissions updated',
@@ -159,7 +247,9 @@ export default function Permissions() {
     } catch (saveError) {
       showToast({
         tone: 'error',
-        title: isVietnamese ? 'Cập nhật phân quyền thất bại' : 'Failed to update permissions',
+        title: isVietnamese
+          ? 'Cập nhật phân quyền thất bại'
+          : 'Failed to update permissions',
         description: saveError instanceof Error ? saveError.message : '',
       });
     } finally {
@@ -170,7 +260,7 @@ export default function Permissions() {
   if (!canManagePermissions) {
     return (
       <div className="rounded-xl border border-amber-200 bg-amber-50 p-8 text-amber-800">
-        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-100">
+        <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-amber-100">
           <ShieldCheck size={24} />
         </div>
         <h1 className="mt-4 text-2xl font-black">
@@ -186,24 +276,27 @@ export default function Permissions() {
   }
 
   return (
-    <div className="space-y-8 pb-12">
+    <div className="mx-auto max-w-[1440px] space-y-8 p-6 pb-12">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-4xl font-black tracking-tight text-primary">
-            {isVietnamese ? 'Phân quyền truy cập' : 'Access Permissions'}
+          <p className="text-xs font-black uppercase tracking-[0.22em] text-primary">
+            {isSuperAdmin ? 'Super Admin' : 'Admin'}
+          </p>
+          <h1 className="mt-2 text-4xl font-black tracking-tight text-on-surface">
+            {isVietnamese ? 'Phân quyền theo tài khoản' : 'User Permissions'}
           </h1>
-          <p className="mt-2 max-w-2xl text-sm text-on-surface-variant">
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-on-surface-variant">
             {isVietnamese
-              ? 'Gán quyền truy cập cho từng vai trò quản trị và nhân viên theo module nghiệp vụ.'
-              : 'Assign role access by business module for admin and staff users.'}
+              ? 'Chọn từng admin hoặc nhân viên để cấp quyền vận hành. Admin thường không thể tự phân quyền và không thể cấp quyền vượt quá quyền đang có.'
+              : 'Assign permissions to each admin or staff account. Regular admins cannot edit themselves or grant permissions they do not own.'}
           </p>
         </div>
 
         <button
           type="button"
           onClick={() => void handleSave()}
-          disabled={saving || loading}
-          className="inline-flex items-center gap-2 rounded-xl bg-primary px-6 py-3 text-sm font-black text-white shadow-sm shadow-primary/20 transition-all hover:-translate-y-0.5 disabled:opacity-60"
+          disabled={saving || loading || !selectedUserId || isSelfSelection}
+          className="inline-flex items-center gap-2 rounded-xl bg-primary px-6 py-3 text-sm font-black text-white shadow-sm shadow-primary/20 transition-all hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {saving ? <LoaderCircle size={16} className="animate-spin" /> : <Save size={16} />}
           {isVietnamese ? 'Lưu phân quyền' : 'Save permissions'}
@@ -211,46 +304,78 @@ export default function Permissions() {
       </div>
 
       {error ? (
-        <div className="rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700">
+        <div className="rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700">
           {error}
         </div>
       ) : null}
 
-      <section className="rounded-xl border border-on-surface-variant/5 bg-white p-8 shadow-sm">
-        <div className="grid gap-8 lg:grid-cols-[260px_1fr]">
+      {isSelfSelection ? (
+        <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-800">
+          <AlertTriangle size={18} className="mt-0.5 shrink-0" />
+          <span>
+            {isVietnamese
+              ? 'Không thể tự phân quyền cho chính mình. Hãy dùng Super Admin hoặc một admin khác có quyền phù hợp.'
+              : 'You cannot edit your own permissions. Use Super Admin or another authorized admin.'}
+          </span>
+        </div>
+      ) : null}
+
+      <section className="rounded-xl border border-on-surface-variant/10 bg-white p-6 shadow-sm">
+        <div className="grid gap-8 lg:grid-cols-[340px_1fr]">
           <div className="space-y-3">
             <p className="text-[11px] font-black uppercase tracking-[0.18em] text-on-surface-variant/60">
-              {isVietnamese ? 'Vai trò' : 'Roles'}
+              {isVietnamese ? 'Admin / nhân viên' : 'Admins / staff'}
             </p>
             {loading ? (
-              <div className="rounded-2xl bg-surface px-4 py-6 text-center text-on-surface-variant">
+              <div className="rounded-xl bg-surface px-4 py-6 text-center text-on-surface-variant">
                 <LoaderCircle size={18} className="mx-auto animate-spin" />
               </div>
+            ) : users.length === 0 ? (
+              <div className="rounded-xl bg-surface px-4 py-6 text-center text-sm text-on-surface-variant">
+                {isVietnamese ? 'Chưa có admin/staff' : 'No admin/staff users'}
+              </div>
             ) : (
-              roles.map((role) => (
+              users.map((user) => (
                 <button
-                  key={role._id}
+                  key={user._id}
                   type="button"
-                  onClick={() => setSelectedRole(role.name)}
-                  className={`flex w-full items-center justify-between rounded-2xl border px-4 py-3 text-left transition ${
-                    selectedRole === role.name
-                      ? 'border-primary/30 bg-primary/5 text-primary'
-                      : 'border-on-surface/8 bg-surface text-on-surface hover:border-primary/15'
+                  onClick={() => setSelectedUserId(user._id)}
+                  className={`flex w-full items-start justify-between gap-3 rounded-xl border px-4 py-3 text-left transition ${
+                    selectedUserId === user._id
+                      ? 'border-primary/40 bg-primary/5 text-primary'
+                      : 'border-on-surface/8 bg-surface text-on-surface hover:border-primary/20'
                   }`}
                 >
-                  <div>
-                    <p className="font-bold capitalize">{role.name}</p>
-                    <p className="text-xs text-on-surface-variant/60">
-                      {role.name === 'admin'
-                        ? isVietnamese ? 'Quản trị viên' : 'Administrator'
-                        : role.name === 'staff'
-                          ? isVietnamese ? 'Nhân viên' : 'Staff'
-                          : isVietnamese ? 'Người dùng' : 'User'}
+                  <div className="min-w-0">
+                    <p className="truncate font-bold">
+                      {user.fullName || user.username}
                     </p>
+                    <p className="mt-0.5 truncate text-xs text-on-surface-variant/70">
+                      {user.email}
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-black uppercase text-on-surface-variant">
+                        {user.role.name}
+                      </span>
+                      {user.isSelf ? (
+                        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-black text-amber-700">
+                          {isVietnamese ? 'Chính bạn' : 'You'}
+                        </span>
+                      ) : null}
+                      {!user.isActive ? (
+                        <span className="rounded-full bg-red-100 px-2 py-0.5 text-[11px] font-black text-red-700">
+                          {isVietnamese ? 'Đã khóa' : 'Inactive'}
+                        </span>
+                      ) : null}
+                    </div>
                   </div>
-                  <ShieldCheck
-                    size={16}
-                    className={selectedRole === role.name ? 'text-primary' : 'text-on-surface-variant/30'}
+                  <UserRoundCog
+                    size={18}
+                    className={
+                      selectedUserId === user._id
+                        ? 'text-primary'
+                        : 'text-on-surface-variant/35'
+                    }
                   />
                 </button>
               ))
@@ -258,94 +383,123 @@ export default function Permissions() {
           </div>
 
           <div className="space-y-5">
-            <div className="flex items-center justify-between rounded-2xl bg-primary/5 px-5 py-4">
+            <div className="grid gap-3 rounded-xl bg-primary/5 px-5 py-4 sm:grid-cols-3">
               <div>
                 <p className="text-[11px] font-black uppercase tracking-[0.18em] text-on-surface-variant/60">
-                  {isVietnamese ? 'Đang chỉnh vai trò' : 'Editing role'}
+                  {isVietnamese ? 'Đang chỉnh' : 'Editing'}
                 </p>
-                <p className="mt-1 text-xl font-black capitalize text-primary">{selectedRole}</p>
+                <p className="mt-1 truncate text-lg font-black text-primary">
+                  {selectedUser?.fullName || selectedUser?.username || '-'}
+                </p>
               </div>
-              <div className="text-right">
+              <div>
                 <p className="text-[11px] font-black uppercase tracking-[0.18em] text-on-surface-variant/60">
-                  {isVietnamese ? 'Số quyền đang chọn' : 'Selected permissions'}
+                  {isVietnamese ? 'Nguồn quyền' : 'Permission source'}
                 </p>
-                <p className="mt-1 text-xl font-black text-primary">{selectedPermissionIds.length}</p>
+                <p className="mt-1 text-lg font-black text-primary">
+                  {permissionSource === 'user'
+                    ? isVietnamese
+                      ? 'Theo tài khoản'
+                      : 'User override'
+                    : isVietnamese
+                      ? 'Theo vai trò'
+                      : 'Role fallback'}
+                </p>
+              </div>
+              <div>
+                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-on-surface-variant/60">
+                  {isVietnamese ? 'Số quyền' : 'Selected'}
+                </p>
+                <p className="mt-1 text-lg font-black text-primary">
+                  {selectedPermissionIds.length}
+                </p>
               </div>
             </div>
 
             {loading ? (
-              <div className="rounded-2xl bg-surface px-4 py-10 text-center text-on-surface-variant">
+              <div className="rounded-xl bg-surface px-4 py-10 text-center text-on-surface-variant">
                 <LoaderCircle size={18} className="mx-auto animate-spin" />
               </div>
             ) : groupedPermissions.length === 0 ? (
-              <div className="rounded-2xl bg-surface px-4 py-10 text-center text-sm text-on-surface-variant">
+              <div className="rounded-xl bg-surface px-4 py-10 text-center text-sm text-on-surface-variant">
                 {isVietnamese
                   ? 'Chưa có quyền nào trong hệ thống'
                   : 'No permissions in the system'}
               </div>
             ) : (
-              groupedPermissions.map(([groupName, items]) => (
-                <div
-                  key={groupName}
-                  className="overflow-hidden rounded-xl border border-on-surface/8"
-                >
-                  <div className="flex items-center justify-between bg-surface/70 px-5 py-3">
-                    <p className="text-xs font-black uppercase tracking-[0.18em] text-on-surface-variant/70">
-                      {getGroupLabel(groupName, isVietnamese)}
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const groupIds = items.map((p) => p._id);
-                        const allSelected = groupIds.every((id) =>
-                          selectedPermissionIds.includes(id),
-                        );
-                        setSelectedPermissionIds((current) =>
-                          allSelected
-                            ? current.filter((id) => !groupIds.includes(id))
-                            : [...new Set([...current, ...groupIds])],
-                        );
-                      }}
-                      className="text-[11px] font-bold text-primary/70 hover:text-primary"
-                    >
-                      {items.every((p) => selectedPermissionIds.includes(p._id))
-                        ? isVietnamese
-                          ? 'Bỏ chọn tất cả'
-                          : 'Deselect all'
-                        : isVietnamese
-                          ? 'Chọn tất cả'
-                          : 'Select all'}
-                    </button>
-                  </div>
-                  <div className="grid gap-3 p-4 md:grid-cols-2">
-                    {items.map((permission) => (
-                      <label
-                        key={permission._id}
-                        className="flex cursor-pointer items-start gap-3 rounded-2xl bg-surface px-4 py-3 transition hover:bg-primary/3"
+              groupedPermissions.map(([groupName, items]) => {
+                const grantableItems = items.filter((permission) => canGrant(permission));
+                const allSelected =
+                  grantableItems.length > 0 &&
+                  grantableItems.every((permission) =>
+                    selectedPermissionIds.includes(permission._id),
+                  );
+
+                return (
+                  <div
+                    key={groupName}
+                    className="overflow-hidden rounded-xl border border-on-surface/8"
+                  >
+                    <div className="flex items-center justify-between bg-surface/70 px-5 py-3">
+                      <p className="text-xs font-black uppercase tracking-[0.18em] text-on-surface-variant/70">
+                        {getGroupLabel(groupName, isVietnamese)}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => toggleGroup(items)}
+                        disabled={isSelfSelection || grantableItems.length === 0}
+                        className="text-[11px] font-bold text-primary/70 hover:text-primary disabled:cursor-not-allowed disabled:text-on-surface-variant/35"
                       >
-                        <input
-                          type="checkbox"
-                          checked={selectedPermissionIds.includes(permission._id)}
-                          onChange={() =>
-                            setSelectedPermissionIds((current) =>
-                              current.includes(permission._id)
-                                ? current.filter((item) => item !== permission._id)
-                                : [...current, permission._id],
-                            )
-                          }
-                          className="mt-1 h-4 w-4 accent-primary"
-                        />
-                        <div className="min-w-0">
-                          <p className="font-semibold text-on-surface">{permission.name}</p>
-                          <p className="mt-0.5 truncate text-xs text-on-surface-variant/60">
-                            {permission.key}
-                          </p>
-                        </div>
-                      </label>
-                    ))}
+                        {allSelected
+                          ? isVietnamese
+                            ? 'Bỏ chọn quyền có thể cấp'
+                            : 'Deselect grantable'
+                          : isVietnamese
+                            ? 'Chọn quyền có thể cấp'
+                            : 'Select grantable'}
+                      </button>
+                    </div>
+                    <div className="grid gap-3 p-4 md:grid-cols-2">
+                      {items.map((permission) => {
+                        const disabled = isSelfSelection || !canGrant(permission);
+                        return (
+                          <label
+                            key={permission._id}
+                            className={`flex items-start gap-3 rounded-xl px-4 py-3 transition ${
+                              disabled
+                                ? 'cursor-not-allowed bg-surface/60 opacity-60'
+                                : 'cursor-pointer bg-surface hover:bg-primary/5'
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={selectedPermissionIds.includes(permission._id)}
+                              disabled={disabled}
+                              onChange={() => togglePermission(permission)}
+                              className="mt-1 h-4 w-4 accent-primary"
+                            />
+                            <div className="min-w-0">
+                              <p className="font-semibold text-on-surface">
+                                {permission.name}
+                              </p>
+                              <p className="mt-0.5 truncate text-xs text-on-surface-variant/60">
+                                {permission.key}
+                              </p>
+                              {!isSuperAdmin && !canGrant(permission) ? (
+                                <p className="mt-1 text-[11px] font-bold text-amber-700">
+                                  {isVietnamese
+                                    ? 'Bạn không có quyền này nên không thể cấp.'
+                                    : 'You do not own this permission.'}
+                                </p>
+                              ) : null}
+                            </div>
+                          </label>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>
@@ -353,5 +507,3 @@ export default function Permissions() {
     </div>
   );
 }
-
-

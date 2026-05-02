@@ -17,6 +17,7 @@ import { useSearchParams } from 'react-router-dom';
 import { apiClient } from '../lib/api';
 import { useLanguage } from '../i18n/language-context';
 import { useToast } from '../hooks/useToast';
+import { useAdminSession } from '../hooks/useAdminSession';
 import Pagination from '../components/shared/Pagination';
 import Modal from '../components/shared/Modal';
 
@@ -363,7 +364,9 @@ export default function Customers() {
   const { language } = useLanguage();
   const isVietnamese = language === 'vi';
   const { showToast } = useToast();
+  const { session } = useAdminSession();
   const [searchParams, setSearchParams] = useSearchParams();
+  const currentAdminId = session?.user._id;
 
   const [search, setSearch] = useState(searchParams.get('search') ?? '');
   const [roleFilter, setRoleFilter] = useState<UserRole | 'all'>(
@@ -610,6 +613,10 @@ export default function Customers() {
     setFormOpen(true);
   }
 
+  function isCurrentAdminAccount(userId?: string | null) {
+    return Boolean(currentAdminId && userId && currentAdminId === userId);
+  }
+
   async function openDetailModal(customerId: string) {
     setDetailOpen(true);
     setSelectedCustomerId(customerId);
@@ -753,6 +760,19 @@ export default function Customers() {
   }
 
   async function toggleAccountStatus(customer: Customer | CustomerDetail) {
+    if (isCurrentAdminAccount(customer._id)) {
+      showToast({
+        tone: 'error',
+        title: isVietnamese
+          ? 'Không thể tự khóa tài khoản'
+          : 'Cannot change your own status',
+        description: isVietnamese
+          ? 'Hãy dùng Super Admin hoặc một admin khác có quyền phù hợp.'
+          : 'Use Super Admin or another authorized admin.',
+      });
+      return;
+    }
+
     setStatusUpdating(true);
 
     try {
@@ -829,6 +849,9 @@ export default function Customers() {
     link.click();
     URL.revokeObjectURL(url);
   }
+
+  const isEditingSelf =
+    formMode === 'edit' && isCurrentAdminAccount(editingCustomerId);
 
   return (
     <div className="space-y-8">
@@ -1069,9 +1092,11 @@ export default function Customers() {
               </button>
               <button
                 type="button"
-                disabled={statusUpdating}
+                disabled={
+                  statusUpdating || isCurrentAdminAccount(selectedCustomer._id)
+                }
                 onClick={() => void toggleAccountStatus(selectedCustomer)}
-                className="inline-flex items-center gap-2 rounded-2xl bg-primary px-5 py-3 text-sm font-black text-white"
+                className="inline-flex items-center gap-2 rounded-2xl bg-primary px-5 py-3 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-55"
               >
                 {statusUpdating ? <LoaderCircle size={16} className="animate-spin" /> : <ShieldCheck size={16} />}
                 {selectedCustomer.isActive
@@ -1092,8 +1117,9 @@ export default function Customers() {
               </button>
               <button
                 type="button"
+                disabled={isCurrentAdminAccount(selectedCustomer._id)}
                 onClick={() => setDeleteOpen(true)}
-                className="inline-flex items-center gap-2 rounded-2xl bg-red-600 px-5 py-3 text-sm font-black text-white"
+                className="inline-flex items-center gap-2 rounded-2xl bg-red-600 px-5 py-3 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-55"
               >
                 <Trash2 size={16} />
                 {isVietnamese ? 'Xóa tài khoản' : 'Delete account'}
@@ -1373,13 +1399,14 @@ export default function Customers() {
             <FieldLabel label={isVietnamese ? 'Vai trò' : 'Role'}>
               <select
                 value={formState.role}
+                disabled={isEditingSelf}
                 onChange={(event) =>
                   setFormState((current) => ({
                     ...current,
                     role: event.target.value as UserRole,
                   }))
                 }
-                className="w-full rounded-2xl border border-on-surface/10 bg-surface px-4 py-3 text-sm outline-none"
+                className="w-full rounded-2xl border border-on-surface/10 bg-surface px-4 py-3 text-sm outline-none disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <option value="admin">{translateRole('admin', isVietnamese)}</option>
                 <option value="staff">{translateRole('staff', isVietnamese)}</option>
@@ -1395,13 +1422,14 @@ export default function Customers() {
                 <input
                   type="checkbox"
                   checked={formState.isActive}
+                  disabled={isEditingSelf}
                   onChange={(event) =>
                     setFormState((current) => ({
                       ...current,
                       isActive: event.target.checked,
                     }))
                   }
-                  className="mr-3 h-4 w-4 accent-primary"
+                  className="mr-3 h-4 w-4 accent-primary disabled:cursor-not-allowed"
                 />
                 {formState.isActive
                   ? isVietnamese
@@ -1413,6 +1441,14 @@ export default function Customers() {
               </div>
             </label>
           </div>
+
+          {isEditingSelf ? (
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">
+              {isVietnamese
+                ? 'Bạn không thể tự đổi vai trò hoặc trạng thái của chính mình.'
+                : 'You cannot change your own role or account status.'}
+            </div>
+          ) : null}
         </div>
       </Modal>
 

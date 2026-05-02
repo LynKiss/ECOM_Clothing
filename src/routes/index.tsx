@@ -5,6 +5,7 @@ import AdminLayout from '../layouts/admin.layout';
 import ClientLayout from '../layouts/client.layout';
 import NotFound from '../components/shared/NotFound';
 import ProtectedAdminRoute from '../components/shared/ProtectedAdminRoute';
+import ProtectedSuperAdminRoute from '../components/shared/ProtectedSuperAdminRoute';
 import { ROUTE_PATHS } from './route-names';
 
 // Admin pages
@@ -69,6 +70,7 @@ const ClientStyleAdvisorPage = lazy(() => import('../features/client/style-advis
 const ClientVirtualTryOnPage = lazy(() => import('../features/client/virtual-try-on/page'));
 
 const LoginPage = lazy(() => import('../pages/Login'));
+const SuperLoginPage = lazy(() => import('../pages/SuperLogin'));
 
 const withSuspense = (element: ReactNode) => (
   <Suspense fallback={<div className="p-6 text-sm text-on-surface-variant">Loading...</div>}>{element}</Suspense>
@@ -141,6 +143,12 @@ export const router = createBrowserRouter([
         ],
       },
       {
+        element: <ProtectedSuperAdminRoute />,
+        children: [
+          { path: 'super/permissions', element: withSuspense(<PermissionsPage />) },
+        ],
+      },
+      {
         path: 'client',
         element: <ClientLayout />,
         children: [
@@ -167,6 +175,7 @@ export const router = createBrowserRouter([
       },
       { path: 'client/login', element: withSuspense(<LoginPage />) },
       { path: 'login', element: withSuspense(<LoginPage />) },
+      { path: 'super-login', element: withSuspense(<SuperLoginPage />) },
     ],
   },
 ]);

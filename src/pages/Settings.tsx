@@ -20,6 +20,7 @@ import {
 import { apiClient } from '../lib/api';
 import { useLanguage } from '../i18n/language-context';
 import { useToast } from '../hooks/useToast';
+import { useAdminSession } from '../hooks/useAdminSession';
 
 export const VIETNAM_PROVINCES = [
   'An Giang','Bà Rịa - Vũng Tàu','Bắc Giang','Bắc Kạn','Bạc Liêu','Bắc Ninh','Bến Tre','Bình Định','Bình Dương','Bình Phước',
@@ -965,6 +966,7 @@ type SectionConfig = {
   icon: ReactNode;
   iconBg: string;
   iconColor: string;
+  permissions: string[];
 };
 
 const SECTIONS: SectionConfig[] = [
@@ -975,6 +977,7 @@ const SECTIONS: SectionConfig[] = [
     icon: <Building2 size={22} />,
     iconBg: 'bg-blue-50',
     iconColor: 'text-blue-600',
+    permissions: ['manage_settings'],
   },
   {
     key: 'shipping',
@@ -983,6 +986,7 @@ const SECTIONS: SectionConfig[] = [
     icon: <Truck size={22} />,
     iconBg: 'bg-amber-50',
     iconColor: 'text-amber-600',
+    permissions: ['manage_delivery'],
   },
   {
     key: 'social',
@@ -991,6 +995,7 @@ const SECTIONS: SectionConfig[] = [
     icon: <Share2 size={22} />,
     iconBg: 'bg-pink-50',
     iconColor: 'text-pink-600',
+    permissions: ['manage_settings'],
   },
   {
     key: 'language',
@@ -999,6 +1004,7 @@ const SECTIONS: SectionConfig[] = [
     icon: <Globe size={22} />,
     iconBg: 'bg-green-50',
     iconColor: 'text-green-600',
+    permissions: ['manage_settings'],
   },
   {
     key: 'sidebar',
@@ -1007,6 +1013,7 @@ const SECTIONS: SectionConfig[] = [
     icon: <PanelLeft size={22} />,
     iconBg: 'bg-emerald-50',
     iconColor: 'text-emerald-600',
+    permissions: ['manage_settings'],
   },
   {
     key: 'client',
@@ -1015,12 +1022,19 @@ const SECTIONS: SectionConfig[] = [
     icon: <Sparkles size={22} />,
     iconBg: 'bg-indigo-50',
     iconColor: 'text-indigo-600',
+    permissions: ['manage_settings'],
   },
 ];
 
 // ── Hub (landing view) ────────────────────────────────────────────────────────
 
-function SettingsHub({ onSelect }: { onSelect: (s: Section) => void }) {
+function SettingsHub({
+  sections,
+  onSelect,
+}: {
+  sections: SectionConfig[];
+  onSelect: (s: Section) => void;
+}) {
   return (
     <div className="space-y-8 pb-20">
       <div>
@@ -1032,8 +1046,13 @@ function SettingsHub({ onSelect }: { onSelect: (s: Section) => void }) {
         </p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4">
-        {SECTIONS.map((s) => (
+      {sections.length === 0 ? (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-6 text-sm font-semibold text-amber-800">
+          Tài khoản hiện tại chưa có quyền cấu hình nào được cấp.
+        </div>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4">
+        {sections.map((s) => (
           <button
             key={s.key}
             onClick={() => onSelect(s.key)}
@@ -1057,11 +1076,13 @@ function SettingsHub({ onSelect }: { onSelect: (s: Section) => void }) {
             </div>
           </button>
         ))}
-      </div>
+        </div>
+      )}
 
       {/* Info cards */}
       <div className="grid gap-4 sm:grid-cols-3">
-        <div className="rounded-xl border border-on-surface-variant/10 bg-white p-5">
+        {sections.some((section) => section.key === 'general') ? (
+          <div className="rounded-xl border border-on-surface-variant/10 bg-white p-5">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/8 text-primary">
               <MapPin size={18} />
@@ -1074,8 +1095,10 @@ function SettingsHub({ onSelect }: { onSelect: (s: Section) => void }) {
           <p className="mt-3 text-xs text-on-surface-variant leading-relaxed">
             Dropdown 63 tỉnh thành đã được tích hợp vào trang địa chỉ và thanh toán.
           </p>
-        </div>
-        <div className="rounded-xl border border-on-surface-variant/10 bg-white p-5">
+          </div>
+        ) : null}
+        {sections.some((section) => section.key === 'shipping') ? (
+          <div className="rounded-xl border border-on-surface-variant/10 bg-white p-5">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
               <Truck size={18} />
@@ -1088,8 +1111,10 @@ function SettingsHub({ onSelect }: { onSelect: (s: Section) => void }) {
           <p className="mt-3 text-xs text-on-surface-variant leading-relaxed">
             Thêm/sửa/xoá đơn vị vận chuyển. Phí được hiển thị trước khi thanh toán.
           </p>
-        </div>
-        <div className="rounded-xl border border-on-surface-variant/10 bg-white p-5">
+          </div>
+        ) : null}
+        {sections.some((section) => section.key === 'social') ? (
+          <div className="rounded-xl border border-on-surface-variant/10 bg-white p-5">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-pink-50 text-pink-600">
               <Share2 size={18} />
@@ -1102,7 +1127,8 @@ function SettingsHub({ onSelect }: { onSelect: (s: Section) => void }) {
           <p className="mt-3 text-xs text-on-surface-variant leading-relaxed">
             Links mạng xã hội tự động cập nhật ở footer trang client.
           </p>
-        </div>
+          </div>
+        ) : null}
       </div>
     </div>
   );
@@ -1112,13 +1138,28 @@ function SettingsHub({ onSelect }: { onSelect: (s: Section) => void }) {
 
 export default function Settings() {
   const [active, setActive] = useState<Section | null>(null);
+  const { session } = useAdminSession();
+  const permissionSet = new Set(
+    session?.user.permissions?.map((permission) => permission.key) ?? [],
+  );
+  const hasAnyPermission = (permissions: string[]) =>
+    permissions.some((permission) => permissionSet.has(permission));
+  const visibleSections = SECTIONS.filter((section) =>
+    hasAnyPermission(section.permissions),
+  );
 
-  const activeSectionConfig = SECTIONS.find((s) => s.key === active);
+  const activeSectionConfig = visibleSections.find((s) => s.key === active);
+
+  useEffect(() => {
+    if (active && !activeSectionConfig) {
+      setActive(null);
+    }
+  }, [active, activeSectionConfig]);
 
   return (
     <div className="pb-20">
       {active === null ? (
-        <SettingsHub onSelect={setActive} />
+        <SettingsHub sections={visibleSections} onSelect={setActive} />
       ) : (
         <div className="space-y-6">
           {/* Breadcrumb header */}
