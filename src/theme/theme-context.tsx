@@ -74,9 +74,10 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       themeMode,
       resolvedTheme,
       setThemeMode,
+      // Cycle: light → dark → system → light
       toggleTheme: () =>
         setThemeMode((current) =>
-          current === 'dark' ? 'light' : current === 'light' ? 'dark' : 'dark',
+          current === 'light' ? 'dark' : current === 'dark' ? 'system' : 'light',
         ),
     }),
     [resolvedTheme, themeMode],

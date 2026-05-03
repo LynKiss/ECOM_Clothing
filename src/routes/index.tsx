@@ -71,6 +71,8 @@ const ClientVirtualTryOnPage = lazy(() => import('../features/client/virtual-try
 
 const LoginPage = lazy(() => import('../pages/Login'));
 const SuperLoginPage = lazy(() => import('../pages/SuperLogin'));
+const CentralSuperLoginPage = lazy(() => import('../pages/CentralSuperLogin'));
+const CentralSuperConfigPage = lazy(() => import('../pages/CentralSuperConfig'));
 
 const withSuspense = (element: ReactNode) => (
   <Suspense fallback={<div className="p-6 text-sm text-on-surface-variant">Loading...</div>}>{element}</Suspense>
@@ -176,6 +178,8 @@ export const router = createBrowserRouter([
       { path: 'client/login', element: withSuspense(<LoginPage />) },
       { path: 'login', element: withSuspense(<LoginPage />) },
       { path: 'super-login', element: withSuspense(<SuperLoginPage />) },
+      { path: 'central-super/login', element: withSuspense(<CentralSuperLoginPage />) },
+      { path: 'central-super/config', element: withSuspense(<CentralSuperConfigPage />) },
     ],
   },
 ]);

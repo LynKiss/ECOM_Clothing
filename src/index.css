@@ -1,5 +1,8 @@
 ﻿@import "tailwindcss";
 
+/* Gắn dark: prefix của Tailwind vào data-theme="dark" thay vì class="dark" */
+@custom-variant dark (&:where([data-theme='dark'] *, html[data-theme='dark']));
+
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
@@ -50,6 +53,7 @@
   }
 
   html[data-theme='dark'] {
+    /* Admin theme */
     --theme-primary: #8bdc8b;
     --theme-primary-container: #4ca96a;
     --theme-primary-fixed: #24452b;
@@ -62,7 +66,23 @@
     --theme-elevated: rgba(23, 33, 28, 0.88);
     --theme-elevated-soft: rgba(23, 33, 28, 0.72);
     --theme-panel-border: rgba(237, 247, 238, 0.08);
-    --theme-shadow: 0 30px 70px -36px rgba(0, 0, 0, 0.65);
+    --theme-shadow: 0 4px 32px rgba(0, 0, 0, 0.6);
+
+    /* Client theme — phải override để màu động trong client layout hoạt động đúng */
+    --client-starbucks-green: #8bdc8b;
+    --client-green-accent: #4ca96a;
+    --client-house-green: #17211c;
+    --client-green-light: #1d3a29;
+    --client-neutral-warm: #0f1713;
+    --client-ceramic: #17211c;
+    --client-neutral-cool: #17211c;
+    --client-text: rgba(237, 247, 238, 0.87);
+    --client-text-soft: rgba(157, 179, 162, 0.80);
+    --client-white-soft: rgba(237, 247, 238, 0.10);
+    --client-red: #f87171;
+    --client-warning: #fcd34d;
+    --client-card-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
+    --client-nav-shadow: 0 1px 3px rgba(0, 0, 0, 0.40), 0 2px 2px rgba(0, 0, 0, 0.30);
   }
 }
 
@@ -128,6 +148,38 @@
   html[data-theme='dark'] .border-white\/80 {
     border-color: rgba(255, 255, 255, 0.12) !important;
   }
+
+  /* bg-gray-* */
+  html[data-theme='dark'] .bg-gray-50 { background-color: var(--theme-surface) !important; }
+  html[data-theme='dark'] .bg-gray-100 { background-color: var(--theme-surface-container) !important; }
+  html[data-theme='dark'] .bg-gray-200 { background-color: color-mix(in srgb, var(--theme-on-surface) 12%, transparent) !important; }
+
+  /* text-gray-* */
+  html[data-theme='dark'] .text-gray-500,
+  html[data-theme='dark'] .text-gray-600 { color: var(--theme-on-surface-variant) !important; }
+  html[data-theme='dark'] .text-gray-700,
+  html[data-theme='dark'] .text-gray-800,
+  html[data-theme='dark'] .text-gray-900 { color: var(--theme-on-surface) !important; }
+
+  /* border-gray-* */
+  html[data-theme='dark'] .border-gray-100,
+  html[data-theme='dark'] .border-gray-200 { border-color: var(--theme-panel-border) !important; }
+
+  /* bg-[#F8FAFC] và các màu trắng/sáng hardcoded phổ biến trong project */
+  html[data-theme='dark'] .bg-\[\#F8FAFC\],
+  html[data-theme='dark'] .bg-\[\#f8fafc\],
+  html[data-theme='dark'] .bg-\[\#F1F5F9\],
+  html[data-theme='dark'] .bg-\[\#FFFFFF\],
+  html[data-theme='dark'] .bg-\[\#ffffff\] { background-color: var(--theme-surface-container) !important; }
+
+  /* text-[#0B0F19] — màu chữ tối hardcoded trong client layout */
+  html[data-theme='dark'] .text-\[\#0B0F19\],
+  html[data-theme='dark'] .text-\[\#0b0f19\] { color: var(--theme-on-surface) !important; }
+
+  /* border-*/
+  html[data-theme='dark'] .border-black\/5,
+  html[data-theme='dark'] .border-black\/8,
+  html[data-theme='dark'] .border-black\/10 { border-color: var(--theme-panel-border) !important; }
 
   .app-elevated {
     background: var(--theme-elevated);
@@ -200,15 +252,15 @@
   }
 
   .admin-pill-primary {
-    border: 1px solid #1D4ED8;
-    background: #1D4ED8;
+    border: 1px solid var(--theme-primary-container);
+    background: var(--theme-primary-container);
     color: #ffffff;
   }
 
   .admin-pill-outline {
-    border: 1px solid #1D4ED8;
+    border: 1px solid var(--theme-primary-container);
     background: transparent;
-    color: #1D4ED8;
+    color: var(--theme-primary-container);
   }
 
   .client-surface {
@@ -218,14 +270,14 @@
   }
 
   .client-card {
-    background: #ffffff;
+    background: var(--theme-surface-container);
     border-radius: 12px;
     box-shadow: var(--client-card-shadow);
   }
 
   .client-card-soft {
-    background: #ffffff;
-    border: 1px solid rgba(0, 0, 0, 0.06);
+    background: var(--theme-surface-container);
+    border: 1px solid var(--theme-panel-border);
     border-radius: 12px;
     box-shadow: var(--client-card-shadow);
   }
@@ -286,7 +338,7 @@
 
   .client-input:focus {
     border-color: var(--client-green-accent);
-    background: #ffffff;
+    background: var(--theme-surface-container);
   }
 
   .client-card-hover {

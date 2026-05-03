@@ -24,6 +24,7 @@
   PanelLeftClose,
   PanelLeftOpen,
   Settings,
+  Shield,
   ShieldCheck,
   ShoppingCart,
   Star,
@@ -37,7 +38,7 @@ import { NavLink, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { useAdminSession } from '../hooks/useAdminSession';
 import { useLanguage } from '../i18n/language-context';
-import { apiClient } from '../lib/api';
+import { apiClient, refreshAdminSession } from '../lib/api';
 
 type SidebarProps = {
   open: boolean;
@@ -70,6 +71,11 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapse }: 
   const { language } = useLanguage();
   const isVietnamese = language === 'vi';
   const [hiddenItemIds, setHiddenItemIds] = useState<Set<string>>(new Set());
+
+  // Refresh permissions từ BE mỗi khi sidebar mount để phản ánh thay đổi mới nhất
+  useEffect(() => {
+    void refreshAdminSession().catch(() => {});
+  }, []);
 
   const navItems: NavItem[] = [
     {
@@ -457,6 +463,40 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapse }: 
 
         <div className="scrollbar-none min-h-0 flex-1 overflow-y-auto">
           <nav className="flex flex-col gap-0.5">
+            <>
+              {collapsed ? (
+                <NavLink
+                  to="/central-super/config"
+                  onClick={onClose}
+                  title="Central Super Admin"
+                  className={({ isActive }: { isActive: boolean }) =>
+                    `hidden lg:flex h-10 w-10 mx-auto items-center justify-center rounded-xl transition-all duration-200 ${
+                      isActive
+                        ? 'bg-amber-400/20 text-amber-400'
+                        : 'text-amber-400/70 hover:bg-amber-400/10 hover:text-amber-400'
+                    }`
+                  }
+                >
+                  <Shield size={18} />
+                </NavLink>
+              ) : (
+                <NavLink
+                  to="/central-super/config"
+                  onClick={onClose}
+                  className={({ isActive }: { isActive: boolean }) =>
+                    `flex items-center gap-3 rounded-full px-3 py-2.5 text-sm font-medium transition-all duration-200 ${
+                      isActive
+                        ? 'bg-amber-400/20 font-bold text-amber-400 shadow-lg shadow-amber-400/10'
+                        : 'text-amber-400/70 hover:bg-amber-400/10 hover:text-amber-400 active:scale-95'
+                    }`
+                  }
+                >
+                  <Shield size={18} />
+                  <span>Super Admin</span>
+                </NavLink>
+              )}
+              <div className="my-1 mx-3 border-t border-white/10" />
+            </>
             {filteredNavItems.map((item) => {
               if (item.children) {
                 const isGroupActive = item.children.some(
