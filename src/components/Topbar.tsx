@@ -214,9 +214,9 @@ export default function Topbar({ onOpenSidebar }: TopbarProps) {
           ...updated,
         },
       });
-      showToast({ tone: 'success', title: 'Da cap nhat anh dai dien' });
+      showToast({ tone: 'success', title: 'Đã cập nhật ảnh đại diện' });
     } catch (err) {
-      showToast({ tone: 'error', title: err instanceof Error ? err.message : 'Tai anh that bai' });
+      showToast({ tone: 'error', title: err instanceof Error ? err.message : 'Tải ảnh thất bại' });
     } finally {
       setUploadingAvatar(false);
     }

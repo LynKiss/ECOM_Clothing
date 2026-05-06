@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import {
   AlertCircle,
   ArrowLeft,
@@ -9,10 +9,13 @@ import {
   ExternalLink,
   LoaderCircle,
   LogOut,
+  Monitor,
+  MoonStar,
   Plus,
   Save,
   Shield,
   Shirt,
+  SunMedium,
   Users,
   X,
 } from 'lucide-react';
@@ -24,6 +27,7 @@ import {
   type ProjectAdmin,
   type ProjectPermission,
 } from '../lib/central-super-api';
+import { useTheme } from '../theme/theme-context';
 
 type AdminPermState = {
   keys: Set<string>;
@@ -35,6 +39,8 @@ type AdminPermState = {
 export default function CentralSuperConfigPage() {
   const { session } = useCentralSuperSession();
   const navigate = useNavigate();
+  const location = useLocation();
+  const { themeMode, resolvedTheme, toggleTheme } = useTheme();
 
   // Project list
   const [projects, setProjects] = useState<Project[]>([]);
@@ -175,19 +181,21 @@ export default function CentralSuperConfigPage() {
     navigate('/central-super/login', { replace: true });
   }
 
-  if (!session) return null;
+  if (!session) {
+    return <Navigate to="/central-super/login" replace state={{ from: location.pathname }} />;
+  }
 
   return (
-    <div className="min-h-screen bg-[#F4F7FB]">
+    <div className="central-super-page min-h-screen bg-[#F4F7FB] text-[#0B0F19]">
       {/* Header */}
-      <header className="sticky top-0 z-20 border-b border-[#E2E8F0] bg-white/90 backdrop-blur">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-5 py-3">
+      <header className="central-super-header sticky top-0 z-20 border-b border-[#E2E8F0] bg-white/90 backdrop-blur">
+        <div className="mx-auto flex max-w-5xl items-center justify-between gap-2 px-5 py-3">
           <div className="flex items-center gap-3">
             {selectedProject ? (
               <button
                 type="button"
                 onClick={() => setSelectedProject(null)}
-                className="flex h-9 w-9 items-center justify-center rounded-full border border-[#E2E8F0] text-gray-500 transition hover:bg-[#F8FAFC]"
+                className="central-super-icon-button flex h-9 w-9 items-center justify-center rounded-full border border-[#E2E8F0] text-gray-500 transition hover:bg-[#F8FAFC]"
               >
                 <ArrowLeft size={16} />
               </button>
@@ -207,8 +215,23 @@ export default function CentralSuperConfigPage() {
           </div>
           <button
             type="button"
+            onClick={toggleTheme}
+            title={`Theme: ${themeMode}`}
+            className="central-super-icon-button ml-auto flex items-center gap-2 rounded-full border border-[#E2E8F0] px-4 py-2 text-sm font-semibold text-gray-600 transition hover:bg-[#F8FAFC]"
+          >
+            {themeMode === 'system' ? (
+              <Monitor size={15} />
+            ) : resolvedTheme === 'dark' ? (
+              <SunMedium size={15} />
+            ) : (
+              <MoonStar size={15} />
+            )}
+            {themeMode === 'system' ? 'System' : resolvedTheme === 'dark' ? 'Toi' : 'Sang'}
+          </button>
+          <button
+            type="button"
             onClick={() => void handleLogout()}
-            className="flex items-center gap-2 rounded-full border border-[#E2E8F0] px-4 py-2 text-sm font-semibold text-gray-600 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+            className="central-super-icon-button flex items-center gap-2 rounded-full border border-[#E2E8F0] px-4 py-2 text-sm font-semibold text-gray-600 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
           >
             <LogOut size={15} />
             Đăng xuất
@@ -238,7 +261,7 @@ export default function CentralSuperConfigPage() {
 
             {/* Register form */}
             {showRegisterForm && (
-              <section className="rounded-2xl border border-[#BFDBFE] bg-[#EFF6FF] p-6">
+              <section className="central-super-card rounded-2xl border border-[#BFDBFE] bg-[#EFF6FF] p-6">
                 <h2 className="mb-4 text-sm font-black text-[#1D4ED8]">Đăng ký dự án mới</h2>
                 {registerError ? <ErrorBox message={registerError} /> : null}
                 <form onSubmit={handleRegister} className="space-y-4">
@@ -265,7 +288,7 @@ export default function CentralSuperConfigPage() {
             ) : projectsError ? (
               <ErrorBox message={projectsError} />
             ) : projects.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-[#CBD5E1] bg-white p-12 text-center">
+              <div className="central-super-card rounded-2xl border border-dashed border-[#CBD5E1] bg-white p-12 text-center">
                 <Shield size={32} className="mx-auto mb-3 text-gray-300" />
                 <p className="text-sm font-semibold text-gray-400">Chưa có dự án nào được đăng ký</p>
               </div>
@@ -276,7 +299,7 @@ export default function CentralSuperConfigPage() {
                     key={p.projectId}
                     type="button"
                     onClick={() => void openProject(p)}
-                    className="group flex flex-col gap-3 rounded-2xl border border-[#E2E8F0] bg-white p-5 text-left shadow-sm transition hover:border-[#93C5FD] hover:shadow-md"
+                    className="central-super-card group flex flex-col gap-3 rounded-2xl border border-[#E2E8F0] bg-white p-5 text-left shadow-sm transition hover:border-[#93C5FD] hover:shadow-md"
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#DBEAFE]">
@@ -308,7 +331,7 @@ export default function CentralSuperConfigPage() {
 
         {/* ── Project detail ─────────────────────────────────────────── */}
         {selectedProject && (
-          <section className="rounded-2xl border border-[#E2E8F0] bg-white p-6 shadow-sm">
+          <section className="central-super-card rounded-2xl border border-[#E2E8F0] bg-white p-6 shadow-sm">
             <div className="mb-5 flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#DBEAFE]">
                 <Users size={18} className="text-[#2563EB]" />
@@ -334,11 +357,11 @@ export default function CentralSuperConfigPage() {
                   const state = adminPermStates[adm.userId];
                   const isExpanded = expandedAdmin === adm.userId;
                   return (
-                    <div key={adm.userId} className="overflow-hidden rounded-xl border border-[#E2E8F0]">
+                    <div key={adm.userId} className="central-super-card overflow-hidden rounded-xl border border-[#E2E8F0]">
                       <button
                         type="button"
                         onClick={() => setExpandedAdmin(isExpanded ? null : adm.userId)}
-                        className="flex w-full items-center justify-between px-4 py-3 text-left transition hover:bg-[#F8FAFC]"
+                        className="central-super-admin-row flex w-full items-center justify-between px-4 py-3 text-left transition hover:bg-[#F8FAFC]"
                       >
                         <div className="flex items-center gap-3">
                           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#DBEAFE] text-xs font-black text-[#2563EB]">
@@ -378,7 +401,7 @@ export default function CentralSuperConfigPage() {
                             {permissions.map((perm) => {
                               const checked = state.keys.has(perm.permissionKey);
                               return (
-                                <label key={perm.permissionKey} className={`flex cursor-pointer items-start gap-2 rounded-xl border p-3 text-xs transition ${checked ? 'border-[#2563EB] bg-[#EFF6FF]' : 'border-[#E2E8F0] hover:border-[#93C5FD]'}`}>
+                                <label key={perm.permissionKey} className={`central-super-permission-tile flex cursor-pointer items-start gap-2 rounded-xl border p-3 text-xs transition ${checked ? 'central-super-permission-tile-selected border-[#2563EB] bg-[#EFF6FF]' : 'central-super-permission-tile-empty border-[#E2E8F0] hover:border-[#93C5FD]'}`}>
                                   <input
                                     type="checkbox"
                                     checked={checked}

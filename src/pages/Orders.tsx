@@ -86,6 +86,8 @@ type OrderResponse = {
   items: OrderSummary[];
 };
 
+type OrderStats = Partial<Record<OrderStatus, number>>;
+
 type BadgeTone = 'amber' | 'sky' | 'slate' | 'primary' | 'emerald' | 'red' | 'zinc';
 
 type ManualTrackingForm = {
@@ -189,9 +191,12 @@ export default function Orders() {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  const [stats, setStats] = useState<OrderStats>({});
+
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<OrderDetail | null>(null);
+  const [activeTab, setActiveTab] = useState<'detail' | 'tracking'>('detail');
   const [nextStatus, setNextStatus] = useState<OrderStatus>('pending');
   const [statusNote, setStatusNote] = useState('');
   const [updatingStatus, setUpdatingStatus] = useState(false);
@@ -275,7 +280,7 @@ export default function Orders() {
             loadError instanceof Error
               ? loadError.message
               : isVietnamese
-                ? 'Khong tai duoc danh sach don hang'
+                ? 'Không tải được danh sách đơn hàng'
                 : 'Unable to load orders',
           );
         }
@@ -291,6 +296,10 @@ export default function Orders() {
       cancelled = true;
     };
   }, [search, status, isVietnamese, page, limit, reloadKey]);
+
+  useEffect(() => {
+    void apiClient.get<OrderStats>('/orders/admin/stats').then(setStats).catch(() => {});
+  }, [reloadKey]);
 
   useEffect(() => {
     intervalRef.current = setInterval(() => {
@@ -385,6 +394,7 @@ export default function Orders() {
   async function openOrderDetail(orderId: string) {
     setDetailOpen(true);
     setDetailLoading(true);
+    setActiveTab('detail');
     setTracking(null);
     setManualForm(EMPTY_MANUAL_FORM);
     setLiveForm(EMPTY_LIVE_FORM);
@@ -422,6 +432,8 @@ export default function Orders() {
 
       setSelectedOrder(updated);
       setStatusNote('');
+      const newAllowed = getAllowedNextStatuses(updated.status);
+      setNextStatus(newAllowed[0] ?? updated.status);
       setOrders((current) =>
         current.map((order) =>
           order.id === updated.id
@@ -591,7 +603,7 @@ export default function Orders() {
         </h1>
         <p className="mt-1 text-sm text-on-surface-variant">
           {isVietnamese
-            ? 'Theo doi don hang, thanh toan va tracking giao hang realtime trong mot man hinh.'
+            ? 'Theo dõi đơn hàng, thanh toán và tracking giao hàng realtime trong một màn hình.'
             : 'Track orders, payment status, and live delivery tracking in one screen.'}
         </p>
       </div>
@@ -608,7 +620,7 @@ export default function Orders() {
               onChange={(event) => setSearch(event.target.value)}
               placeholder={
                 isVietnamese
-                  ? 'Tim theo ma don, khach hang, so dien thoai'
+                  ? 'Tìm theo mã đơn, khách hàng, số điện thoại'
                   : 'Search by order, customer, phone'
               }
               className="w-full rounded-xl border border-on-surface/10 bg-surface py-3 pl-11 pr-4 text-sm outline-none"
@@ -668,22 +680,22 @@ export default function Orders() {
       </section>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
-        {[
-          { status: 'backordered', label: isVietnamese ? 'Chờ hàng' : 'Backordered', color: 'text-rose-600', bg: 'bg-rose-50' },
-          { status: 'pending', label: isVietnamese ? 'Chờ xử lý' : 'Pending', color: 'text-amber-600', bg: 'bg-amber-50' },
-          { status: 'confirmed', label: isVietnamese ? 'Đã xác nhận' : 'Confirmed', color: 'text-sky-600', bg: 'bg-sky-50' },
-          { status: 'processing', label: isVietnamese ? 'Đang xử lý' : 'Processing', color: 'text-violet-600', bg: 'bg-violet-50' },
-          { status: 'shipping', label: isVietnamese ? 'Đang giao' : 'Shipping', color: 'text-blue-600', bg: 'bg-blue-50' },
-          { status: 'delivered', label: isVietnamese ? 'Đã giao' : 'Delivered', color: 'text-emerald-600', bg: 'bg-emerald-50' },
-        ].map(({ status: nextStatusLabel, label, color, bg }) => {
-          const count = orders.filter((order) => order.status === nextStatusLabel).length;
+        {([
+          { status: 'backordered' as OrderStatus, label: isVietnamese ? 'Chờ hàng' : 'Backordered', color: 'text-rose-600', bg: 'bg-rose-50' },
+          { status: 'pending' as OrderStatus, label: isVietnamese ? 'Chờ xử lý' : 'Pending', color: 'text-amber-600', bg: 'bg-amber-50' },
+          { status: 'confirmed' as OrderStatus, label: isVietnamese ? 'Đã xác nhận' : 'Confirmed', color: 'text-sky-600', bg: 'bg-sky-50' },
+          { status: 'processing' as OrderStatus, label: isVietnamese ? 'Đang xử lý' : 'Processing', color: 'text-violet-600', bg: 'bg-violet-50' },
+          { status: 'shipping' as OrderStatus, label: isVietnamese ? 'Đang giao' : 'Shipping', color: 'text-blue-600', bg: 'bg-blue-50' },
+          { status: 'delivered' as OrderStatus, label: isVietnamese ? 'Đã giao' : 'Delivered', color: 'text-emerald-600', bg: 'bg-emerald-50' },
+        ]).map(({ status: cardStatus, label, color, bg }) => {
+          const count = stats[cardStatus] ?? 0;
           return (
             <button
-              key={nextStatusLabel}
+              key={cardStatus}
               type="button"
-              onClick={() => setStatus(nextStatusLabel as OrderStatus)}
+              onClick={() => setStatus(cardStatus)}
               className={`group rounded-xl border p-4 text-left shadow-sm transition hover:scale-[1.02] ${
-                status === nextStatusLabel
+                status === cardStatus
                   ? 'border-primary bg-primary/5'
                   : `border-on-surface/8 ${bg}`
               }`}
@@ -738,7 +750,9 @@ export default function Orders() {
               ) : (
                 orders.map((order) => (
                   <tr key={order.id} className="hover:bg-surface/40">
-                    <td className="px-4 py-4 font-semibold text-primary">{order.id}</td>
+                    <td className="px-4 py-4 font-semibold text-primary" title={order.id}>
+                      #{order.id.slice(0, 8).toUpperCase()}
+                    </td>
                     <td className="px-4 py-4">
                       <p className="font-semibold text-on-surface">{order.fullName}</p>
                       <p className="text-xs text-on-surface-variant">{order.address}</p>
@@ -803,7 +817,7 @@ export default function Orders() {
         }}
         size="xl"
         footer={
-          selectedOrder ? (
+          selectedOrder && activeTab === 'detail' ? (
             <div className="flex flex-wrap items-center justify-end gap-3">
               <a
                 href={`/admin/invoices/${selectedOrder.id}/print`}
@@ -846,10 +860,10 @@ export default function Orders() {
                   >
                     {updatingStatus
                       ? isVietnamese
-                        ? 'Dang cap nhat...'
+                        ? 'Đang cập nhật...'
                         : 'Updating...'
                       : isVietnamese
-                        ? 'Cap nhat trang thai'
+                        ? 'Cập nhật trạng thái'
                         : 'Update status'}
                   </button>
                 </>
@@ -864,13 +878,37 @@ export default function Orders() {
           </div>
         ) : selectedOrder ? (
           <div className="space-y-6">
+            <div className="flex gap-1 rounded-xl border border-on-surface/8 bg-surface/50 p-1">
+              {(['detail', 'tracking'] as const).map((tab) => (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() => setActiveTab(tab)}
+                  className={`flex-1 rounded-lg py-2 text-sm font-black transition ${
+                    activeTab === tab
+                      ? 'bg-primary text-white shadow-sm'
+                      : 'text-on-surface-variant hover:bg-on-surface/5'
+                  }`}
+                >
+                  {tab === 'detail'
+                    ? isVietnamese ? 'Chi tiết' : 'Detail'
+                    : isVietnamese ? 'Tracking' : 'Tracking'}
+                </button>
+              ))}
+            </div>
+
+            {activeTab === 'detail' && (
             <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
               <div className="space-y-6">
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <DetailCard label={isVietnamese ? 'Mã đơn' : 'Order ID'} value={selectedOrder.id} />
+                  <DetailCard
+                    label={isVietnamese ? 'Mã đơn' : 'Order ID'}
+                    value={`#${selectedOrder.id.slice(0, 8).toUpperCase()}`}
+                    subValue={selectedOrder.id}
+                  />
                   <DetailCard
                     label={isVietnamese ? 'Phương thức thanh toán' : 'Payment method'}
-                    value={selectedOrder.paymentMethod || '-'}
+                    value={getPaymentMethodLabel(selectedOrder.paymentMethod, isVietnamese)}
                   />
                   <DetailCard
                     label={isVietnamese ? 'Khách hàng' : 'Customer'}
@@ -965,8 +1003,8 @@ export default function Orders() {
                             <p className="font-semibold text-on-surface">
                               {(item.oldStatus
                                 ? getStatusLabel(item.oldStatus, isVietnamese)
-                                : '-') +
-                                ' -> ' +
+                                : '—') +
+                                ' → ' +
                                 getStatusLabel(item.newStatus, isVietnamese)}
                             </p>
                             <span className="text-xs text-on-surface-variant">
@@ -974,10 +1012,12 @@ export default function Orders() {
                             </span>
                           </div>
                           <p className="mt-1 text-xs text-on-surface-variant">
-                            {item.changedBy || 'system'}
+                            {item.changedBy
+                              ? isVietnamese ? `Bởi: ${item.changedBy}` : `By: ${item.changedBy}`
+                              : isVietnamese ? 'Hệ thống' : 'System'}
                           </p>
                           {item.note ? (
-                            <p className="mt-2 text-sm text-on-surface">{item.note}</p>
+                            <p className="mt-2 text-sm text-on-surface">{normalizeHistoryNote(item.note)}</p>
                           ) : null}
                         </div>
                       ))
@@ -986,7 +1026,9 @@ export default function Orders() {
                 </div>
               </div>
             </div>
+            )}
 
+            {activeTab === 'tracking' && (
             <section className="rounded-xl border border-on-surface/8 bg-surface/50 p-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
@@ -996,10 +1038,9 @@ export default function Orders() {
                   </h3>
                   <p className="mt-2 text-sm text-on-surface-variant">
                     {tracking
-                      ? `${TRACKING_MODE_LABELS[tracking.mode]} - ${TRACKING_SOURCE_LABELS[tracking.activeSource]
-                      }`
+                      ? `${TRACKING_MODE_LABELS[tracking.mode]} — ${TRACKING_SOURCE_LABELS[tracking.activeSource]}`
                       : isVietnamese
-                        ? 'Chua co du lieu tracking'
+                        ? 'Chưa có dữ liệu tracking'
                         : 'No tracking data yet'}
                   </p>
                 </div>
@@ -1052,28 +1093,24 @@ export default function Orders() {
                               <MapPin size={28} className="text-primary/40" />
                               <p className="text-sm">
                                 {isVietnamese
-                                  ? 'Chua co toa do de hien thi'
+                                  ? 'Chưa có tọa độ để hiển thị'
                                   : 'No coordinates available'}
                               </p>
                             </div>
                           )}
                         </div>
-                        <div className="grid grid-cols-2 gap-3 border-t border-on-surface/8 px-4 py-3 text-sm sm:grid-cols-4">
+                        <div className="grid grid-cols-3 gap-3 border-t border-on-surface/8 px-4 py-3 text-sm">
                           <InfoPill
-                            label={isVietnamese ? 'Lat' : 'Lat'}
+                            label="Lat"
                             value={activeMapPoint ? String(activeMapPoint.latitude) : '-'}
                           />
                           <InfoPill
-                            label={isVietnamese ? 'Lng' : 'Lng'}
+                            label="Lng"
                             value={activeMapPoint ? String(activeMapPoint.longitude) : '-'}
                           />
                           <InfoPill
                             label={isVietnamese ? 'Cập nhật' : 'Updated'}
                             value={activeMapPoint ? formatTrackingTime(activeMapPoint.updatedAt) : '-'}
-                          />
-                          <InfoPill
-                            label={isVietnamese ? 'GPS fresh' : 'GPS fresh'}
-                            value={tracking?.gpsSignalFresh ? 'Yes' : 'No'}
                           />
                         </div>
                       </div>
@@ -1082,21 +1119,24 @@ export default function Orders() {
                         <button
                           type="button"
                           onClick={() => seedManualFrom('active')}
-                          className="rounded-xl border border-on-surface/10 bg-white px-4 py-3 text-sm font-semibold text-on-surface-variant transition hover:border-primary/30 hover:text-primary"
+                          disabled={!tracking?.activeLocation}
+                          className="rounded-xl border border-on-surface/10 bg-white px-4 py-3 text-sm font-semibold text-on-surface-variant transition hover:border-primary/30 hover:text-primary disabled:opacity-40"
                         >
                           {isVietnamese ? 'Lấy vị trí đang hiển thị' : 'Use active point'}
                         </button>
                         <button
                           type="button"
                           onClick={() => seedManualFrom('gps')}
-                          className="rounded-xl border border-on-surface/10 bg-white px-4 py-3 text-sm font-semibold text-on-surface-variant transition hover:border-primary/30 hover:text-primary"
+                          disabled={!tracking?.gpsLocation}
+                          className="rounded-xl border border-on-surface/10 bg-white px-4 py-3 text-sm font-semibold text-on-surface-variant transition hover:border-primary/30 hover:text-primary disabled:opacity-40"
                         >
                           {isVietnamese ? 'Lấy từ GPS' : 'Use GPS point'}
                         </button>
                         <button
                           type="button"
                           onClick={() => seedManualFrom('manual')}
-                          className="rounded-xl border border-on-surface/10 bg-white px-4 py-3 text-sm font-semibold text-on-surface-variant transition hover:border-primary/30 hover:text-primary"
+                          disabled={!tracking?.manualLocation}
+                          className="rounded-xl border border-on-surface/10 bg-white px-4 py-3 text-sm font-semibold text-on-surface-variant transition hover:border-primary/30 hover:text-primary disabled:opacity-40"
                         >
                           {isVietnamese ? 'Lấy từ demo hiện tại' : 'Use manual point'}
                         </button>
@@ -1115,7 +1155,7 @@ export default function Orders() {
                             onClick={() => nudgeManual(item.lat, item.lng)}
                             className="rounded-xl border border-on-surface/10 bg-white px-4 py-3 text-sm font-bold text-on-surface transition hover:border-primary/30 hover:text-primary"
                           >
-                            {isVietnamese ? `Dich ${item.label}` : `Move ${item.label}`}
+                            {isVietnamese ? `Dịch ${item.label}` : `Move ${item.label}`}
                           </button>
                         ))}
                       </div>
@@ -1266,11 +1306,37 @@ export default function Orders() {
                 </>
               )}
             </section>
+            )}
           </div>
         ) : null}
       </Modal>
     </div>
   );
+}
+
+function getPaymentMethodLabel(method: string | null | undefined, isVietnamese: boolean): string {
+  if (!method) return '-';
+  const labels: Record<string, string> = {
+    cod: isVietnamese ? 'COD (thanh toán khi nhận)' : 'Cash on Delivery',
+    momo: 'Ví MoMo',
+    vnpay: 'VNPay',
+    zalopay: 'ZaloPay',
+    bank_transfer: isVietnamese ? 'Chuyển khoản ngân hàng' : 'Bank Transfer',
+    paypal: 'PayPal',
+  };
+  return labels[method.toLowerCase()] ?? method;
+}
+
+function normalizeHistoryNote(note: string | null): string {
+  if (!note) return '';
+  const map: Record<string, string> = {
+    'Order created': 'Đơn hàng đã được tạo',
+    'Guest order created': 'Đơn hàng khách đã được tạo',
+    'Order status updated by admin': 'Cập nhật trạng thái bởi admin',
+    'Order cancelled by user': 'Khách hàng đã hủy đơn',
+    'Backorder cancelled': 'Đã hủy đơn chờ hàng',
+  };
+  return map[note] ?? note;
 }
 
 function getStatusLabel(status: OrderStatus, isVietnamese: boolean) {
@@ -1362,13 +1428,16 @@ function Badge({ children, tone }: { children: string; tone: BadgeTone }) {
   );
 }
 
-function DetailCard({ label, value }: { label: string; value: string }) {
+function DetailCard({ label, value, subValue }: { label: string; value: string; subValue?: string }) {
   return (
-    <div className="rounded-xl bg-surface px-4 py-3">
+    <div className="rounded-xl bg-surface px-4 py-3" title={subValue}>
       <p className="text-[11px] font-black uppercase tracking-[0.18em] text-on-surface-variant/60">
         {label}
       </p>
       <p className="mt-2 text-sm font-semibold text-on-surface">{value}</p>
+      {subValue && (
+        <p className="mt-0.5 truncate text-[10px] text-on-surface-variant/40">{subValue}</p>
+      )}
     </div>
   );
 }
