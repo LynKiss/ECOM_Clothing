@@ -32,6 +32,7 @@ import {
 } from '../../lib/virtual-try-on';
 import { useCart } from '../../hooks/useCart';
 import { useClientSession } from '../../hooks/useClientSession';
+import { useToast } from '../../hooks/useToast';
 
 type ProductImage = {
   imageId?: string;
@@ -203,6 +204,7 @@ export default function ProductDetail() {
   const navigate = useNavigate();
   const { session } = useClientSession();
   const { addItem } = useCart();
+  const { showToast } = useToast();
 
   const [product, setProduct] = useState<Product | null>(null);
   const [related, setRelated] = useState<RelatedProduct[]>([]);
@@ -335,13 +337,18 @@ export default function ProductDetail() {
 
   const handleAddToCart = async () => {
     if (!session) { void navigate('/client/login'); return; }
+    const resolvedVariant = findSelectedVariant(product, selectedColorId, selectedSizeId);
+    if ((product?.variants?.length ?? 0) > 0 && !resolvedVariant) {
+      showToast({ tone: 'info', title: 'Vui lòng chọn màu sắc và kích thước trước khi thêm vào giỏ' });
+      return;
+    }
     setAdding(true);
     try {
-      const selectedVariant = findSelectedVariant(product, selectedColorId, selectedSizeId);
-      if ((product?.variants?.length ?? 0) > 0 && !selectedVariant) return;
-      await addItem(id!, quantity, selectedVariant?.variantId);
+      await addItem(id!, quantity, resolvedVariant?.variantId);
       setAddedMsg(true);
       setTimeout(() => setAddedMsg(false), 2500);
+    } catch {
+      showToast({ tone: 'error', title: 'Không thể thêm vào giỏ hàng, vui lòng thử lại' });
     } finally {
       setAdding(false);
     }
@@ -349,10 +356,17 @@ export default function ProductDetail() {
 
   const handleBuyNow = async () => {
     if (!session) { void navigate('/client/login'); return; }
-    const selectedVariant = findSelectedVariant(product, selectedColorId, selectedSizeId);
-    if ((product?.variants?.length ?? 0) > 0 && !selectedVariant) return;
-    await addItem(id!, quantity, selectedVariant?.variantId);
-    void navigate('/client/cart');
+    const resolvedVariant = findSelectedVariant(product, selectedColorId, selectedSizeId);
+    if ((product?.variants?.length ?? 0) > 0 && !resolvedVariant) {
+      showToast({ tone: 'info', title: 'Vui lòng chọn màu sắc và kích thước' });
+      return;
+    }
+    try {
+      await addItem(id!, quantity, resolvedVariant?.variantId);
+      void navigate('/client/cart');
+    } catch {
+      showToast({ tone: 'error', title: 'Không thể xử lý, vui lòng thử lại' });
+    }
   };
 
   const handleWishlist = async () => {
@@ -712,9 +726,13 @@ export default function ProductDetail() {
               )}
               <div className="flex items-center justify-between text-sm">
                 <span className="text-gray-500">Tình trạng</span>
-                {selectedStock > 0 ? (
+                {selectedStock > 10 ? (
                   <span className="font-semibold text-[#2563EB]">
                     Còn hàng ({selectedStock} {product.unit ?? 'sản phẩm'})
+                  </span>
+                ) : selectedStock > 0 ? (
+                  <span className="font-semibold text-amber-600">
+                    Sắp hết hàng (còn {selectedStock} {product.unit ?? 'sản phẩm'})
                   </span>
                 ) : (
                   <span className="font-semibold text-[#c82014]">Hết hàng</span>
@@ -830,15 +848,33 @@ export default function ProductDetail() {
               <p className="mb-2 text-sm font-semibold text-[#0B0F19]">Số lượng</p>
               <div className="flex items-center gap-3">
                 <button
+                  type="button"
                   onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                  className="flex h-10 w-10 items-center justify-center rounded-full border border-black/10 bg-white text-[#0B0F19] transition hover:border-[#2563EB]"
+                  disabled={quantity <= 1}
+                  className="flex h-10 w-10 items-center justify-center rounded-full border border-black/10 bg-white text-[#0B0F19] transition hover:border-[#2563EB] disabled:opacity-40"
                 >
                   <Minus size={16} />
                 </button>
-                <span className="w-12 text-center text-lg font-bold text-[#0B0F19]">{quantity}</span>
+                <input
+                  key={quantity}
+                  type="number"
+                  min={1}
+                  max={selectedStock || 1}
+                  defaultValue={quantity}
+                  onBlur={(e: { currentTarget: HTMLInputElement }) => {
+                    const v = parseInt(e.currentTarget.value, 10);
+                    const max = selectedStock > 0 ? selectedStock : Infinity;
+                    setQuantity(isNaN(v) || v < 1 ? 1 : Math.min(max, v));
+                  }}
+                  onKeyDown={(e: { key: string; currentTarget: HTMLInputElement }) => {
+                    if (e.key === 'Enter') e.currentTarget.blur();
+                  }}
+                  className="w-14 border-0 bg-transparent text-center text-lg font-bold text-[#0B0F19] outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                />
                 <button
-                  onClick={() => setQuantity((q) => Math.min(selectedStock, q + 1))}
-                  disabled={quantity >= selectedStock}
+                  type="button"
+                  onClick={() => setQuantity((q) => Math.min(selectedStock || 99, q + 1))}
+                  disabled={selectedStock > 0 && quantity >= selectedStock}
                   className="flex h-10 w-10 items-center justify-center rounded-full border border-black/10 bg-white text-[#0B0F19] transition hover:border-[#2563EB] disabled:opacity-40"
                 >
                   <Plus size={16} />
@@ -848,22 +884,33 @@ export default function ProductDetail() {
 
             {/* Actions */}
             <div className="mt-5 flex gap-3">
+              {selectedStock === 0 ? (
+                <div className="flex flex-1 items-center justify-center gap-2 rounded-full border border-gray-200 bg-gray-100 py-3.5 text-sm font-bold text-gray-400">
+                  <ShoppingCart size={18} />
+                  Hết hàng
+                </div>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => void handleAddToCart()}
+                    disabled={adding}
+                    className="client-pill-outline flex flex-1 items-center justify-center gap-2 py-3.5 text-sm font-bold disabled:opacity-60"
+                  >
+                    <ShoppingCart size={18} />
+                    {adding ? 'Đang thêm...' : addedMsg ? '✓ Đã thêm!' : 'Thêm vào giỏ'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleBuyNow()}
+                    className="client-pill-primary flex flex-1 items-center justify-center py-3.5 text-sm font-bold"
+                  >
+                    Mua ngay
+                  </button>
+                </>
+              )}
               <button
-                onClick={() => void handleAddToCart()}
-                disabled={adding || !canPurchase}
-                className="client-pill-outline flex flex-1 items-center justify-center gap-2 py-3.5 text-sm font-bold disabled:opacity-50"
-              >
-                <ShoppingCart size={18} />
-                {adding ? 'Đang thêm...' : addedMsg ? '✓ Đã thêm!' : 'Thêm vào giỏ'}
-              </button>
-              <button
-                onClick={() => void handleBuyNow()}
-                disabled={!canPurchase}
-                className="client-pill-primary flex flex-1 items-center justify-center py-3.5 text-sm font-bold disabled:opacity-50"
-              >
-                Mua ngay
-              </button>
-              <button
+                type="button"
                 onClick={() => void handleWishlist()}
                 className={`flex h-12 w-12 items-center justify-center rounded-full border transition ${
                   wishlisted
