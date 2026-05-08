@@ -825,31 +825,31 @@ export default function Products() {
                     className="h-4 w-4 rounded border-on-surface-variant/20 accent-primary"
                   />
                 </th>
-                <th className="px-4 py-5">ID</th>
+                <th className="hidden px-4 py-5">ID</th>
                 <th className="px-4 py-5">
                   <button type="button" onClick={() => handleSort('product_name')} className="inline-flex items-center gap-1">
-                    {isVi ? 'Tên sản phẩm' : 'Product name'}
+                    {isVi ? 'Sản phẩm' : 'Product'}
                     <SortIcon col="product_name" />
                   </button>
                 </th>
-                <th className="px-4 py-5">{isVi ? 'Ảnh' : 'Image'}</th>
+                <th className="hidden px-4 py-5">{isVi ? 'Ảnh' : 'Image'}</th>
                 <th className="px-4 py-5">
                   <button type="button" onClick={() => handleSort('product_price')} className="inline-flex items-center gap-1">
-                    {isVi ? 'Giá' : 'Price'}
+                    {isVi ? 'Giá bán' : 'Price'}
                     <SortIcon col="product_price" />
                   </button>
                 </th>
-                <th className="px-4 py-5">{isVi ? 'Giá giảm' : 'Sale'}</th>
+                <th className="hidden px-4 py-5">{isVi ? 'Giá giảm' : 'Sale'}</th>
                 <th className="px-4 py-5">
                   <button type="button" onClick={() => handleSort('quantity_available')} className="inline-flex items-center gap-1">
-                    {isVi ? 'Số lượng' : 'Quantity'}
+                    {isVi ? 'Tồn kho' : 'Stock'}
                     <SortIcon col="quantity_available" />
                   </button>
                 </th>
-                <th className="px-4 py-5">{isVi ? 'Danh mục' : 'Category'}</th>
-                <th className="px-4 py-5">{isVi ? 'Xuất xứ' : 'Origin'}</th>
-                <th className="px-4 py-5">{isVi ? 'Hiển thị' : 'Visible'}</th>
-                <th className="px-4 py-5 text-right">{isVi ? 'Hành động' : 'Actions'}</th>
+                <th className="hidden px-4 py-5">{isVi ? 'Danh mục' : 'Category'}</th>
+                <th className="px-4 py-5">{isVi ? 'Phân loại' : 'Classification'}</th>
+                <th className="px-4 py-5">{isVi ? 'Trạng thái' : 'Status'}</th>
+                <th className="px-4 py-5 text-right">{isVi ? 'Thao tác' : 'Actions'}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-on-surface-variant/5 text-sm">
@@ -870,7 +870,7 @@ export default function Products() {
                       <div>
                         <p className="font-black text-primary">{isVi ? 'Không có sản phẩm phù hợp' : 'No matching products'}</p>
                         <p className="mt-1 text-sm text-on-surface-variant">
-                          {isVi ? 'Backend không trả về bản ghi nào với bộ lọc hiện tại.' : 'The backend returned no records for the current filters.'}
+                          {isVi ? 'Thử đổi bộ lọc hoặc từ khóa tìm kiếm để xem thêm sản phẩm.' : 'Try changing filters or search terms.'}
                         </p>
                       </div>
                     </div>
@@ -887,17 +887,39 @@ export default function Products() {
                         className="h-4 w-4 rounded border-on-surface-variant/20 accent-primary"
                       />
                     </td>
-                    <td className="px-4 py-4 font-semibold text-on-surface-variant">{product.productId}</td>
-                    <td className="px-4 py-4 font-bold text-on-surface">{product.productName}</td>
+                    <td className="hidden px-4 py-4 font-semibold text-on-surface-variant">{product.productId}</td>
                     <td className="px-4 py-4">
+                      <div className="flex items-center gap-3">
+                        {product.primaryImageUrl ? (
+                          <img src={product.primaryImageUrl} alt={product.productName} className="h-12 w-12 rounded-xl object-cover" />
+                        ) : (
+                          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-surface text-xs font-bold text-on-surface-variant">N/A</div>
+                        )}
+                        <div className="min-w-0">
+                          <p className="max-w-[260px] truncate font-bold text-on-surface">{product.productName}</p>
+                          <p className="mt-1 max-w-[260px] truncate font-mono text-[11px] text-on-surface-variant/65">{product.productId}</p>
+                          <p className="mt-1 max-w-[260px] truncate text-xs text-on-surface-variant">
+                            {categoryPathMap.get(product.categoryId) ?? product.categoryId}
+                          </p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="hidden px-4 py-4">
                       {product.primaryImageUrl ? (
                         <img src={product.primaryImageUrl} alt={product.productName} className="h-11 w-11 rounded-xl object-cover" />
                       ) : (
                         <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-surface text-xs text-on-surface-variant">N/A</div>
                       )}
                     </td>
-                    <td className="px-4 py-4 font-semibold text-on-surface">{currency.format(Number(product.productPrice))}</td>
-                    <td className="px-4 py-4 text-on-surface-variant">
+                    <td className="px-4 py-4">
+                      <p className="font-semibold text-on-surface">{currency.format(Number(product.productPrice))}</p>
+                      <p className="mt-1 text-xs text-on-surface-variant">
+                        {product.productPriceSale
+                          ? `${isVi ? 'KM' : 'Sale'}: ${currency.format(Number(product.productPriceSale))}`
+                          : isVi ? 'Không khuyến mãi' : 'No sale price'}
+                      </p>
+                    </td>
+                    <td className="hidden px-4 py-4 text-on-surface-variant">
                       {product.productPriceSale ? currency.format(Number(product.productPriceSale)) : '-'}
                     </td>
                     <td className="px-4 py-4 text-on-surface">
@@ -916,9 +938,14 @@ export default function Products() {
                         </div>
                       ) : null}
                     </td>
-                    <td className="px-4 py-4 text-on-surface-variant">{categoryPathMap.get(product.categoryId) ?? product.categoryId}</td>
+                    <td className="hidden px-4 py-4 text-on-surface-variant">{categoryPathMap.get(product.categoryId) ?? product.categoryId}</td>
                     <td className="px-4 py-4 text-on-surface-variant">
-                      {origins.find((origin) => origin.originId === product.originId)?.originName ?? '-'}
+                      <p>{origins.find((origin) => origin.originId === product.originId)?.originName ?? '-'}</p>
+                      {(product.variants ?? []).length > 0 ? (
+                        <p className="mt-1 text-xs font-semibold text-primary">{product.variants?.length} {isVi ? 'biến thể' : 'variants'}</p>
+                      ) : (
+                        <p className="mt-1 text-xs text-on-surface-variant/60">{isVi ? 'Sản phẩm đơn' : 'Single product'}</p>
+                      )}
                     </td>
                     <td className="px-4 py-4">
                       <span
@@ -930,29 +957,33 @@ export default function Products() {
                       </span>
                     </td>
                     <td className="px-4 py-4">
-                      <div className="flex items-center justify-end gap-1">
+                      <div className="flex flex-wrap items-center justify-end gap-2">
                         <button
                           type="button"
                           onClick={() => openEditModal(product)}
                           title={isVi ? 'Sửa sản phẩm' : 'Edit product'}
-                          className="rounded-xl p-2 text-on-surface-variant transition hover:bg-primary/5 hover:text-primary"
+                          className="inline-flex items-center gap-1.5 rounded-xl border border-on-surface/10 px-3 py-2 text-xs font-bold text-on-surface-variant transition hover:border-primary/30 hover:text-primary"
                         >
                           <Edit2 size={16} />
+                          <span>{isVi ? 'Sửa' : 'Edit'}</span>
                         </button>
                         <button
                           type="button"
                           onClick={() => openVariantModal(product)}
                           title={isVi ? 'Màu, size, ảnh biến thể' : 'Colors, sizes, variant images'}
-                          className="rounded-xl p-2 text-on-surface-variant transition hover:bg-primary/5 hover:text-primary"
+                          className="inline-flex items-center gap-1.5 rounded-xl border border-on-surface/10 px-3 py-2 text-xs font-bold text-on-surface-variant transition hover:border-primary/30 hover:text-primary"
                         >
                           <Palette size={16} />
+                          <span>{isVi ? 'Biến thể' : 'Variants'}</span>
                         </button>
                         <button
                           type="button"
                           onClick={() => void apiClient.patch(`/products/${product.productId}/toggle-visibility`).then(() => setReloadKey((v) => v + 1))}
-                          className="rounded-xl p-2 text-on-surface-variant transition hover:bg-primary/5 hover:text-primary"
+                          title={Boolean(product.isShow) ? (isVi ? 'Ẩn sản phẩm' : 'Hide product') : (isVi ? 'Hiện sản phẩm' : 'Show product')}
+                          className="inline-flex items-center gap-1.5 rounded-xl border border-on-surface/10 px-3 py-2 text-xs font-bold text-on-surface-variant transition hover:border-primary/30 hover:text-primary"
                         >
                           {Boolean(product.isShow) ? <EyeOff size={16} /> : <Eye size={16} />}
+                          <span>{Boolean(product.isShow) ? (isVi ? 'Ẩn' : 'Hide') : (isVi ? 'Hiện' : 'Show')}</span>
                         </button>
                         <button
                           type="button"
@@ -960,9 +991,11 @@ export default function Products() {
                             setProductPendingDelete(product);
                             setDeleteModalOpen(true);
                           }}
-                          className="rounded-xl p-2 text-on-surface-variant transition hover:bg-red-50 hover:text-red-500"
+                          title={isVi ? 'Xóa sản phẩm' : 'Delete product'}
+                          className="inline-flex items-center gap-1.5 rounded-xl border border-red-100 px-3 py-2 text-xs font-bold text-red-500 transition hover:bg-red-50"
                         >
                           <Trash2 size={16} />
+                          <span>{isVi ? 'Xóa' : 'Delete'}</span>
                         </button>
                       </div>
                     </td>
@@ -998,7 +1031,7 @@ export default function Products() {
         footer={
           <div className="flex flex-wrap justify-end gap-3">
             <button type="button" onClick={resetVariantForm} className="rounded-2xl border border-on-surface/10 px-5 py-2.5 text-sm font-bold">
-              {isVi ? 'Làm mới form' : 'Reset form'}
+              {variantEditingId ? (isVi ? 'Hủy sửa' : 'Cancel edit') : (isVi ? 'Làm mới form' : 'Reset form')}
             </button>
             <button
               type="button"
@@ -1023,7 +1056,15 @@ export default function Products() {
               <p className="mb-4 text-[11px] font-black uppercase tracking-[0.2em] text-on-surface-variant/60">
                 {variantEditingId ? (isVi ? 'Sửa biến thể' : 'Edit variant') : (isVi ? 'Biến thể mới' : 'New variant')}
               </p>
+              {variantEditingId ? (
+                <div className="mb-4 rounded-xl border border-primary/20 bg-white px-4 py-3 text-xs font-bold text-primary">
+                  {isVi ? 'Đang sửa một biến thể. Bấm "Hủy sửa" để quay lại thêm mới.' : 'Editing a variant. Use "Cancel edit" to return to add mode.'}
+                </div>
+              ) : null}
               <div className="space-y-4">
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant/60">
+                  {isVi ? 'Màu sắc' : 'Color'}
+                </p>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <Field label={isVi ? 'Màu có sẵn' : 'Existing color'}>
                     <select
@@ -1040,21 +1081,26 @@ export default function Products() {
                   <Field label={isVi ? 'Mã màu mới' : 'New color code'}>
                     <input
                       type="color"
+                      disabled={!!variantForm.colorId}
                       value={variantForm.newColorCode || '#2563eb'}
                       onChange={(e) => setVariantForm((p) => ({ ...p, newColorCode: e.target.value }))}
-                      className="h-11 w-full rounded-2xl border border-on-surface/10 bg-white px-2"
+                      className="h-11 w-full rounded-2xl border border-on-surface/10 bg-white px-2 disabled:cursor-not-allowed disabled:opacity-40"
                     />
                   </Field>
                 </div>
                 <Field label={isVi ? 'Tên màu mới' : 'New color name'}>
                   <input
+                    disabled={!!variantForm.colorId}
                     value={variantForm.newColorName}
                     onChange={(e) => setVariantForm((p) => ({ ...p, newColorName: e.target.value }))}
                     placeholder={isVi ? 'Ví dụ: Xanh navy' : 'Example: Navy blue'}
-                    className="input-base"
+                    className="input-base disabled:cursor-not-allowed disabled:opacity-40"
                   />
                 </Field>
 
+                <p className="pt-2 text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant/60">
+                  {isVi ? 'Kích thước' : 'Size'}
+                </p>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <Field label={isVi ? 'Size có sẵn' : 'Existing size'}>
                     <select
@@ -1070,22 +1116,27 @@ export default function Products() {
                   </Field>
                   <Field label={isVi ? 'Mã size mới' : 'New size code'}>
                     <input
+                      disabled={!!variantForm.sizeId}
                       value={variantForm.newSizeCode}
                       onChange={(e) => setVariantForm((p) => ({ ...p, newSizeCode: e.target.value }))}
                       placeholder="S, M, L, XL"
-                      className="input-base"
+                      className="input-base disabled:cursor-not-allowed disabled:opacity-40"
                     />
                   </Field>
                 </div>
                 <Field label={isVi ? 'Tên size mới' : 'New size name'}>
                   <input
+                    disabled={!!variantForm.sizeId}
                     value={variantForm.newSizeName}
                     onChange={(e) => setVariantForm((p) => ({ ...p, newSizeName: e.target.value }))}
                     placeholder={isVi ? 'Ví dụ: Size L' : 'Example: Size L'}
-                    className="input-base"
+                    className="input-base disabled:cursor-not-allowed disabled:opacity-40"
                   />
                 </Field>
 
+                <p className="pt-2 text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant/60">
+                  {isVi ? 'Mã hàng' : 'Codes'}
+                </p>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <Field label="SKU">
                     <input value={variantForm.sku} onChange={(e) => setVariantForm((p) => ({ ...p, sku: e.target.value }))} className="input-base" />
@@ -1095,6 +1146,9 @@ export default function Products() {
                   </Field>
                 </div>
 
+                <p className="pt-2 text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant/60">
+                  {isVi ? 'Giá & tồn kho' : 'Price & stock'}
+                </p>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <Field label={isVi ? 'Giá riêng' : 'Variant price'}>
                     <input type="number" value={variantForm.price} onChange={(e) => setVariantForm((p) => ({ ...p, price: e.target.value }))} className="input-base" />
@@ -1118,6 +1172,9 @@ export default function Products() {
                   {isVi ? 'Đang bán biến thể này' : 'Variant active'}
                 </label>
 
+                <p className="pt-2 text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant/60">
+                  {isVi ? 'Ảnh' : 'Images'}
+                </p>
                 <Field label={isVi ? 'Ảnh riêng của biến thể' : 'Variant images'}>
                   <input
                     type="file"
@@ -1134,6 +1191,16 @@ export default function Products() {
             </section>
 
             <section className="space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <p className="text-[11px] font-black uppercase tracking-[0.2em] text-on-surface-variant/60">
+                    {isVi ? 'Danh sách biến thể' : 'Variant list'}
+                  </p>
+                  <p className="mt-1 text-xs text-on-surface-variant">
+                    {variants.length} {isVi ? 'biến thể trong sản phẩm này' : 'variants on this product'}
+                  </p>
+                </div>
+              </div>
               {variants.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-on-surface/15 bg-white p-8 text-center text-sm text-on-surface-variant">
                   {isVi ? 'Chưa có biến thể. Hãy thêm màu/size đầu tiên cho sản phẩm.' : 'No variants yet.'}
@@ -1142,7 +1209,7 @@ export default function Products() {
                 variants.map((variant) => (
                   <div key={variant.variantId} className={`rounded-2xl border bg-white p-4 ${variant.isActive ? 'border-on-surface/8' : 'border-red-100 opacity-70'}`}>
                     <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div>
+                      <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
                           {variant.color ? (
                             <span className="inline-flex items-center gap-2 rounded-full bg-surface px-3 py-1 text-xs font-black text-on-surface">
@@ -1153,11 +1220,21 @@ export default function Products() {
                           {variant.size ? <span className="rounded-full bg-surface px-3 py-1 text-xs font-black text-on-surface">{variant.size.sizeName}</span> : null}
                           {!variant.isActive ? <span className="rounded-full bg-red-50 px-3 py-1 text-xs font-black text-red-600">Ngừng bán</span> : null}
                         </div>
-                        <p className="mt-2 text-xs text-on-surface-variant">
-                          SKU: {variant.sku || '-'} · Tồn: <b>{variant.stockQuantity}</b>
-                          {variant.price ? ` · Giá: ${currency.format(Number(variant.price))}` : ''}
-                          {variant.salePrice ? ` · KM: ${currency.format(Number(variant.salePrice))}` : ''}
-                        </p>
+                        <div className="mt-3 grid gap-2 text-xs sm:grid-cols-2">
+                          <div className="rounded-xl bg-surface px-3 py-2">
+                            <p className="font-black text-on-surface">{isVi ? 'Mã hàng' : 'Codes'}</p>
+                            <p className="mt-1 text-on-surface-variant">SKU: {variant.sku || '-'}</p>
+                            <p className="text-on-surface-variant">Barcode: {variant.barcode || '-'}</p>
+                          </div>
+                          <div className="rounded-xl bg-surface px-3 py-2">
+                            <p className="font-black text-on-surface">{isVi ? 'Tồn & giá' : 'Stock & price'}</p>
+                            <p className="mt-1 text-on-surface-variant">{isVi ? 'Tồn' : 'Stock'}: <b>{variant.stockQuantity}</b></p>
+                            <p className="text-on-surface-variant">
+                              {variant.price ? currency.format(Number(variant.price)) : isVi ? 'Theo giá sản phẩm' : 'Product price'}
+                              {variant.salePrice ? ` · KM: ${currency.format(Number(variant.salePrice))}` : ''}
+                            </p>
+                          </div>
+                        </div>
                       </div>
                       <div className="flex gap-2">
                         <button type="button" onClick={() => editVariant(variant)} className="rounded-xl border border-on-surface/10 px-3 py-2 text-xs font-bold hover:border-primary/30 hover:text-primary">

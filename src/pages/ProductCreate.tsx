@@ -471,8 +471,8 @@ export default function ProductCreate() {
                     </p>
                     <p className="mt-1 text-xs text-on-surface-variant">
                       {isVietnamese
-                        ? 'Tồn của biến thể sẽ được cộng vào tổng tồn sản phẩm.'
-                        : 'Variant stock is added to the product total stock.'}
+                        ? 'Không thêm biến thể thì dùng tồn tổng. Nếu có màu/size, hãy nhập tồn theo từng biến thể.'
+                        : 'Without variants, the product uses total stock. With color/size, enter stock per variant.'}
                     </p>
                   </div>
                   <button
@@ -494,11 +494,16 @@ export default function ProductCreate() {
                 ) : (
                   <div className="space-y-4">
                     {variantDrafts.map((variant, index) => (
-                      <div key={index} className="rounded-xl border border-on-surface/10 bg-white p-4">
-                        <div className="mb-3 flex items-center justify-between gap-3">
-                          <p className="text-sm font-black text-on-surface">
-                            {isVietnamese ? `Biến thể ${index + 1}` : `Variant ${index + 1}`}
-                          </p>
+                      <div key={index} className="rounded-xl border border-on-surface/10 bg-white p-4 shadow-sm">
+                        <div className="mb-4 flex items-center justify-between gap-3">
+                          <div>
+                            <p className="text-sm font-black text-on-surface">
+                              {isVietnamese ? `Biến thể ${index + 1}` : `Variant ${index + 1}`}
+                            </p>
+                            <p className="mt-1 text-xs text-on-surface-variant">
+                              {isVietnamese ? 'Chọn màu/size có sẵn hoặc nhập tên mới.' : 'Choose existing color/size or enter a new one.'}
+                            </p>
+                          </div>
                           <button
                             type="button"
                             onClick={() => removeVariantDraft(index)}
@@ -509,7 +514,10 @@ export default function ProductCreate() {
                           </button>
                         </div>
 
-                        <div className="grid gap-3 md:grid-cols-2">
+                        <p className="mb-2 text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant/60">
+                          {isVietnamese ? 'Màu sắc' : 'Color'}
+                        </p>
+                        <div className="grid gap-3 md:grid-cols-[1fr_1fr_96px]">
                           <FieldSelect
                             label={isVietnamese ? 'Màu có sẵn' : 'Existing color'}
                             value={variant.colorId}
@@ -523,16 +531,19 @@ export default function ProductCreate() {
                             onChange={(value) => updateVariant(index, { newColorName: value, colorId: value ? '' : variant.colorId })}
                             disabled={!!variant.colorId}
                           />
-                        </div>
-
-                        <div className="mt-3 grid gap-3 md:grid-cols-3">
                           <FieldInput
-                            label={isVietnamese ? 'Mã màu' : 'Color code'}
+                            label={isVietnamese ? 'Mã màu' : 'Code'}
                             value={variant.newColorCode}
                             onChange={(value) => updateVariant(index, { newColorCode: value })}
                             type="color"
                             disabled={!!variant.colorId}
                           />
+                        </div>
+
+                        <p className="mb-2 mt-4 text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant/60">
+                          {isVietnamese ? 'Kích thước' : 'Size'}
+                        </p>
+                        <div className="grid gap-3 md:grid-cols-3">
                           <FieldSelect
                             label={isVietnamese ? 'Size có sẵn' : 'Existing size'}
                             value={variant.sizeId}
@@ -548,6 +559,9 @@ export default function ProductCreate() {
                           />
                         </div>
 
+                        <p className="mb-2 mt-4 text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant/60">
+                          {isVietnamese ? 'Mã hàng & tồn kho' : 'Codes & stock'}
+                        </p>
                         <div className="mt-3 grid gap-3 md:grid-cols-4">
                           <FieldInput label="SKU" value={variant.sku} onChange={(value) => updateVariant(index, { sku: value })} />
                           <FieldInput label="Barcode" value={variant.barcode} onChange={(value) => updateVariant(index, { barcode: value })} />
@@ -555,6 +569,9 @@ export default function ProductCreate() {
                           <FieldInput label={isVietnamese ? 'Gram' : 'Grams'} value={variant.weightGrams} onChange={(value) => updateVariant(index, { weightGrams: value })} type="number" />
                         </div>
 
+                        <p className="mb-2 mt-4 text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant/60">
+                          {isVietnamese ? 'Giá & ảnh' : 'Price & images'}
+                        </p>
                         <div className="mt-3 grid gap-3 md:grid-cols-3">
                           <FieldInput label={isVietnamese ? 'Giá riêng' : 'Variant price'} value={variant.price} onChange={(value) => updateVariant(index, { price: value })} type="number" />
                           <FieldInput label={isVietnamese ? 'Giá KM riêng' : 'Variant sale price'} value={variant.salePrice} onChange={(value) => updateVariant(index, { salePrice: value })} type="number" />

@@ -336,7 +336,6 @@ export default function ProductDetail() {
   }, [session, id, reviews]);
 
   const handleAddToCart = async () => {
-    if (!session) { void navigate('/client/login'); return; }
     const resolvedVariant = findSelectedVariant(product, selectedColorId, selectedSizeId);
     if ((product?.variants?.length ?? 0) > 0 && !resolvedVariant) {
       showToast({ tone: 'info', title: 'Vui lòng chọn màu sắc và kích thước trước khi thêm vào giỏ' });
@@ -344,7 +343,14 @@ export default function ProductDetail() {
     }
     setAdding(true);
     try {
-      await addItem(id!, quantity, resolvedVariant?.variantId);
+      const unitPrice = Number(resolvedVariant?.salePrice ?? resolvedVariant?.price ?? product?.effectivePrice ?? 0);
+      const primaryImg = product?.images?.find((i) => i.isPrimary)?.imageUrl ?? product?.images?.[0]?.imageUrl ?? null;
+      await addItem(id!, quantity, resolvedVariant?.variantId, !session ? {
+        productName: product!.productName,
+        primaryImageUrl: primaryImg,
+        unitPrice,
+        availableQuantity: selectedStock,
+      } : undefined);
       setAddedMsg(true);
       setTimeout(() => setAddedMsg(false), 2500);
     } catch {
@@ -355,14 +361,20 @@ export default function ProductDetail() {
   };
 
   const handleBuyNow = async () => {
-    if (!session) { void navigate('/client/login'); return; }
     const resolvedVariant = findSelectedVariant(product, selectedColorId, selectedSizeId);
     if ((product?.variants?.length ?? 0) > 0 && !resolvedVariant) {
       showToast({ tone: 'info', title: 'Vui lòng chọn màu sắc và kích thước' });
       return;
     }
     try {
-      await addItem(id!, quantity, resolvedVariant?.variantId);
+      const unitPrice = Number(resolvedVariant?.salePrice ?? resolvedVariant?.price ?? product?.effectivePrice ?? 0);
+      const primaryImg = product?.images?.find((i) => i.isPrimary)?.imageUrl ?? product?.images?.[0]?.imageUrl ?? null;
+      await addItem(id!, quantity, resolvedVariant?.variantId, !session ? {
+        productName: product!.productName,
+        primaryImageUrl: primaryImg,
+        unitPrice,
+        availableQuantity: selectedStock,
+      } : undefined);
       void navigate('/client/cart');
     } catch {
       showToast({ tone: 'error', title: 'Không thể xử lý, vui lòng thử lại' });

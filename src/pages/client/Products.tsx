@@ -1159,7 +1159,7 @@ export default function Products() {
               <div className="flex items-start justify-between gap-4 border-b border-black/5 p-5">
                 <div>
                   <p className="text-[11px] font-black uppercase tracking-[0.2em]" style={{ color: '#2563EB' }}>
-                    Th?m nhanh v?o gi? h?ng
+                    Thêm nhanh vào giỏ hàng
                   </p>
                   <h3 className="mt-1 text-lg font-black leading-tight text-[#0B0F19]">{quickAddProduct.productName}</h3>
                 </div>
@@ -1194,13 +1194,13 @@ export default function Products() {
                       {hasDiscount ? <span className="text-sm text-gray-400 line-through">{formatPrice(base)}</span> : null}
                     </div>
                     <p className="mt-1 text-xs font-semibold text-gray-500">
-                      {selectedVariant ? `C?n ${selectedVariant.stockQuantity} s?n ph?m` : 'Ch?n m?u v? size ?? th?m v?o gi?'}
+                      {selectedVariant ? `Còn ${selectedVariant.stockQuantity} sản phẩm` : 'Chọn màu và size để thêm vào giỏ'}
                     </p>
                   </div>
 
                   {colorOptions.length > 0 ? (
                     <div>
-                      <p className="mb-2 text-xs font-black text-[#0B0F19]">M?u s?c</p>
+                      <p className="mb-2 text-xs font-black text-[#0B0F19]">Màu sắc</p>
                       <div className="flex flex-wrap gap-2">
                         {colorOptions.map((color) => (
                           <button
@@ -1222,7 +1222,7 @@ export default function Products() {
 
                   {sizeOptions.length > 0 ? (
                     <div>
-                      <p className="mb-2 text-xs font-black text-[#0B0F19]">K?ch th??c</p>
+                      <p className="mb-2 text-xs font-black text-[#0B0F19]">Kích thước</p>
                       <div className="flex flex-wrap gap-2">
                         {sizeOptions.map((size) => (
                           <button
@@ -1249,7 +1249,9 @@ export default function Products() {
                     ) : (
                       <ShoppingCart size={16} />
                     )}
-                    {addingId === quickAddProduct.productId ? '?ang th?m...' : 'Th?m v?o gi?'}
+                    <span className="whitespace-nowrap">
+                      {addingId === quickAddProduct.productId ? 'Đang thêm...' : 'Thêm vào giỏ'}
+                    </span>
                   </button>
                 </div>
               </div>
