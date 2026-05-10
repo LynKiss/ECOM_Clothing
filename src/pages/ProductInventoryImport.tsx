@@ -8,6 +8,8 @@ type Product = {
   productId: string;
   productName: string;
   barcode?: string | null;
+  boxBarcode?: string | null;
+  quantityPerBox?: number | null;
   productPrice: string;
   productPriceSale: string | null;
   quantityAvailable: number;
@@ -157,8 +159,31 @@ export default function ProductInventoryImport() {
 
       let matchedProduct: Product | undefined;
       let matchedVariant: ProductVariant | undefined;
+      let scanQuantity = 1;
+      let scanLabel: string | undefined;
 
       for (const product of products) {
+        if (product.boxBarcode === trimmed) {
+          const quantityPerBox = Number(product.quantityPerBox ?? 0);
+          if (!Number.isFinite(quantityPerBox) || quantityPerBox <= 0) {
+            showToast({
+              tone: 'error',
+              title: isVietnamese
+                ? 'Barcode thùng chưa có số lượng/thùng'
+                : 'Box barcode needs quantity per box',
+              description: product.productName,
+            });
+            return;
+          }
+
+          matchedProduct = product;
+          scanQuantity = quantityPerBox;
+          scanLabel = isVietnamese
+            ? `Thùng x ${quantityPerBox}`
+            : `Box x ${quantityPerBox}`;
+          break;
+        }
+
         const variant = (product.variants ?? []).find(
           (item) =>
             item.isActive &&
@@ -194,7 +219,9 @@ export default function ProductInventoryImport() {
 
       playBeep();
       setScanConfirm(
-        matchedVariant
+        scanLabel
+          ? `${matchedProduct.productName} - ${scanLabel}`
+          : matchedVariant
           ? `${matchedProduct.productName} - ${getVariantLabel(matchedVariant)}`
           : matchedProduct.productName,
       );
@@ -210,7 +237,7 @@ export default function ProductInventoryImport() {
           return prev.map((item) =>
             item.productId === matchedProduct!.productId &&
             (item.variantId ?? '') === (matchedVariant?.variantId ?? '')
-              ? { ...item, quantity: item.quantity + 1 }
+              ? { ...item, quantity: item.quantity + scanQuantity }
               : item,
           );
         }
@@ -220,8 +247,8 @@ export default function ProductInventoryImport() {
             productId: matchedProduct!.productId,
             variantId: matchedVariant?.variantId,
             productName: matchedProduct!.productName,
-            variantLabel: matchedVariant ? getVariantLabel(matchedVariant) : undefined,
-            quantity: 1,
+            variantLabel: scanLabel ?? (matchedVariant ? getVariantLabel(matchedVariant) : undefined),
+            quantity: scanQuantity,
           },
         ];
       });

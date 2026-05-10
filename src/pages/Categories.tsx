@@ -19,6 +19,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { apiClient } from '../lib/api';
+import { resolveMediaUrl } from '../lib/media-url';
 import { useLanguage } from '../i18n/language-context';
 import { useToast } from '../hooks/useToast';
 import Modal from '../components/shared/Modal';
@@ -32,6 +33,7 @@ type CategoryNode = {
   parentId: string | null;
   isActive: boolean;
   sortOrder: number;
+  imageUrl: string | null;
   directProductCount: number;
   productCount: number;
   createdAt: string;
@@ -85,6 +87,8 @@ export default function Categories() {
   const [formErrors, setFormErrors] = useState<CategoryFormErrors>({});
   const [submitting, setSubmitting] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [categoryImageUrl, setCategoryImageUrl] = useState<string | null>(null);
+  const [imageUploading, setImageUploading] = useState(false);
 
   const [dragState, setDragState] = useState<DragState | null>(null);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
@@ -227,6 +231,7 @@ export default function Categories() {
 
   function openEditModal(category: CategoryNode) {
     setEditingId(category.categoryId);
+    setCategoryImageUrl(resolveMediaUrl(category.imageUrl));
     setFormState({
       categoryName: category.categoryName,
       categorySlug: category.categorySlug,
@@ -245,6 +250,24 @@ export default function Categories() {
     setEditingId(null);
     setFormState(defaultFormState);
     setFormErrors({});
+    setCategoryImageUrl(null);
+  }
+
+  async function handleCategoryImageUpload(file: File) {
+    if (!editingId) return;
+    setImageUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const result = await apiClient.postForm<{ imageUrl: string }>(`/categories/${editingId}/image`, formData);
+      setCategoryImageUrl(resolveMediaUrl(result.imageUrl));
+      setReloadKey((v) => v + 1);
+      showToast({ tone: 'success', title: isVietnamese ? 'Đã tải ảnh danh mục' : 'Category image uploaded' });
+    } catch (err) {
+      showToast({ tone: 'error', title: isVietnamese ? 'Tải ảnh thất bại' : 'Upload failed', description: err instanceof Error ? err.message : '' });
+    } finally {
+      setImageUploading(false);
+    }
   }
 
   function toggleExpand(categoryId: string) {
@@ -803,6 +826,45 @@ export default function Categories() {
               isVietnamese={isVietnamese}
             />
 
+            {/* Image upload — only available when editing an existing category */}
+            {editingId && (
+              <div className="rounded-2xl border border-on-surface/10 bg-surface p-4">
+                <p className="mb-3 text-[10px] font-black uppercase tracking-[0.24em] text-on-surface-variant/50">
+                  {isVietnamese ? 'Ảnh danh mục (hiển thị trang chủ)' : 'Category image (shown on homepage)'}
+                </p>
+                <div className="flex items-center gap-4">
+                  {categoryImageUrl ? (
+                    <img src={categoryImageUrl} alt="" className="h-20 w-20 rounded-xl object-cover shadow-sm" />
+                  ) : (
+                    <div className="flex h-20 w-20 items-center justify-center rounded-xl border-2 border-dashed border-on-surface/15 text-on-surface-variant/30">
+                      <Shapes size={28} />
+                    </div>
+                  )}
+                  <label className="cursor-pointer">
+                    <span className={`inline-flex items-center gap-2 rounded-xl border border-primary px-4 py-2 text-sm font-bold text-primary transition hover:bg-primary/5 ${imageUploading ? 'opacity-60 pointer-events-none' : ''}`}>
+                      {imageUploading
+                        ? <><LoaderCircle size={14} className="animate-spin" />{isVietnamese ? 'Đang tải...' : 'Uploading...'}</>
+                        : <>{isVietnamese ? 'Chọn ảnh' : 'Choose image'}</>
+                      }
+                    </span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) void handleCategoryImageUpload(file);
+                        e.target.value = '';
+                      }}
+                    />
+                  </label>
+                  {categoryImageUrl && (
+                    <p className="text-xs text-on-surface-variant">{isVietnamese ? 'Ảnh đã có, có thể đổi bằng cách chọn ảnh mới.' : 'Image set. Select a new file to replace.'}</p>
+                  )}
+                </div>
+              </div>
+            )}
+
             <label className="flex items-center gap-3 rounded-2xl border border-on-surface/10 bg-surface px-4 py-3">
               <input
                 type="checkbox"
@@ -1317,5 +1379,4 @@ function PreviewPanel({
     </div>
   );
 }
-
 

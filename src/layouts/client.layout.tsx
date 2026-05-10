@@ -65,6 +65,68 @@ function categoryHref(category: CategoryTreeNode) {
   return '/client/products?categoryIds=' + encodeURIComponent(category.categoryId);
 }
 
+function normalizeCategoryKey(value: string) {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D')
+    .toLowerCase();
+}
+
+function categoryMatches(category: CategoryTreeNode, keywords: string[]) {
+  const key = normalizeCategoryKey(`${category.categoryName} ${category.categorySlug}`);
+  return keywords.some((keyword) => key.includes(keyword));
+}
+
+function buildNavCategories(tree: CategoryTreeNode[]) {
+  const categories = tree.length ? tree : FALLBACK_CATEGORY_TREE;
+  const findByKeywords = (keywords: string[]) =>
+    categories.find((category) => categoryMatches(category, keywords));
+
+  const ordered = [
+    FALLBACK_CATEGORY_TREE[0],
+    findByKeywords(['nam']),
+    findByKeywords(['nu']),
+    findByKeywords(['the thao', 'sport']),
+    findByKeywords(['phu kien', 'accessory']),
+  ].filter(Boolean) as CategoryTreeNode[];
+
+  const seen = new Set<string>();
+  const result = ordered.filter((category) => {
+    if (seen.has(category.categoryId)) {
+      return false;
+    }
+    seen.add(category.categoryId);
+    return true;
+  });
+
+  for (const category of categories) {
+    if (result.length >= 5) {
+      break;
+    }
+    if (!seen.has(category.categoryId)) {
+      seen.add(category.categoryId);
+      result.push(category);
+    }
+  }
+
+  return result;
+}
+
+function getMegaColumns(category: CategoryTreeNode) {
+  const children = category.children ?? [];
+  if (children.length === 0) {
+    return [category];
+  }
+
+  return children.slice(0, 4);
+}
+
+function getColumnItems(category: CategoryTreeNode) {
+  return (category.children ?? []).slice(0, 9);
+}
+
 export default function ClientLayout() {
   const { session } = useClientSession();
   const { cart } = useCart();
@@ -198,7 +260,8 @@ export default function ClientLayout() {
   const navLinks = [
     { to: '/client/news', label: 'Blog', end: false },
   ];
-  const navCategories = (categoryTree.length ? categoryTree : FALLBACK_CATEGORY_TREE).slice(0, 5);
+  const navCategories = buildNavCategories(categoryTree);
+  const megaColumns = activeMega ? getMegaColumns(activeMega) : [];
   const supportLinks = [
     { to: '/client/support/buying-guide', label: 'Hướng dẫn mua hàng' },
     { to: '/client/support/returns', label: 'Chính sách đổi trả' },
@@ -294,7 +357,7 @@ export default function ClientLayout() {
 
           {activeMega && (
             <div className="absolute left-0 top-full hidden w-full border-t border-black/10 bg-white shadow-xl lg:block">
-              <div className="mx-auto grid max-w-[1580px] grid-cols-[1fr_260px] gap-8 px-10 py-8">
+              <div className="mx-auto max-w-[1580px] px-10 py-8">
                 <div className="grid grid-cols-5 gap-8">
                   <div>
                     <Link to="/client/products" className="mb-5 flex items-center justify-between text-base font-black uppercase text-black">
@@ -307,33 +370,33 @@ export default function ClientLayout() {
                       <Link to="/client/products?onSale=1" className="block text-gray-500">Ưu đãi</Link>
                     </div>
                   </div>
-                  {[activeMega, ...navCategories.filter((item) => item.categoryId !== activeMega.categoryId)].slice(0, 4).map((category) => (
+                  {megaColumns.map((category) => {
+                    const columnItems = getColumnItems(category);
+                    return (
                     <div key={category.categoryId}>
                       <Link to={categoryHref(category)} className="mb-5 flex items-center justify-between text-base font-black uppercase text-black">
                         {category.categoryName} <span className="text-[#2538d5]">→</span>
                       </Link>
                       <div className="space-y-4 text-sm font-semibold text-gray-600">
                         <Link to={categoryHref(category)} className="block">Tất cả</Link>
-                        {(category.children ?? []).slice(0, 9).map((child) => (
+                        {columnItems.map((child) => (
                           <Link key={child.categoryId} to={categoryHref(child)} className="block hover:text-black">{child.categoryName}</Link>
                         ))}
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
-                <div className="space-y-5 border-l border-black/10 pl-8">
-                  <Link to="/client/products?onSale=1" className="relative block h-36 overflow-hidden rounded-xl bg-[#2538d5] p-5 text-white">
-                    <ShoppingCart className="absolute right-5 top-5 opacity-40" size={58} />
-                    <p className="relative text-sm font-black uppercase">Fashion sale</p>
-                    <p className="relative mt-7 text-2xl font-black">-50%</p>
-                    <p className="relative text-sm font-bold">Sản phẩm chọn lọc</p>
-                  </Link>
-                  <Link to="/client/style-advisor" className="relative block h-36 overflow-hidden rounded-xl bg-black p-5 text-white">
-                    <Shirt className="absolute right-5 top-5 opacity-30" size={62} />
-                    <p className="relative text-sm font-black uppercase">AI Style</p>
-                    <p className="relative mt-7 text-xl font-black">Chọn size nhanh</p>
-                    <p className="relative text-sm font-bold text-white/70">Gợi ý theo nhu cầu</p>
-                  </Link>
+                <div className="mt-8 grid grid-cols-5 border-t border-black/10 bg-gray-50 text-sm font-black uppercase text-black">
+                  {['Theo nhu cầu', 'Đồ lót', 'Đồ thể thao', 'Mặc hằng ngày', 'Đồ bơi'].map((label, index) => (
+                    <Link
+                      key={label}
+                      to={index === 0 ? categoryHref(activeMega) : `/client/products?search=${encodeURIComponent(label)}`}
+                      className="border-r border-black/5 px-8 py-5 last:border-r-0 hover:text-[#2538d5]"
+                    >
+                      {label}
+                    </Link>
+                  ))}
                 </div>
               </div>
             </div>

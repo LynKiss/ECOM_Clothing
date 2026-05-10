@@ -1,4 +1,5 @@
 ﻿import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
+import CollapsibleHtml from '../../components/shared/CollapsibleHtml';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
   Shirt,
@@ -165,6 +166,7 @@ function isUsableImageUrl(value?: string | null) {
   return !/\/\/example\.com\//i.test(value);
 }
 
+
 function uniqueImages(images: ProductImage[]) {
   const seen = new Set<string>();
   return images.filter((image) => {
@@ -282,6 +284,10 @@ export default function ProductDetail() {
     setSelectedImage(0);
     setQuantity(1);
   }, [product?.productId]);
+
+  useEffect(() => {
+    setSelectedImage(0);
+  }, [selectedColorId]);
 
   useEffect(() => {
     return () => {
@@ -521,20 +527,25 @@ export default function ProductDetail() {
   const hasVariants = activeVariants.length > 0;
   const selectedVariant = findSelectedVariant(product, selectedColorId, selectedSizeId);
   const selectedStock = hasVariants ? selectedVariant?.stockQuantity ?? 0 : product.quantityAvailable;
-  const variantImages: ProductImage[] =
-    selectedVariant?.images
-      ?.filter((image) => isUsableImageUrl(image.imageUrl))
+  // All variants of the selected color (to collect their images together)
+  const selectedColorVariants = selectedColorId
+    ? activeVariants.filter((v) => v.color?.colorId === selectedColorId)
+    : selectedVariant ? [selectedVariant] : [];
+  const variantImages: ProductImage[] = selectedColorVariants.flatMap((variant) =>
+    (variant.images ?? [])
+      .filter((image) => isUsableImageUrl(image.imageUrl))
       .map((image) => ({
         imageId: image.imageId,
         imageUrl: image.imageUrl,
         isPrimary: false,
         sortOrder: image.sortOrder,
-        variantId: selectedVariant.variantId,
-        variantColorId: selectedVariant.color?.colorId ?? null,
-        variantSizeId: selectedVariant.size?.sizeId ?? null,
-      })) ?? [];
+        variantId: variant.variantId,
+        variantColorId: variant.color?.colorId ?? null,
+        variantSizeId: variant.size?.sizeId ?? null,
+      })),
+  );
   const otherVariantImages: ProductImage[] = activeVariants
-    .filter((variant) => variant.variantId !== selectedVariant?.variantId)
+    .filter((variant) => variant.color?.colorId !== selectedColorId)
     .flatMap((variant) =>
       (variant.images ?? [])
         .filter((image) => isUsableImageUrl(image.imageUrl))
@@ -574,11 +585,11 @@ export default function ProductDetail() {
             },
           ]
         : [];
-  const visibleImages = uniqueImages([
-    ...variantImages,
-    ...fallbackImages,
-    ...otherVariantImages,
-  ]);
+  const visibleImages = uniqueImages(
+    variantImages.length > 0
+      ? [...variantImages, ...fallbackImages]
+      : [...fallbackImages, ...otherVariantImages],
+  );
   const currentImage = visibleImages[selectedImage]?.imageUrl ?? visibleImages[0]?.imageUrl;
   const tryOnOutputImage = tryOnResult?.resultImageUrl ?? tryOnResult?.resultImageDataUrl ?? null;
   const canTryOn = Boolean(currentImage);
@@ -999,9 +1010,9 @@ export default function ProductDetail() {
             {/* Description */}
             {activeTab === 'desc' && (
               product.description ? (
-                <div
-                  className="prose max-w-none text-sm text-gray-600"
-                  dangerouslySetInnerHTML={{ __html: product.description }}
+                <CollapsibleHtml
+                  html={product.description}
+                  contentClassName="prose max-w-none text-sm text-gray-600"
                 />
               ) : (
                 <p className="text-sm italic text-gray-400">Chưa có mô tả cho sản phẩm này.</p>

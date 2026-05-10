@@ -92,6 +92,7 @@ export default function PricingPage() {
   const [reloadKey, setReloadKey] = useState(0);
   const [search, setSearch] = useState('');
   const [calcModalOpen, setCalcModalOpen] = useState(false);
+  const [applyingId, setApplyingId] = useState<string | null>(null);
 
   useEffect(() => {
     void apiClient.get<{ items: Product[] }>('/products?limit=500&includeHidden=true').then((d) =>
@@ -108,6 +109,22 @@ export default function PricingPage() {
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [page, reloadKey]);
+
+  async function handleApplyFromList(s: Suggestion) {
+    setApplyingId(s.suggestionId);
+    try {
+      await apiClient.post(`/pricing/suggestions/${s.suggestionId}/apply`, {
+        retailPrice: Number(s.suggestedRetail),
+        bulkPrice: Number(s.suggestedBulk) || undefined,
+      });
+      showToast({ tone: 'success', title: 'Đã áp dụng giá lên sản phẩm' });
+      setReloadKey((k) => k + 1);
+    } catch (err) {
+      showToast({ tone: 'error', title: 'Áp dụng thất bại', description: err instanceof Error ? err.message : '' });
+    } finally {
+      setApplyingId(null);
+    }
+  }
 
   const filteredSuggestions = search.trim()
     ? suggestions.filter((s) => {
@@ -172,6 +189,7 @@ export default function PricingPage() {
                 <th className="px-5 py-4 text-right">Giá thùng đề xuất</th>
                 <th className="px-5 py-4 text-center">Đã áp dụng</th>
                 <th className="px-5 py-4">Ngày tạo</th>
+                <th className="px-5 py-4"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-on-surface/6">
@@ -205,6 +223,21 @@ export default function PricingPage() {
                     </td>
                     <td className="px-5 py-3.5 text-xs text-on-surface-variant">
                       {new Date(s.createdAt).toLocaleDateString('vi-VN')}
+                    </td>
+                    <td className="px-5 py-3.5 text-right">
+                      {!s.appliedAt && (
+                        <button
+                          type="button"
+                          disabled={applyingId === s.suggestionId}
+                          onClick={() => void handleApplyFromList(s)}
+                          className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-1.5 text-xs font-black text-white hover:bg-emerald-700 disabled:opacity-50 transition"
+                        >
+                          {applyingId === s.suggestionId
+                            ? <LoaderCircle size={11} className="animate-spin" />
+                            : <CheckCircle size={11} />}
+                          Áp dụng
+                        </button>
+                      )}
                     </td>
                   </tr>
                 );

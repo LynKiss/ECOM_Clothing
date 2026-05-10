@@ -1,4 +1,5 @@
 ﻿import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from 'react';
+import CollapsibleHtml from '../../components/shared/CollapsibleHtml';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Calendar, Share2, ArrowRight, Copy, Check, Facebook, MessageCircle, ThumbsUp, ThumbsDown, Send, LoaderCircle } from 'lucide-react';
 import { clientApi } from '../../lib/client-api';
@@ -228,10 +229,9 @@ export default function NewsDetail() {
               <div className="my-7 h-px bg-black/5" />
 
               {article.content ? (
-                <div
-                  className="prose prose-green max-w-none text-sm leading-relaxed text-gray-700 md:text-base"
-                  style={{ '--tw-prose-headings': '#0B0F19', '--tw-prose-links': '#2563EB' } as CSSProperties}
-                  dangerouslySetInnerHTML={{ __html: article.content }}
+                <CollapsibleHtml
+                  html={article.content}
+                  contentClassName="prose prose-green max-w-none text-sm leading-relaxed text-gray-700 md:text-base"
                 />
               ) : (
                 <p className="italic text-gray-400">Nội dung đang được cập nhật...</p>

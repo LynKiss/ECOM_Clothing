@@ -1,21 +1,16 @@
 ﻿import { useEffect, useMemo, useState } from 'react';
-import { ImagePlus, LoaderCircle, PackagePlus, Plus, Save, Star, Trash2 } from 'lucide-react';
+import { ImagePlus, LoaderCircle, PackagePlus, Pencil, Plus, Save, Star, Trash2, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { apiClient } from '../lib/api';
 import { useLanguage } from '../i18n/language-context';
 import { useToast } from '../hooks/useToast';
+import Modal from '../components/shared/Modal';
 import RichTextEditor from '../components/shared/RichTextEditor';
 
 type CategoryNode = {
   categoryId: string;
   categoryName: string;
   children: CategoryNode[];
-};
-
-type Subcategory = {
-  subcategoryId: string;
-  subcategoryName: string;
-  categoryId: string;
 };
 
 type Origin = {
@@ -55,12 +50,28 @@ type VariantDraft = {
   imageFiles: File[];
 };
 
+type ColorDraft = {
+  colorId: string;
+  newColorName: string;
+  newColorCode: string;
+};
+
+type SizeRowDraft = {
+  sizeId: string;
+  newSizeName: string;
+  newSizeCode: string;
+  sku: string;
+  price: string;
+  salePrice: string;
+  stockQuantity: string;
+  isActive: boolean;
+};
+
 type ProductCreatePayload = {
   productId: string;
   productName: string;
   productSlug: string;
   categoryId: string;
-  subcategoryId: string;
   originId: string;
   productPrice: string;
   productPriceSale: string;
@@ -92,12 +103,21 @@ const defaultVariantDraft: VariantDraft = {
   imageFiles: [],
 };
 
+const defaultColorDraft: ColorDraft = {
+  colorId: '',
+  newColorName: '',
+  newColorCode: '#2563eb',
+};
+
+function newSizeRow(): SizeRowDraft {
+  return { sizeId: '', newSizeName: '', newSizeCode: '', sku: '', price: '', salePrice: '', stockQuantity: '0', isActive: true };
+}
+
 const defaultPayload: ProductCreatePayload = {
   productId: '',
   productName: '',
   productSlug: '',
   categoryId: '',
-  subcategoryId: '',
   originId: '',
   productPrice: '',
   productPriceSale: '',
@@ -119,7 +139,6 @@ export default function ProductCreate() {
   const isVietnamese = language === 'vi';
 
   const [categories, setCategories] = useState<CategoryNode[]>([]);
-  const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
   const [origins, setOrigins] = useState<Origin[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
   const [colors, setColors] = useState<ProductColor[]>([]);
@@ -132,6 +151,11 @@ export default function ProductCreate() {
   const [primaryImageIndex, setPrimaryImageIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [variantModalOpen, setVariantModalOpen] = useState(false);
+  const [variantEditingIndex, setVariantEditingIndex] = useState<number | null>(null);
+  const [variantFormDraft, setVariantFormDraft] = useState<VariantDraft>({ ...defaultVariantDraft });
+  const [variantColorDraft, setVariantColorDraft] = useState<ColorDraft>({ ...defaultColorDraft });
+  const [variantSizeRows, setVariantSizeRows] = useState<SizeRowDraft[]>([newSizeRow()]);
 
   useEffect(() => {
     let cancelled = false;
@@ -169,31 +193,109 @@ export default function ProductCreate() {
     return () => { cancelled = true; };
   }, [isVietnamese, showToast]);
 
-  // Load subcategories when category changes
-  useEffect(() => {
-    if (!formState.categoryId) { setSubcategories([]); return; }
-    void apiClient
-      .get<Subcategory[]>(`/subcategories?categoryId=${formState.categoryId}&limit=100`)
-      .then((d) => setSubcategories(Array.isArray(d) ? d : []))
-      .catch(() => setSubcategories([]));
-  }, [formState.categoryId]);
-
   const categoryOptions = useMemo(() => flattenCategories(categories), [categories]);
-
-  function updateVariant(index: number, patch: Partial<VariantDraft>) {
-    setVariantDrafts((rows) =>
-      rows.map((row, rowIndex) =>
-        rowIndex === index ? { ...row, ...patch } : row,
-      ),
-    );
-  }
-
-  function addVariantDraft() {
-    setVariantDrafts((rows) => [...rows, { ...defaultVariantDraft }]);
-  }
 
   function removeVariantDraft(index: number) {
     setVariantDrafts((rows) => rows.filter((_, rowIndex) => rowIndex !== index));
+  }
+
+  function openAddVariantModal() {
+    setVariantEditingIndex(null);
+    setVariantColorDraft({ ...defaultColorDraft });
+    setVariantSizeRows([newSizeRow()]);
+    setVariantModalOpen(true);
+  }
+
+  function openEditVariantModal(index: number) {
+    setVariantEditingIndex(index);
+    setVariantFormDraft({ ...variantDrafts[index] });
+    setVariantModalOpen(true);
+  }
+
+  function saveVariantModal() {
+    if (variantEditingIndex !== null) {
+      // EDIT MODE: validate single draft
+      const hasColor = variantFormDraft.colorId || variantFormDraft.newColorName.trim();
+      const hasSize = variantFormDraft.sizeId || variantFormDraft.newSizeName.trim();
+      if (!hasColor || !hasSize) {
+        showToast({ tone: 'error', title: isVietnamese ? 'Cần chọn đủ màu và size' : 'Select both color and size' });
+        return;
+      }
+      const basePrice = Number(variantFormDraft.price.trim() || formState.productPrice || 0);
+      if (variantFormDraft.salePrice.trim() && Number(variantFormDraft.salePrice) > basePrice) {
+        showToast({ tone: 'error', title: isVietnamese ? 'Giá KM không được cao hơn giá bán' : 'Sale price cannot exceed price' });
+        return;
+      }
+      if (Number.isNaN(Number(variantFormDraft.stockQuantity)) || Number(variantFormDraft.stockQuantity) < 0) {
+        showToast({ tone: 'error', title: isVietnamese ? 'Tồn kho không hợp lệ' : 'Invalid stock' });
+        return;
+      }
+      setVariantDrafts((rows) => rows.map((row, i) => (i === variantEditingIndex ? { ...variantFormDraft } : row)));
+      setVariantModalOpen(false);
+      return;
+    }
+
+    // ADD MODE: validate color + all size rows
+    const hasColor = variantColorDraft.colorId || variantColorDraft.newColorName.trim();
+    if (!hasColor) {
+      showToast({ tone: 'error', title: isVietnamese ? 'Cần chọn hoặc nhập tên màu' : 'Select or enter a color' });
+      return;
+    }
+    for (const [i, row] of variantSizeRows.entries()) {
+      const hasSize = row.sizeId || row.newSizeName.trim();
+      if (!hasSize) {
+        showToast({ tone: 'error', title: isVietnamese ? `Dòng size ${i + 1}: cần chọn hoặc nhập size` : `Row ${i + 1}: select or enter a size` });
+        return;
+      }
+      const basePrice = Number(row.price.trim() || formState.productPrice || 0);
+      if (row.salePrice.trim() && Number(row.salePrice) > basePrice) {
+        showToast({ tone: 'error', title: isVietnamese ? `Dòng size ${i + 1}: giá KM không được cao hơn giá bán` : `Row ${i + 1}: sale price exceeds price` });
+        return;
+      }
+      if (Number.isNaN(Number(row.stockQuantity)) || Number(row.stockQuantity) < 0) {
+        showToast({ tone: 'error', title: isVietnamese ? `Dòng size ${i + 1}: tồn kho không hợp lệ` : `Row ${i + 1}: invalid stock` });
+        return;
+      }
+    }
+    const newDrafts: VariantDraft[] = variantSizeRows.map((row) => ({
+      colorId: variantColorDraft.colorId,
+      newColorName: variantColorDraft.newColorName,
+      newColorCode: variantColorDraft.newColorCode,
+      sizeId: row.sizeId,
+      newSizeName: row.newSizeName,
+      newSizeCode: row.newSizeCode,
+      sku: row.sku,
+      barcode: '',
+      price: row.price,
+      salePrice: row.salePrice,
+      stockQuantity: row.stockQuantity,
+      weightGrams: '',
+      isActive: row.isActive,
+      imageFiles: [],
+    }));
+    setVariantDrafts((rows) => [...rows, ...newDrafts]);
+    setVariantModalOpen(false);
+  }
+
+  function addSizeRow() {
+    setVariantSizeRows((rows) => [...rows, newSizeRow()]);
+  }
+
+  function removeSizeRow(index: number) {
+    setVariantSizeRows((rows) => rows.filter((_, i) => i !== index));
+  }
+
+  function updateSizeRow<K extends keyof SizeRowDraft>(index: number, key: K, value: SizeRowDraft[K]) {
+    setVariantSizeRows((rows) => rows.map((row, i) => (i === index ? { ...row, [key]: value } : row)));
+  }
+
+  function getVariantDisplayInfo(draft: VariantDraft) {
+    const colorName = (colors.find((c) => c.colorId === draft.colorId)?.colorName ?? draft.newColorName) || '—';
+    const colorCode = draft.colorId
+      ? (colors.find((c) => c.colorId === draft.colorId)?.colorCode ?? null)
+      : (draft.newColorCode || null);
+    const sizeName = (sizes.find((s) => s.sizeId === draft.sizeId)?.sizeName ?? draft.newSizeName) || '—';
+    return { colorName, colorCode, sizeName };
   }
 
   function buildVariantPayload() {
@@ -282,8 +384,7 @@ export default function ProductCreate() {
         variant.newColorName.trim();
       const hasSize =
         variant.sizeId ||
-        variant.newSizeName.trim() ||
-        variant.newSizeCode.trim();
+        variant.newSizeName.trim();
       const invalidSale =
         variant.salePrice.trim() &&
         Number(variant.salePrice) >
@@ -311,7 +412,6 @@ export default function ProductCreate() {
         productName: formState.productName.trim(),
         productSlug: formState.productSlug.trim() || undefined,
         categoryId: formState.categoryId,
-        subcategoryId: formState.subcategoryId || undefined,
         originId: formState.originId || undefined,
         productPrice: formState.productPrice.trim(),
         productPriceSale: formState.productPriceSale.trim() || undefined,
@@ -418,19 +518,10 @@ export default function ProductCreate() {
               <FieldInput label={isVietnamese ? 'Tên sản phẩm *' : 'Product name *'}
                 value={formState.productName} onChange={set('productName') as (v: string) => void} />
 
-              {/* Category + Subcategory */}
-              <div className="grid gap-5 md:grid-cols-2">
-                <FieldSelect label={isVietnamese ? 'Danh mục *' : 'Category *'}
-                  value={formState.categoryId}
-                  onChange={(v) => { set('categoryId')(v); set('subcategoryId')(''); }}
-                  options={categoryOptions} emptyLabel={isVietnamese ? 'Chọn danh mục' : 'Select category'} />
-                <FieldSelect label={isVietnamese ? 'Phân loại' : 'Subcategory'}
-                  value={formState.subcategoryId}
-                  onChange={set('subcategoryId') as (v: string) => void}
-                  options={subcategories.map((s) => ({ value: s.subcategoryId, label: s.subcategoryName }))}
-                  emptyLabel={isVietnamese ? (formState.categoryId ? 'Không có / Không chọn' : 'Chọn danh mục trước') : 'Select subcategory'}
-                  disabled={!formState.categoryId} />
-              </div>
+              <FieldSelect label={isVietnamese ? 'Danh mục *' : 'Category *'}
+                value={formState.categoryId}
+                onChange={set('categoryId') as (v: string) => void}
+                options={categoryOptions} emptyLabel={isVietnamese ? 'Chọn danh mục' : 'Select category'} />
 
               {/* Origin + Unit */}
               <div className="grid gap-5 md:grid-cols-2">
@@ -477,7 +568,7 @@ export default function ProductCreate() {
                   </div>
                   <button
                     type="button"
-                    onClick={addVariantDraft}
+                    onClick={openAddVariantModal}
                     className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-xs font-black text-white"
                   >
                     <Plus size={14} />
@@ -492,114 +583,38 @@ export default function ProductCreate() {
                       : 'No variants yet. The product can still use product-level stock.'}
                   </div>
                 ) : (
-                  <div className="space-y-4">
-                    {variantDrafts.map((variant, index) => (
-                      <div key={index} className="rounded-xl border border-on-surface/10 bg-white p-4 shadow-sm">
-                        <div className="mb-4 flex items-center justify-between gap-3">
-                          <div>
-                            <p className="text-sm font-black text-on-surface">
-                              {isVietnamese ? `Biến thể ${index + 1}` : `Variant ${index + 1}`}
-                            </p>
-                            <p className="mt-1 text-xs text-on-surface-variant">
-                              {isVietnamese ? 'Chọn màu/size có sẵn hoặc nhập tên mới.' : 'Choose existing color/size or enter a new one.'}
-                            </p>
+                  <div className="space-y-2">
+                    {variantDrafts.map((variant, index) => {
+                      const { colorName, colorCode, sizeName } = getVariantDisplayInfo(variant);
+                      return (
+                        <div key={index} className={`flex items-center gap-3 rounded-xl border bg-white px-4 py-3 ${variant.isActive ? 'border-on-surface/8' : 'border-red-100 opacity-70'}`}>
+                          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-surface px-2.5 py-1 text-xs font-black text-on-surface">
+                              <span className="h-3.5 w-3.5 rounded-full border border-black/10 shrink-0" style={{ backgroundColor: colorCode ?? '#e5e7eb' }} />
+                              {colorName}
+                            </span>
+                            <span className="rounded-full bg-surface px-2.5 py-1 text-xs font-black text-on-surface">{sizeName}</span>
+                            {variant.sku && <span className="text-xs text-on-surface-variant">SKU: {variant.sku}</span>}
+                            <span className="ml-auto text-xs font-semibold text-on-surface-variant">
+                              {isVietnamese ? 'Tồn' : 'Stock'}: <span className="font-black text-on-surface">{variant.stockQuantity}</span>
+                            </span>
+                            {!variant.isActive && (
+                              <span className="rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-black text-red-500">
+                                {isVietnamese ? 'Ngừng bán' : 'Inactive'}
+                              </span>
+                            )}
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => removeVariantDraft(index)}
-                            className="rounded-xl p-2 text-red-500 hover:bg-red-50"
-                            title={isVietnamese ? 'Xóa biến thể' : 'Remove variant'}
-                          >
-                            <Trash2 size={15} />
+                          <button type="button" onClick={() => openEditVariantModal(index)}
+                            className="rounded-lg p-1.5 text-primary hover:bg-primary/10" title={isVietnamese ? 'Sửa' : 'Edit'}>
+                            <Pencil size={14} />
+                          </button>
+                          <button type="button" onClick={() => removeVariantDraft(index)}
+                            className="rounded-lg p-1.5 text-red-500 hover:bg-red-50" title={isVietnamese ? 'Xóa' : 'Delete'}>
+                            <Trash2 size={14} />
                           </button>
                         </div>
-
-                        <p className="mb-2 text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant/60">
-                          {isVietnamese ? 'Màu sắc' : 'Color'}
-                        </p>
-                        <div className="grid gap-3 md:grid-cols-[1fr_1fr_96px]">
-                          <FieldSelect
-                            label={isVietnamese ? 'Màu có sẵn' : 'Existing color'}
-                            value={variant.colorId}
-                            onChange={(value) => updateVariant(index, { colorId: value, newColorName: value ? '' : variant.newColorName })}
-                            options={colors.map((color) => ({ value: color.colorId, label: color.colorName }))}
-                            emptyLabel={isVietnamese ? 'Không chọn / tạo mới' : 'None / create new'}
-                          />
-                          <FieldInput
-                            label={isVietnamese ? 'Tên màu mới' : 'New color name'}
-                            value={variant.newColorName}
-                            onChange={(value) => updateVariant(index, { newColorName: value, colorId: value ? '' : variant.colorId })}
-                            disabled={!!variant.colorId}
-                          />
-                          <FieldInput
-                            label={isVietnamese ? 'Mã màu' : 'Code'}
-                            value={variant.newColorCode}
-                            onChange={(value) => updateVariant(index, { newColorCode: value })}
-                            type="color"
-                            disabled={!!variant.colorId}
-                          />
-                        </div>
-
-                        <p className="mb-2 mt-4 text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant/60">
-                          {isVietnamese ? 'Kích thước' : 'Size'}
-                        </p>
-                        <div className="grid gap-3 md:grid-cols-3">
-                          <FieldSelect
-                            label={isVietnamese ? 'Size có sẵn' : 'Existing size'}
-                            value={variant.sizeId}
-                            onChange={(value) => updateVariant(index, { sizeId: value, newSizeName: value ? '' : variant.newSizeName, newSizeCode: value ? '' : variant.newSizeCode })}
-                            options={sizes.map((size) => ({ value: size.sizeId, label: size.sizeName }))}
-                            emptyLabel={isVietnamese ? 'Không chọn / tạo mới' : 'None / create new'}
-                          />
-                          <FieldInput
-                            label={isVietnamese ? 'Tên size mới' : 'New size name'}
-                            value={variant.newSizeName}
-                            onChange={(value) => updateVariant(index, { newSizeName: value, sizeId: value ? '' : variant.sizeId })}
-                            disabled={!!variant.sizeId}
-                          />
-                        </div>
-
-                        <p className="mb-2 mt-4 text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant/60">
-                          {isVietnamese ? 'Mã hàng & tồn kho' : 'Codes & stock'}
-                        </p>
-                        <div className="mt-3 grid gap-3 md:grid-cols-4">
-                          <FieldInput label="SKU" value={variant.sku} onChange={(value) => updateVariant(index, { sku: value })} />
-                          <FieldInput label="Barcode" value={variant.barcode} onChange={(value) => updateVariant(index, { barcode: value })} />
-                          <FieldInput label={isVietnamese ? 'Tồn kho' : 'Stock'} value={variant.stockQuantity} onChange={(value) => updateVariant(index, { stockQuantity: value })} type="number" />
-                          <FieldInput label={isVietnamese ? 'Gram' : 'Grams'} value={variant.weightGrams} onChange={(value) => updateVariant(index, { weightGrams: value })} type="number" />
-                        </div>
-
-                        <p className="mb-2 mt-4 text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant/60">
-                          {isVietnamese ? 'Giá & ảnh' : 'Price & images'}
-                        </p>
-                        <div className="mt-3 grid gap-3 md:grid-cols-3">
-                          <FieldInput label={isVietnamese ? 'Giá riêng' : 'Variant price'} value={variant.price} onChange={(value) => updateVariant(index, { price: value })} type="number" />
-                          <FieldInput label={isVietnamese ? 'Giá KM riêng' : 'Variant sale price'} value={variant.salePrice} onChange={(value) => updateVariant(index, { salePrice: value })} type="number" />
-                          <label className="grid gap-2">
-                            <span className="text-[10px] font-black uppercase tracking-[0.24em] text-on-surface-variant/50">
-                              {isVietnamese ? 'Ảnh biến thể' : 'Variant images'}
-                            </span>
-                            <input
-                              type="file"
-                              accept="image/*"
-                              multiple
-                              onChange={(event) => updateVariant(index, { imageFiles: Array.from(event.target.files ?? []) })}
-                              className="rounded-2xl border border-on-surface/10 bg-surface px-4 py-2.5 text-sm outline-none"
-                            />
-                          </label>
-                        </div>
-
-                        <label className="mt-3 inline-flex cursor-pointer items-center gap-2 text-sm font-semibold text-on-surface">
-                          <input
-                            type="checkbox"
-                            checked={variant.isActive}
-                            onChange={(event) => updateVariant(index, { isActive: event.target.checked })}
-                            className="h-4 w-4 accent-primary"
-                          />
-                          {isVietnamese ? 'Đang bán biến thể này' : 'Variant active'}
-                        </label>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -749,6 +764,269 @@ export default function ProductCreate() {
           </section>
         </aside>
       </div>
+
+      <Modal
+        open={variantModalOpen}
+        title={variantEditingIndex !== null
+          ? (isVietnamese ? `Sửa biến thể ${variantEditingIndex + 1}` : `Edit variant ${variantEditingIndex + 1}`)
+          : (isVietnamese ? 'Thêm biến thể — chọn màu & nhiều sizes' : 'Add variants — pick color & multiple sizes')}
+        onClose={() => setVariantModalOpen(false)}
+        size="lg"
+        footer={
+          <div className="flex justify-end gap-3">
+            <button type="button" onClick={() => setVariantModalOpen(false)}
+              className="rounded-2xl border border-on-surface/10 px-5 py-2.5 text-sm font-bold">
+              {isVietnamese ? 'Hủy' : 'Cancel'}
+            </button>
+            <button type="button" onClick={saveVariantModal}
+              className="inline-flex items-center gap-2 rounded-2xl bg-primary px-5 py-2.5 text-sm font-black text-white">
+              <Save size={15} />
+              {variantEditingIndex !== null
+                ? (isVietnamese ? 'Lưu thay đổi' : 'Save changes')
+                : (isVietnamese ? `Thêm ${variantSizeRows.length} biến thể` : `Add ${variantSizeRows.length} variant${variantSizeRows.length > 1 ? 's' : ''}`)}
+            </button>
+          </div>
+        }
+      >
+        {variantEditingIndex !== null ? (
+          /* ── EDIT MODE: full single-variant form ── */
+          <div className="space-y-5">
+            {/* Màu sắc */}
+            <div>
+              <p className="mb-3 text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant/60">
+                {isVietnamese ? 'Màu sắc' : 'Color'}
+              </p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <FieldSelect
+                  label={isVietnamese ? 'Màu có sẵn' : 'Existing color'}
+                  value={variantFormDraft.colorId}
+                  onChange={(v) => setVariantFormDraft((p) => ({ ...p, colorId: v, newColorName: v ? '' : p.newColorName, newColorCode: v ? '#2563eb' : p.newColorCode }))}
+                  options={colors.map((c) => ({ value: c.colorId, label: c.colorName }))}
+                  emptyLabel={isVietnamese ? 'Không chọn / tạo mới' : 'None / create new'}
+                />
+                <FieldInput
+                  label={isVietnamese ? 'Mã màu' : 'Color code'}
+                  value={variantFormDraft.newColorCode}
+                  onChange={(v) => setVariantFormDraft((p) => ({ ...p, newColorCode: v }))}
+                  type="color"
+                  disabled={!!variantFormDraft.colorId}
+                />
+              </div>
+              <div className="mt-3">
+                <FieldInput
+                  label={isVietnamese ? 'Tên màu mới' : 'New color name'}
+                  value={variantFormDraft.newColorName}
+                  onChange={(v) => setVariantFormDraft((p) => ({ ...p, newColorName: v, colorId: v ? '' : p.colorId }))}
+                  disabled={!!variantFormDraft.colorId}
+                />
+              </div>
+            </div>
+
+            {/* Kích thước */}
+            <div>
+              <p className="mb-3 text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant/60">
+                {isVietnamese ? 'Kích thước' : 'Size'}
+              </p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <FieldSelect
+                  label={isVietnamese ? 'Size có sẵn' : 'Existing size'}
+                  value={variantFormDraft.sizeId}
+                  onChange={(v) => setVariantFormDraft((p) => ({ ...p, sizeId: v, newSizeName: v ? '' : p.newSizeName, newSizeCode: v ? '' : p.newSizeCode }))}
+                  options={sizes.map((s) => ({ value: s.sizeId, label: s.sizeName }))}
+                  emptyLabel={isVietnamese ? 'Không chọn / tạo mới' : 'None / create new'}
+                />
+                <FieldInput
+                  label={isVietnamese ? 'Mã size' : 'Size code'}
+                  value={variantFormDraft.newSizeCode}
+                  onChange={(v) => setVariantFormDraft((p) => ({ ...p, newSizeCode: v }))}
+                  disabled={!!variantFormDraft.sizeId}
+                />
+              </div>
+              <div className="mt-3">
+                <FieldInput
+                  label={isVietnamese ? 'Tên size mới' : 'New size name'}
+                  value={variantFormDraft.newSizeName}
+                  onChange={(v) => setVariantFormDraft((p) => ({ ...p, newSizeName: v, sizeId: v ? '' : p.sizeId }))}
+                  disabled={!!variantFormDraft.sizeId}
+                />
+              </div>
+            </div>
+
+            {/* Mã hàng */}
+            <div>
+              <p className="mb-3 text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant/60">
+                {isVietnamese ? 'Mã hàng' : 'Codes'}
+              </p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <FieldInput label="SKU" value={variantFormDraft.sku} onChange={(v) => setVariantFormDraft((p) => ({ ...p, sku: v }))} />
+                <FieldInput label="Barcode" value={variantFormDraft.barcode} onChange={(v) => setVariantFormDraft((p) => ({ ...p, barcode: v }))} />
+              </div>
+            </div>
+
+            {/* Giá & tồn kho */}
+            <div>
+              <p className="mb-3 text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant/60">
+                {isVietnamese ? 'Giá & tồn kho' : 'Price & stock'}
+              </p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <FieldInput label={isVietnamese ? 'Giá riêng' : 'Variant price'} value={variantFormDraft.price} onChange={(v) => setVariantFormDraft((p) => ({ ...p, price: v }))} type="number" />
+                <FieldInput label={isVietnamese ? 'Giá KM riêng' : 'Variant sale price'} value={variantFormDraft.salePrice} onChange={(v) => setVariantFormDraft((p) => ({ ...p, salePrice: v }))} type="number" />
+              </div>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <FieldInput label={isVietnamese ? 'Tồn kho' : 'Stock'} value={variantFormDraft.stockQuantity} onChange={(v) => setVariantFormDraft((p) => ({ ...p, stockQuantity: v }))} type="number" />
+                <FieldInput label={isVietnamese ? 'Gram' : 'Grams'} value={variantFormDraft.weightGrams} onChange={(v) => setVariantFormDraft((p) => ({ ...p, weightGrams: v }))} type="number" />
+              </div>
+            </div>
+
+            {/* Ảnh biến thể */}
+            <div>
+              <p className="mb-3 text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant/60">
+                {isVietnamese ? 'Ảnh biến thể' : 'Variant images'}
+              </p>
+              <label className="grid gap-2">
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={(e) => setVariantFormDraft((p) => ({ ...p, imageFiles: Array.from(e.target.files ?? []) }))}
+                  className="rounded-2xl border border-on-surface/10 bg-surface px-4 py-2.5 text-sm outline-none"
+                />
+                {variantFormDraft.imageFiles.length > 0 && (
+                  <p className="text-xs font-semibold text-primary">{variantFormDraft.imageFiles.length} {isVietnamese ? 'ảnh đã chọn' : 'files selected'}</p>
+                )}
+              </label>
+            </div>
+
+            {/* Trạng thái */}
+            <label className="flex cursor-pointer items-center gap-3 rounded-2xl border border-on-surface/8 bg-surface px-4 py-3 text-sm font-semibold text-on-surface">
+              <input
+                type="checkbox"
+                checked={variantFormDraft.isActive}
+                onChange={(e) => setVariantFormDraft((p) => ({ ...p, isActive: e.target.checked }))}
+                className="h-4 w-4 accent-primary"
+              />
+              {isVietnamese ? 'Đang bán biến thể này' : 'Variant active'}
+            </label>
+          </div>
+        ) : (
+          /* ── ADD MODE: color once + multi-size rows ── */
+          <div className="space-y-6">
+            {/* Màu sắc */}
+            <div>
+              <p className="mb-3 text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant/60">
+                {isVietnamese ? 'Màu sắc (chọn 1 lần cho tất cả sizes)' : 'Color (shared for all sizes)'}
+              </p>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <FieldSelect
+                  label={isVietnamese ? 'Màu có sẵn' : 'Existing color'}
+                  value={variantColorDraft.colorId}
+                  onChange={(v) => setVariantColorDraft((p) => ({ ...p, colorId: v, newColorName: v ? '' : p.newColorName }))}
+                  options={colors.map((c) => ({ value: c.colorId, label: c.colorName }))}
+                  emptyLabel={isVietnamese ? 'Tạo màu mới' : 'Create new color'}
+                />
+                <FieldInput
+                  label={isVietnamese ? 'Mã màu' : 'Color hex'}
+                  value={variantColorDraft.newColorCode}
+                  onChange={(v) => setVariantColorDraft((p) => ({ ...p, newColorCode: v }))}
+                  type="color"
+                  disabled={!!variantColorDraft.colorId}
+                />
+                <FieldInput
+                  label={isVietnamese ? 'Tên màu mới' : 'New color name'}
+                  value={variantColorDraft.newColorName}
+                  onChange={(v) => setVariantColorDraft((p) => ({ ...p, newColorName: v, colorId: v ? '' : p.colorId }))}
+                  disabled={!!variantColorDraft.colorId}
+                />
+              </div>
+            </div>
+
+            {/* Size rows */}
+            <div>
+              <p className="mb-2 text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant/60">
+                {isVietnamese ? 'Kích thước — thêm nhiều size cùng lúc' : 'Sizes — add multiple at once'}
+              </p>
+
+              {/* Column headers */}
+              <div className="mb-1 grid grid-cols-[1fr_1fr_88px_88px_32px] gap-2 px-1 text-[9px] font-black uppercase tracking-widest text-on-surface-variant/40">
+                <span>{isVietnamese ? 'Size có sẵn' : 'Existing size'}</span>
+                <span>{isVietnamese ? 'Tên size mới' : 'New size name'}</span>
+                <span>{isVietnamese ? 'Tồn kho' : 'Stock'}</span>
+                <span>{isVietnamese ? 'Giá riêng' : 'Price'}</span>
+                <span />
+              </div>
+
+              <div className="space-y-2">
+                {variantSizeRows.map((row, idx) => (
+                  <div key={idx} className="grid grid-cols-[1fr_1fr_88px_88px_32px] items-center gap-2">
+                    <select
+                      value={row.sizeId}
+                      onChange={(e) => {
+                        updateSizeRow(idx, 'sizeId', e.target.value);
+                        if (e.target.value) updateSizeRow(idx, 'newSizeName', '');
+                      }}
+                      className="rounded-xl border border-on-surface/10 bg-surface px-3 py-2.5 text-sm outline-none focus:border-primary/40"
+                    >
+                      <option value="">{isVietnamese ? '— Nhập mới' : '— Enter new'}</option>
+                      {sizes.map((s) => (
+                        <option key={s.sizeId} value={s.sizeId}>{s.sizeName}</option>
+                      ))}
+                    </select>
+                    <input
+                      type="text"
+                      value={row.newSizeName}
+                      placeholder={isVietnamese ? 'VD: XL, 42...' : 'e.g. XL, 42...'}
+                      disabled={!!row.sizeId}
+                      onChange={(e) => {
+                        updateSizeRow(idx, 'newSizeName', e.target.value);
+                        if (e.target.value) updateSizeRow(idx, 'sizeId', '');
+                      }}
+                      className="rounded-xl border border-on-surface/10 bg-surface px-3 py-2.5 text-sm outline-none focus:border-primary/40 disabled:opacity-40"
+                    />
+                    <input
+                      type="number"
+                      min={0}
+                      value={row.stockQuantity}
+                      onChange={(e) => updateSizeRow(idx, 'stockQuantity', e.target.value)}
+                      className="rounded-xl border border-on-surface/10 bg-surface px-3 py-2.5 text-sm outline-none focus:border-primary/40"
+                    />
+                    <input
+                      type="number"
+                      min={0}
+                      value={row.price}
+                      placeholder={isVietnamese ? 'Mặc định' : 'Default'}
+                      onChange={(e) => updateSizeRow(idx, 'price', e.target.value)}
+                      className="rounded-xl border border-on-surface/10 bg-surface px-3 py-2.5 text-sm outline-none focus:border-primary/40"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeSizeRow(idx)}
+                      disabled={variantSizeRows.length === 1}
+                      className="flex h-9 w-8 items-center justify-center rounded-xl text-red-400 transition hover:bg-red-50 disabled:pointer-events-none disabled:opacity-25"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              <button
+                type="button"
+                onClick={addSizeRow}
+                className="mt-3 inline-flex items-center gap-2 rounded-xl border border-dashed border-primary/40 px-4 py-2 text-xs font-bold text-primary transition hover:bg-primary/5"
+              >
+                <Plus size={13} />
+                {isVietnamese ? 'Thêm dòng size' : 'Add size row'}
+              </button>
+
+              <p className="mt-3 text-[10px] text-on-surface-variant/50">
+                {isVietnamese
+                  ? 'Giá để trống = dùng giá chung của sản phẩm. SKU, ảnh có thể chỉnh sau khi thêm.'
+                  : 'Leave price blank to use the product price. SKU & images can be set after adding.'}
+              </p>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }
@@ -772,8 +1050,18 @@ function FieldInput({
   return (
     <label className="grid gap-2">
       <span className="text-[10px] font-black uppercase tracking-[0.24em] text-on-surface-variant/50">{label}</span>
-      <input type={type} value={value} disabled={disabled} onChange={(e) => onChange(e.target.value)}
-        className="rounded-2xl border border-on-surface/10 bg-surface px-4 py-3 text-sm outline-none focus:border-primary/40 disabled:opacity-50" />
+      {type === 'color' ? (
+        <input
+          type="color"
+          value={value || '#2563eb'}
+          disabled={disabled}
+          onChange={(e) => onChange(e.target.value)}
+          className="h-11 w-full cursor-pointer rounded-2xl border border-on-surface/10 bg-surface p-1 outline-none disabled:cursor-not-allowed disabled:opacity-40"
+        />
+      ) : (
+        <input type={type} value={value} disabled={disabled} onChange={(e) => onChange(e.target.value)}
+          className="rounded-2xl border border-on-surface/10 bg-surface px-4 py-3 text-sm outline-none focus:border-primary/40 disabled:opacity-50" />
+      )}
     </label>
   );
 }
@@ -797,5 +1085,4 @@ function FieldSelect({
     </label>
   );
 }
-
 

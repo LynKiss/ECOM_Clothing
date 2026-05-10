@@ -10,6 +10,7 @@ import {
   ImagePlus,
   LoaderCircle,
   PackageSearch,
+  Plus,
   Palette,
   Save,
   Search,
@@ -26,7 +27,6 @@ import RichTextEditor from '../components/shared/RichTextEditor';
 
 type CategoryNode = { categoryId: string; categoryName: string; children: CategoryNode[] };
 type Origin = { originId: string; originName: string };
-type Subcategory = { subcategoryId: string; subcategoryName: string; categoryId: string };
 
 type ProductColor = { colorId: string; colorName: string; colorCode: string | null };
 type ProductSize = { sizeId: string; sizeName: string; sizeCode: string | null; sortOrder: number };
@@ -63,12 +63,18 @@ type VariantFormState = {
   imageFiles: File[];
 };
 
+type AddColorDraft = { colorId: string; newColorName: string; newColorCode: string };
+type AddSizeRow = { sizeId: string; newSizeName: string; stockQuantity: string; price: string };
+
+function newAddSizeRow(): AddSizeRow {
+  return { sizeId: '', newSizeName: '', stockQuantity: '0', price: '' };
+}
+
 type Product = {
   productId: string;
   productName: string;
   productSlug?: string;
   categoryId: string;
-  subcategoryId?: string | null;
   originId?: string | null;
   productPrice: string;
   productPriceSale: string | null;
@@ -103,7 +109,6 @@ type ProductFormState = {
   productName: string;
   productSlug: string;
   categoryId: string;
-  subcategoryId: string;
   originId: string;
   productPrice: string;
   productPriceSale: string;
@@ -143,7 +148,6 @@ const defaultFormState: ProductFormState = {
   productName: '',
   productSlug: '',
   categoryId: '',
-  subcategoryId: '',
   originId: '',
   productPrice: '',
   productPriceSale: '',
@@ -172,7 +176,6 @@ export default function Products() {
   });
   const [categoriesTree, setCategoriesTree] = useState<CategoryNode[]>([]);
   const [origins, setOrigins] = useState<Origin[]>([]);
-  const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
   const [search, setSearch] = useState(searchParams.get('search') ?? '');
   const [selectedCategory, setSelectedCategory] = useState(searchParams.get('category') ?? 'all');
   const [page, setPage] = useState(Number(searchParams.get('page') ?? '1'));
@@ -204,6 +207,10 @@ export default function Products() {
 
   const [variantModalOpen, setVariantModalOpen] = useState(false);
   const [variantProduct, setVariantProduct] = useState<Product | null>(null);
+  const [addColorDraft, setAddColorDraft] = useState<AddColorDraft>({ colorId: '', newColorName: '', newColorCode: '#2563eb' });
+  const [addSizeRows, setAddSizeRows] = useState<AddSizeRow[]>([newAddSizeRow()]);
+  const [expandedVariantIds, setExpandedVariantIds] = useState<Set<string>>(new Set());
+  const [collapsedColorKeys, setCollapsedColorKeys] = useState<Set<string>>(new Set());
   const [colors, setColors] = useState<ProductColor[]>([]);
   const [sizes, setSizes] = useState<ProductSize[]>([]);
   const [variants, setVariants] = useState<ProductVariant[]>([]);
@@ -248,11 +255,10 @@ export default function Products() {
         if (selectedCategory !== 'all') qs.set('categoryId', selectedCategory);
         if (search.trim()) qs.set('search', search.trim());
 
-        const [categoriesData, productsData, originsData, subcatsData] = await Promise.all([
+        const [categoriesData, productsData, originsData] = await Promise.all([
           apiClient.get<CategoryNode[]>('/categories/admin/tree'),
           apiClient.get<ProductResponse>(`/products?${qs.toString()}`),
           apiClient.get<{ items: Origin[] }>('/origins?limit=500'),
-          apiClient.get<{ items: Subcategory[] }>('/subcategories?limit=500'),
         ]);
 
         if (cancelled) return;
@@ -260,7 +266,6 @@ export default function Products() {
         setProducts(productsData.items.map(normalizeProduct));
         setMeta(productsData.meta);
         setOrigins(originsData.items ?? []);
-        setSubcategories(subcatsData.items ?? []);
         setSelectedIds(new Set());
       } catch (e) {
         if (!cancelled) {
@@ -412,7 +417,6 @@ export default function Products() {
       productName: product.productName,
       productSlug: product.productSlug ?? '',
       categoryId: product.categoryId,
-      subcategoryId: product.subcategoryId ?? '',
       originId: product.originId ?? '',
       productPrice: product.productPrice,
       productPriceSale: product.productPriceSale ?? '',
@@ -511,7 +515,6 @@ export default function Products() {
         productName: formState.productName.trim(),
         productSlug: formState.productSlug.trim() || undefined,
         categoryId: formState.categoryId,
-        subcategoryId: formState.subcategoryId || undefined,
         originId: formState.originId || undefined,
         productPrice: formState.productPrice.trim(),
         productPriceSale: formState.productPriceSale.trim() || undefined,
@@ -584,12 +587,16 @@ export default function Products() {
   function resetVariantForm() {
     setVariantForm(defaultVariantForm);
     setVariantEditingId(null);
+    setAddColorDraft({ colorId: '', newColorName: '', newColorCode: '#2563eb' });
+    setAddSizeRows([newAddSizeRow()]);
   }
 
   function closeVariantModal() {
     setVariantModalOpen(false);
     setVariantProduct(null);
     setVariants([]);
+    setExpandedVariantIds(new Set());
+    setCollapsedColorKeys(new Set());
     resetVariantForm();
   }
 
@@ -634,11 +641,10 @@ export default function Products() {
 
   async function resolveVariantSizeId() {
     if (variantForm.sizeId) return variantForm.sizeId;
-    if (!variantForm.newSizeName.trim() && !variantForm.newSizeCode.trim()) return undefined;
-    const sizeName = variantForm.newSizeName.trim() || variantForm.newSizeCode.trim();
+    if (!variantForm.newSizeName.trim()) return undefined;
     const created = await apiClient.post<ProductSize>('/products/sizes', {
-      sizeName,
-      sizeCode: variantForm.newSizeCode.trim() || sizeName,
+      sizeName: variantForm.newSizeName.trim(),
+      sizeCode: variantForm.newSizeCode.trim() || undefined,
       sortOrder: sizes.length,
     });
     setSizes((items) => (items.some((item) => item.sizeId === created.sizeId) ? items : [...items, created]));
@@ -647,54 +653,107 @@ export default function Products() {
 
   async function saveVariant() {
     if (!variantProduct) return;
-    const hasColor = Boolean(variantForm.colorId || variantForm.newColorName.trim());
-    const hasSize = Boolean(variantForm.sizeId || variantForm.newSizeName.trim() || variantForm.newSizeCode.trim());
-    if (!hasColor || !hasSize) {
-      showToast({ tone: 'error', title: isVi ? 'Cần chọn đủ màu và size' : 'Select both color and size' });
+
+    if (variantEditingId) {
+      // EDIT MODE: single variant update (unchanged)
+      const hasColor = Boolean(variantForm.colorId || variantForm.newColorName.trim());
+      const hasSize = Boolean(variantForm.sizeId || variantForm.newSizeName.trim());
+      if (!hasColor || !hasSize) {
+        showToast({ tone: 'error', title: isVi ? 'Cần chọn đủ màu và size' : 'Select both color and size' });
+        return;
+      }
+      const baseVariantPrice = Number(variantForm.price.trim() || variantProduct.productPrice || 0);
+      if (variantForm.salePrice.trim() && Number(variantForm.salePrice) > baseVariantPrice) {
+        showToast({ tone: 'error', title: isVi ? 'Giá KM biến thể không hợp lệ' : 'Invalid variant sale price' });
+        return;
+      }
+      setVariantSaving(true);
+      try {
+        const colorId = await resolveVariantColorId();
+        const sizeId = await resolveVariantSizeId();
+        await apiClient.patch<ProductVariant>(`/products/${variantProduct.productId}/variants/${variantEditingId}`, {
+          colorId,
+          sizeId,
+          sku: variantForm.sku.trim() || undefined,
+          barcode: variantForm.barcode.trim() || undefined,
+          price: variantForm.price.trim() || undefined,
+          salePrice: variantForm.salePrice.trim() || undefined,
+          stockQuantity: Number(variantForm.stockQuantity || 0),
+          weightGrams: variantForm.weightGrams.trim() ? Number(variantForm.weightGrams) : undefined,
+          isActive: variantForm.isActive,
+        });
+        for (const file of variantForm.imageFiles) {
+          const fd = new FormData();
+          fd.append('file', file);
+          await apiClient.postForm(`/products/${variantProduct.productId}/variants/${variantEditingId}/images`, fd);
+        }
+        await loadVariantCatalogsAndRows(variantProduct.productId);
+        resetVariantForm();
+        setReloadKey((v) => v + 1);
+        showToast({ tone: 'success', title: isVi ? 'Đã cập nhật biến thể' : 'Variant updated' });
+      } catch (e) {
+        showToast({ tone: 'error', title: isVi ? 'Cập nhật thất bại' : 'Update failed', description: e instanceof Error ? e.message : undefined });
+      } finally {
+        setVariantSaving(false);
+      }
       return;
     }
-    const baseVariantPrice = Number(variantForm.price.trim() || variantProduct.productPrice || 0);
-    if (variantForm.salePrice.trim() && Number(variantForm.salePrice) > baseVariantPrice) {
-      showToast({ tone: 'error', title: isVi ? 'Giá KM biến thể không hợp lệ' : 'Invalid variant sale price' });
+
+    // ADD MODE: validate color + all size rows, then POST each
+    const hasColor = Boolean(addColorDraft.colorId || addColorDraft.newColorName.trim());
+    if (!hasColor) {
+      showToast({ tone: 'error', title: isVi ? 'Cần chọn hoặc nhập tên màu' : 'Select or enter a color' });
       return;
+    }
+    for (const [i, row] of addSizeRows.entries()) {
+      if (!row.sizeId && !row.newSizeName.trim()) {
+        showToast({ tone: 'error', title: isVi ? `Dòng ${i + 1}: cần chọn hoặc nhập size` : `Row ${i + 1}: select or enter a size` });
+        return;
+      }
     }
 
     setVariantSaving(true);
     try {
-      const colorId = await resolveVariantColorId();
-      const sizeId = await resolveVariantSizeId();
-      const payload = {
-        colorId,
-        sizeId,
-        sku: variantForm.sku.trim() || undefined,
-        barcode: variantForm.barcode.trim() || undefined,
-        price: variantForm.price.trim() || undefined,
-        salePrice: variantForm.salePrice.trim() || undefined,
-        stockQuantity: Number(variantForm.stockQuantity || 0),
-        weightGrams: variantForm.weightGrams.trim() ? Number(variantForm.weightGrams) : undefined,
-        isActive: variantForm.isActive,
-      };
+      // Resolve color once for all rows
+      let resolvedColorId: string | undefined;
+      if (addColorDraft.colorId) {
+        resolvedColorId = addColorDraft.colorId;
+      } else if (addColorDraft.newColorName.trim()) {
+        const created = await apiClient.post<{ colorId: string }>('/products/colors', {
+          colorName: addColorDraft.newColorName.trim(),
+          colorCode: addColorDraft.newColorCode.trim() || undefined,
+        });
+        resolvedColorId = created.colorId;
+      }
 
-      const saved = variantEditingId
-        ? await apiClient.patch<ProductVariant>(`/products/${variantProduct.productId}/variants/${variantEditingId}`, payload)
-        : await apiClient.post<ProductVariant>(`/products/${variantProduct.productId}/variants`, payload);
-
-      for (const file of variantForm.imageFiles) {
-        const fd = new FormData();
-        fd.append('file', file);
-        await apiClient.postForm(`/products/${variantProduct.productId}/variants/${saved.variantId}/images`, fd);
+      for (const row of addSizeRows) {
+        let resolvedSizeId: string | undefined;
+        if (row.sizeId) {
+          resolvedSizeId = row.sizeId;
+        } else if (row.newSizeName.trim()) {
+          const created = await apiClient.post<{ sizeId: string }>('/products/sizes', {
+            sizeName: row.newSizeName.trim(),
+          });
+          resolvedSizeId = created.sizeId;
+        }
+        await apiClient.post(`/products/${variantProduct.productId}/variants`, {
+          colorId: resolvedColorId,
+          sizeId: resolvedSizeId,
+          stockQuantity: Number(row.stockQuantity || 0),
+          price: row.price.trim() || undefined,
+          isActive: true,
+        });
       }
 
       await loadVariantCatalogsAndRows(variantProduct.productId);
       resetVariantForm();
       setReloadKey((v) => v + 1);
-      showToast({ tone: 'success', title: isVi ? 'Đã lưu biến thể' : 'Variant saved' });
-    } catch (e) {
       showToast({
-        tone: 'error',
-        title: isVi ? 'Lưu biến thể thất bại' : 'Unable to save variant',
-        description: e instanceof Error ? e.message : undefined,
+        tone: 'success',
+        title: isVi ? `Đã thêm ${addSizeRows.length} biến thể` : `Added ${addSizeRows.length} variant${addSizeRows.length > 1 ? 's' : ''}`,
       });
+    } catch (e) {
+      showToast({ tone: 'error', title: isVi ? 'Thêm biến thể thất bại' : 'Unable to add variants', description: e instanceof Error ? e.message : undefined });
     } finally {
       setVariantSaving(false);
     }
@@ -722,10 +781,6 @@ export default function Products() {
       setVariantBusyId(null);
     }
   }
-
-  const visibleSubcategories = subcategories.filter(
-    (s) => !formState.categoryId || s.categoryId === formState.categoryId,
-  );
 
   function getAllocatedVariantStock(product: Product) {
     return (product.variants ?? [])
@@ -847,7 +902,6 @@ export default function Products() {
                   </button>
                 </th>
                 <th className="hidden px-4 py-5">{isVi ? 'Danh mục' : 'Category'}</th>
-                <th className="px-4 py-5">{isVi ? 'Phân loại' : 'Classification'}</th>
                 <th className="px-4 py-5">{isVi ? 'Trạng thái' : 'Status'}</th>
                 <th className="px-4 py-5 text-right">{isVi ? 'Thao tác' : 'Actions'}</th>
               </tr>
@@ -855,7 +909,7 @@ export default function Products() {
             <tbody className="divide-y divide-on-surface-variant/5 text-sm">
               {loading ? (
                 <tr>
-                  <td colSpan={11} className="py-12 text-center text-on-surface-variant">
+                  <td colSpan={10} className="py-12 text-center text-on-surface-variant">
                     <span className="inline-flex items-center gap-2">
                       <LoaderCircle size={16} className="animate-spin" />
                       {isVi ? 'Đang tải sản phẩm...' : 'Loading products...'}
@@ -864,7 +918,7 @@ export default function Products() {
                 </tr>
               ) : products.length === 0 ? (
                 <tr>
-                  <td colSpan={11} className="py-14">
+                  <td colSpan={10} className="py-14">
                     <div className="flex flex-col items-center gap-3 text-center">
                       <PackageSearch className="text-primary/60" size={26} />
                       <div>
@@ -939,14 +993,6 @@ export default function Products() {
                       ) : null}
                     </td>
                     <td className="hidden px-4 py-4 text-on-surface-variant">{categoryPathMap.get(product.categoryId) ?? product.categoryId}</td>
-                    <td className="px-4 py-4 text-on-surface-variant">
-                      <p>{origins.find((origin) => origin.originId === product.originId)?.originName ?? '-'}</p>
-                      {(product.variants ?? []).length > 0 ? (
-                        <p className="mt-1 text-xs font-semibold text-primary">{product.variants?.length} {isVi ? 'biến thể' : 'variants'}</p>
-                      ) : (
-                        <p className="mt-1 text-xs text-on-surface-variant/60">{isVi ? 'Sản phẩm đơn' : 'Single product'}</p>
-                      )}
-                    </td>
                     <td className="px-4 py-4">
                       <span
                         className={`inline-flex rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-widest ${
@@ -1040,7 +1086,9 @@ export default function Products() {
               className="inline-flex items-center gap-2 rounded-2xl bg-primary px-5 py-2.5 text-sm font-black text-white disabled:opacity-60"
             >
               {variantSaving ? <LoaderCircle size={16} className="animate-spin" /> : <Save size={16} />}
-              {variantEditingId ? (isVi ? 'Cập nhật biến thể' : 'Update variant') : (isVi ? 'Thêm biến thể' : 'Add variant')}
+              {variantEditingId
+                ? (isVi ? 'Cập nhật biến thể' : 'Update variant')
+                : (isVi ? `Thêm ${addSizeRows.length} biến thể` : `Add ${addSizeRows.length} variant${addSizeRows.length > 1 ? 's' : ''}`)}
             </button>
           </div>
         }
@@ -1054,217 +1102,308 @@ export default function Products() {
           <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
             <section className="rounded-2xl border border-on-surface/8 bg-surface p-4">
               <p className="mb-4 text-[11px] font-black uppercase tracking-[0.2em] text-on-surface-variant/60">
-                {variantEditingId ? (isVi ? 'Sửa biến thể' : 'Edit variant') : (isVi ? 'Biến thể mới' : 'New variant')}
+                {variantEditingId ? (isVi ? 'Sửa biến thể' : 'Edit variant') : (isVi ? 'Thêm biến thể mới' : 'Add new variants')}
               </p>
+
               {variantEditingId ? (
-                <div className="mb-4 rounded-xl border border-primary/20 bg-white px-4 py-3 text-xs font-bold text-primary">
-                  {isVi ? 'Đang sửa một biến thể. Bấm "Hủy sửa" để quay lại thêm mới.' : 'Editing a variant. Use "Cancel edit" to return to add mode.'}
+                /* ── EDIT MODE ── */
+                <div className="space-y-4">
+                  <div className="mb-2 rounded-xl border border-primary/20 bg-white px-4 py-3 text-xs font-bold text-primary">
+                    {isVi ? 'Đang sửa. Bấm "Hủy sửa" để quay lại thêm mới.' : 'Editing. Use "Cancel edit" to return to add mode.'}
+                  </div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant/60">{isVi ? 'Màu sắc' : 'Color'}</p>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <Field label={isVi ? 'Màu có sẵn' : 'Existing color'}>
+                      <select value={variantForm.colorId} onChange={(e) => setVariantForm((p) => ({ ...p, colorId: e.target.value, newColorName: e.target.value ? '' : p.newColorName, newColorCode: e.target.value ? '#2563eb' : p.newColorCode }))} className="input-base">
+                        <option value="">{isVi ? 'Không chọn / tạo mới' : 'None / create new'}</option>
+                        {colors.map((c) => <option key={c.colorId} value={c.colorId}>{c.colorName}</option>)}
+                      </select>
+                    </Field>
+                    <Field label={isVi ? 'Mã màu' : 'Color code'}>
+                      <input type="color" disabled={!!variantForm.colorId} value={variantForm.newColorCode || '#2563eb'} onChange={(e) => setVariantForm((p) => ({ ...p, newColorCode: e.target.value }))} className="h-11 w-full rounded-2xl border border-on-surface/10 bg-white px-2 disabled:cursor-not-allowed disabled:opacity-40" />
+                    </Field>
+                  </div>
+                  <Field label={isVi ? 'Tên màu mới' : 'New color name'}>
+                    <input disabled={!!variantForm.colorId} value={variantForm.newColorName} onChange={(e) => setVariantForm((p) => ({ ...p, newColorName: e.target.value }))} placeholder={isVi ? 'Ví dụ: Xanh navy' : 'Example: Navy blue'} className="input-base disabled:cursor-not-allowed disabled:opacity-40" />
+                  </Field>
+
+                  <p className="pt-2 text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant/60">{isVi ? 'Kích thước' : 'Size'}</p>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <Field label={isVi ? 'Size có sẵn' : 'Existing size'}>
+                      <select value={variantForm.sizeId} onChange={(e) => setVariantForm((p) => ({ ...p, sizeId: e.target.value, newSizeName: e.target.value ? '' : p.newSizeName, newSizeCode: e.target.value ? '' : p.newSizeCode }))} className="input-base">
+                        <option value="">{isVi ? 'Không chọn / tạo mới' : 'None / create new'}</option>
+                        {sizes.map((s) => <option key={s.sizeId} value={s.sizeId}>{s.sizeName}</option>)}
+                      </select>
+                    </Field>
+                    <Field label={isVi ? 'Mã size mới' : 'New size code'}>
+                      <input disabled={!!variantForm.sizeId} value={variantForm.newSizeCode} onChange={(e) => setVariantForm((p) => ({ ...p, newSizeCode: e.target.value }))} placeholder="S, M, L, XL" className="input-base disabled:cursor-not-allowed disabled:opacity-40" />
+                    </Field>
+                  </div>
+                  <Field label={isVi ? 'Tên size mới' : 'New size name'}>
+                    <input disabled={!!variantForm.sizeId} value={variantForm.newSizeName} onChange={(e) => setVariantForm((p) => ({ ...p, newSizeName: e.target.value }))} placeholder={isVi ? 'Ví dụ: Size L' : 'Example: Size L'} className="input-base disabled:cursor-not-allowed disabled:opacity-40" />
+                  </Field>
+
+                  <p className="pt-2 text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant/60">{isVi ? 'Mã hàng' : 'Codes'}</p>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <Field label="SKU"><input value={variantForm.sku} onChange={(e) => setVariantForm((p) => ({ ...p, sku: e.target.value }))} className="input-base" /></Field>
+                    <Field label="Barcode"><input value={variantForm.barcode} onChange={(e) => setVariantForm((p) => ({ ...p, barcode: e.target.value }))} className="input-base" /></Field>
+                  </div>
+
+                  <p className="pt-2 text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant/60">{isVi ? 'Giá & tồn kho' : 'Price & stock'}</p>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <Field label={isVi ? 'Giá riêng' : 'Variant price'}><input type="number" value={variantForm.price} onChange={(e) => setVariantForm((p) => ({ ...p, price: e.target.value }))} className="input-base" /></Field>
+                    <Field label={isVi ? 'Giá KM riêng' : 'Sale price'}><input type="number" value={variantForm.salePrice} onChange={(e) => setVariantForm((p) => ({ ...p, salePrice: e.target.value }))} className="input-base" /></Field>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <Field label={isVi ? 'Tồn kho' : 'Stock'}><input type="number" min={0} value={variantForm.stockQuantity} onChange={(e) => setVariantForm((p) => ({ ...p, stockQuantity: e.target.value }))} className="input-base" /></Field>
+                    <Field label={isVi ? 'Khối lượng gram' : 'Weight grams'}><input type="number" min={0} value={variantForm.weightGrams} onChange={(e) => setVariantForm((p) => ({ ...p, weightGrams: e.target.value }))} className="input-base" /></Field>
+                  </div>
+                  <label className="flex cursor-pointer items-center gap-3 rounded-2xl bg-white px-4 py-3 text-sm font-bold text-on-surface">
+                    <input type="checkbox" checked={variantForm.isActive} onChange={(e) => setVariantForm((p) => ({ ...p, isActive: e.target.checked }))} className="h-4 w-4 accent-primary" />
+                    {isVi ? 'Đang bán biến thể này' : 'Variant active'}
+                  </label>
+                  <p className="pt-2 text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant/60">{isVi ? 'Ảnh biến thể' : 'Images'}</p>
+                  <Field label={isVi ? 'Ảnh riêng của biến thể' : 'Variant images'}>
+                    <input type="file" accept="image/*" multiple onChange={(e) => setVariantForm((p) => ({ ...p, imageFiles: Array.from(e.target.files ?? []) }))} className="input-base" />
+                    {variantForm.imageFiles.length > 0 && <p className="mt-2 text-xs font-semibold text-primary">{variantForm.imageFiles.length} ảnh đã chọn</p>}
+                  </Field>
                 </div>
-              ) : null}
-              <div className="space-y-4">
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant/60">
-                  {isVi ? 'Màu sắc' : 'Color'}
-                </p>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <Field label={isVi ? 'Màu có sẵn' : 'Existing color'}>
-                    <select
-                      value={variantForm.colorId}
-                      onChange={(e) => setVariantForm((p) => ({ ...p, colorId: e.target.value }))}
-                      className="input-base"
-                    >
-                      <option value="">{isVi ? 'Không chọn / tạo mới' : 'None / create new'}</option>
-                      {colors.map((color) => (
-                        <option key={color.colorId} value={color.colorId}>{color.colorName}</option>
+              ) : (
+                /* ── ADD MODE: color once + multi-size rows ── */
+                <div className="space-y-5">
+                  {/* Color */}
+                  <div>
+                    <p className="mb-3 text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant/60">{isVi ? 'Màu sắc (chọn 1 lần)' : 'Color (shared for all sizes)'}</p>
+                    <div className="grid gap-2">
+                      <select
+                        value={addColorDraft.colorId}
+                        onChange={(e) => setAddColorDraft((p) => ({ ...p, colorId: e.target.value, newColorName: e.target.value ? '' : p.newColorName }))}
+                        className="input-base"
+                      >
+                        <option value="">{isVi ? '— Tạo màu mới' : '— Create new color'}</option>
+                        {colors.map((c) => <option key={c.colorId} value={c.colorId}>{c.colorName}</option>)}
+                      </select>
+                      {!addColorDraft.colorId && (
+                        <div className="grid grid-cols-[40px_1fr] gap-2">
+                          <input
+                            type="color"
+                            value={addColorDraft.newColorCode}
+                            onChange={(e) => setAddColorDraft((p) => ({ ...p, newColorCode: e.target.value }))}
+                            className="h-10 w-full cursor-pointer rounded-xl border border-on-surface/10 p-1"
+                          />
+                          <input
+                            type="text"
+                            value={addColorDraft.newColorName}
+                            placeholder={isVi ? 'Tên màu mới (bắt buộc)' : 'New color name (required)'}
+                            onChange={(e) => setAddColorDraft((p) => ({ ...p, newColorName: e.target.value }))}
+                            className="input-base"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Size rows */}
+                  <div>
+                    <p className="mb-2 text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant/60">{isVi ? 'Kích thước — nhiều size cùng lúc' : 'Sizes — add multiple at once'}</p>
+                    <div className="mb-1 grid grid-cols-[1fr_72px_72px_28px] gap-1.5 px-1 text-[9px] font-black uppercase tracking-widest text-on-surface-variant/40">
+                      <span>{isVi ? 'Size' : 'Size'}</span>
+                      <span>{isVi ? 'Tồn' : 'Stock'}</span>
+                      <span>{isVi ? 'Giá' : 'Price'}</span>
+                      <span />
+                    </div>
+                    <div className="space-y-1.5">
+                      {addSizeRows.map((row, idx) => (
+                        <div key={idx} className="grid grid-cols-[1fr_72px_72px_28px] items-center gap-1.5">
+                          {/* Size picker: if existing picked → show name badge; if blank → show select + text input stacked */}
+                          <div className="flex min-w-0 flex-col gap-1">
+                            <select
+                              value={row.sizeId}
+                              onChange={(e) => {
+                                const v = e.target.value;
+                                setAddSizeRows((rows) => rows.map((r, i) => i === idx ? { ...r, sizeId: v, newSizeName: v ? '' : r.newSizeName } : r));
+                              }}
+                              className="input-base py-2 text-xs"
+                            >
+                              <option value="">{isVi ? '— Nhập mới' : '— New'}</option>
+                              {sizes.map((s) => <option key={s.sizeId} value={s.sizeId}>{s.sizeName}</option>)}
+                            </select>
+                            {!row.sizeId && (
+                              <input
+                                type="text"
+                                value={row.newSizeName}
+                                placeholder={isVi ? 'Tên size...' : 'Size name...'}
+                                onChange={(e) => setAddSizeRows((rows) => rows.map((r, i) => i === idx ? { ...r, newSizeName: e.target.value } : r))}
+                                className="input-base py-2 text-xs"
+                              />
+                            )}
+                          </div>
+                          <input
+                            type="number"
+                            min={0}
+                            value={row.stockQuantity}
+                            onChange={(e) => setAddSizeRows((rows) => rows.map((r, i) => i === idx ? { ...r, stockQuantity: e.target.value } : r))}
+                            className="input-base py-2 text-center text-xs"
+                          />
+                          <input
+                            type="number"
+                            min={0}
+                            value={row.price}
+                            placeholder="—"
+                            onChange={(e) => setAddSizeRows((rows) => rows.map((r, i) => i === idx ? { ...r, price: e.target.value } : r))}
+                            className="input-base py-2 text-xs"
+                          />
+                          <button
+                            type="button"
+                            disabled={addSizeRows.length === 1}
+                            onClick={() => setAddSizeRows((rows) => rows.filter((_, i) => i !== idx))}
+                            className="flex h-8 w-7 items-center justify-center rounded-lg text-red-400 hover:bg-red-50 disabled:pointer-events-none disabled:opacity-25"
+                          >
+                            <X size={13} />
+                          </button>
+                        </div>
                       ))}
-                    </select>
-                  </Field>
-                  <Field label={isVi ? 'Mã màu mới' : 'New color code'}>
-                    <input
-                      type="color"
-                      disabled={!!variantForm.colorId}
-                      value={variantForm.newColorCode || '#2563eb'}
-                      onChange={(e) => setVariantForm((p) => ({ ...p, newColorCode: e.target.value }))}
-                      className="h-11 w-full rounded-2xl border border-on-surface/10 bg-white px-2 disabled:cursor-not-allowed disabled:opacity-40"
-                    />
-                  </Field>
-                </div>
-                <Field label={isVi ? 'Tên màu mới' : 'New color name'}>
-                  <input
-                    disabled={!!variantForm.colorId}
-                    value={variantForm.newColorName}
-                    onChange={(e) => setVariantForm((p) => ({ ...p, newColorName: e.target.value }))}
-                    placeholder={isVi ? 'Ví dụ: Xanh navy' : 'Example: Navy blue'}
-                    className="input-base disabled:cursor-not-allowed disabled:opacity-40"
-                  />
-                </Field>
-
-                <p className="pt-2 text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant/60">
-                  {isVi ? 'Kích thước' : 'Size'}
-                </p>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <Field label={isVi ? 'Size có sẵn' : 'Existing size'}>
-                    <select
-                      value={variantForm.sizeId}
-                      onChange={(e) => setVariantForm((p) => ({ ...p, sizeId: e.target.value }))}
-                      className="input-base"
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setAddSizeRows((rows) => [...rows, newAddSizeRow()])}
+                      className="mt-2.5 inline-flex items-center gap-1.5 rounded-xl border border-dashed border-primary/40 px-3 py-1.5 text-xs font-bold text-primary hover:bg-primary/5"
                     >
-                      <option value="">{isVi ? 'Không chọn / tạo mới' : 'None / create new'}</option>
-                      {sizes.map((size) => (
-                        <option key={size.sizeId} value={size.sizeId}>{size.sizeName}</option>
-                      ))}
-                    </select>
-                  </Field>
-                  <Field label={isVi ? 'Mã size mới' : 'New size code'}>
-                    <input
-                      disabled={!!variantForm.sizeId}
-                      value={variantForm.newSizeCode}
-                      onChange={(e) => setVariantForm((p) => ({ ...p, newSizeCode: e.target.value }))}
-                      placeholder="S, M, L, XL"
-                      className="input-base disabled:cursor-not-allowed disabled:opacity-40"
-                    />
-                  </Field>
+                      <Plus size={12} />
+                      {isVi ? 'Thêm dòng size' : 'Add size row'}
+                    </button>
+                    <p className="mt-2 text-[10px] text-on-surface-variant/50">
+                      {isVi ? 'Giá để trống = dùng giá chung. SKU, ảnh có thể chỉnh sau.' : 'Blank price = use product price. SKU & images can be set later.'}
+                    </p>
+                  </div>
                 </div>
-                <Field label={isVi ? 'Tên size mới' : 'New size name'}>
-                  <input
-                    disabled={!!variantForm.sizeId}
-                    value={variantForm.newSizeName}
-                    onChange={(e) => setVariantForm((p) => ({ ...p, newSizeName: e.target.value }))}
-                    placeholder={isVi ? 'Ví dụ: Size L' : 'Example: Size L'}
-                    className="input-base disabled:cursor-not-allowed disabled:opacity-40"
-                  />
-                </Field>
-
-                <p className="pt-2 text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant/60">
-                  {isVi ? 'Mã hàng' : 'Codes'}
-                </p>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <Field label="SKU">
-                    <input value={variantForm.sku} onChange={(e) => setVariantForm((p) => ({ ...p, sku: e.target.value }))} className="input-base" />
-                  </Field>
-                  <Field label="Barcode">
-                    <input value={variantForm.barcode} onChange={(e) => setVariantForm((p) => ({ ...p, barcode: e.target.value }))} className="input-base" />
-                  </Field>
-                </div>
-
-                <p className="pt-2 text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant/60">
-                  {isVi ? 'Giá & tồn kho' : 'Price & stock'}
-                </p>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <Field label={isVi ? 'Giá riêng' : 'Variant price'}>
-                    <input type="number" value={variantForm.price} onChange={(e) => setVariantForm((p) => ({ ...p, price: e.target.value }))} className="input-base" />
-                  </Field>
-                  <Field label={isVi ? 'Giá KM riêng' : 'Variant sale price'}>
-                    <input type="number" value={variantForm.salePrice} onChange={(e) => setVariantForm((p) => ({ ...p, salePrice: e.target.value }))} className="input-base" />
-                  </Field>
-                </div>
-
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <Field label={isVi ? 'Tồn kho' : 'Stock'}>
-                    <input type="number" min={0} value={variantForm.stockQuantity} onChange={(e) => setVariantForm((p) => ({ ...p, stockQuantity: e.target.value }))} className="input-base" />
-                  </Field>
-                  <Field label={isVi ? 'Khối lượng gram' : 'Weight grams'}>
-                    <input type="number" min={0} value={variantForm.weightGrams} onChange={(e) => setVariantForm((p) => ({ ...p, weightGrams: e.target.value }))} className="input-base" />
-                  </Field>
-                </div>
-
-                <label className="flex cursor-pointer items-center gap-3 rounded-2xl bg-white px-4 py-3 text-sm font-bold text-on-surface">
-                  <input type="checkbox" checked={variantForm.isActive} onChange={(e) => setVariantForm((p) => ({ ...p, isActive: e.target.checked }))} className="h-4 w-4 accent-primary" />
-                  {isVi ? 'Đang bán biến thể này' : 'Variant active'}
-                </label>
-
-                <p className="pt-2 text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant/60">
-                  {isVi ? 'Ảnh' : 'Images'}
-                </p>
-                <Field label={isVi ? 'Ảnh riêng của biến thể' : 'Variant images'}>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    onChange={(e) => setVariantForm((p) => ({ ...p, imageFiles: Array.from(e.target.files ?? []) }))}
-                    className="input-base"
-                  />
-                  {variantForm.imageFiles.length > 0 ? (
-                    <p className="mt-2 text-xs font-semibold text-primary">{variantForm.imageFiles.length} ảnh đã chọn</p>
-                  ) : null}
-                </Field>
-              </div>
+              )}
             </section>
 
-            <section className="space-y-3">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <p className="text-[11px] font-black uppercase tracking-[0.2em] text-on-surface-variant/60">
-                    {isVi ? 'Danh sách biến thể' : 'Variant list'}
-                  </p>
-                  <p className="mt-1 text-xs text-on-surface-variant">
-                    {variants.length} {isVi ? 'biến thể trong sản phẩm này' : 'variants on this product'}
-                  </p>
-                </div>
+            <section className="space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="text-[11px] font-black uppercase tracking-[0.2em] text-on-surface-variant/60">
+                  {isVi ? 'Danh sách biến thể' : 'Variant list'}
+                  <span className="ml-2 rounded-full bg-surface px-2 py-0.5 text-[10px] font-black text-on-surface-variant">{variants.length}</span>
+                </p>
               </div>
               {variants.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-on-surface/15 bg-white p-8 text-center text-sm text-on-surface-variant">
-                  {isVi ? 'Chưa có biến thể. Hãy thêm màu/size đầu tiên cho sản phẩm.' : 'No variants yet.'}
+                  {isVi ? 'Chưa có biến thể. Hãy thêm màu/size đầu tiên.' : 'No variants yet.'}
                 </div>
-              ) : (
-                variants.map((variant) => (
-                  <div key={variant.variantId} className={`rounded-2xl border bg-white p-4 ${variant.isActive ? 'border-on-surface/8' : 'border-red-100 opacity-70'}`}>
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          {variant.color ? (
-                            <span className="inline-flex items-center gap-2 rounded-full bg-surface px-3 py-1 text-xs font-black text-on-surface">
-                              <span className="h-4 w-4 rounded-full border border-black/10" style={{ backgroundColor: variant.color.colorCode ?? '#e5e7eb' }} />
-                              {variant.color.colorName}
-                            </span>
-                          ) : null}
-                          {variant.size ? <span className="rounded-full bg-surface px-3 py-1 text-xs font-black text-on-surface">{variant.size.sizeName}</span> : null}
-                          {!variant.isActive ? <span className="rounded-full bg-red-50 px-3 py-1 text-xs font-black text-red-600">Ngừng bán</span> : null}
-                        </div>
-                        <div className="mt-3 grid gap-2 text-xs sm:grid-cols-2">
-                          <div className="rounded-xl bg-surface px-3 py-2">
-                            <p className="font-black text-on-surface">{isVi ? 'Mã hàng' : 'Codes'}</p>
-                            <p className="mt-1 text-on-surface-variant">SKU: {variant.sku || '-'}</p>
-                            <p className="text-on-surface-variant">Barcode: {variant.barcode || '-'}</p>
-                          </div>
-                          <div className="rounded-xl bg-surface px-3 py-2">
-                            <p className="font-black text-on-surface">{isVi ? 'Tồn & giá' : 'Stock & price'}</p>
-                            <p className="mt-1 text-on-surface-variant">{isVi ? 'Tồn' : 'Stock'}: <b>{variant.stockQuantity}</b></p>
-                            <p className="text-on-surface-variant">
-                              {variant.price ? currency.format(Number(variant.price)) : isVi ? 'Theo giá sản phẩm' : 'Product price'}
-                              {variant.salePrice ? ` · KM: ${currency.format(Number(variant.salePrice))}` : ''}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex gap-2">
-                        <button type="button" onClick={() => editVariant(variant)} className="rounded-xl border border-on-surface/10 px-3 py-2 text-xs font-bold hover:border-primary/30 hover:text-primary">
-                          {isVi ? 'Sửa' : 'Edit'}
+              ) : (() => {
+                // Group variants by color key
+                const groups: { colorKey: string; colorName: string; colorCode: string | null; variants: ProductVariant[] }[] = [];
+                for (const v of variants) {
+                  const colorKey = v.color?.colorId ?? '__none__';
+                  const existing = groups.find((g) => g.colorKey === colorKey);
+                  if (existing) { existing.variants.push(v); }
+                  else { groups.push({ colorKey, colorName: v.color?.colorName ?? '—', colorCode: v.color?.colorCode ?? null, variants: [v] }); }
+                }
+                return (
+                  <div className="space-y-3">
+                    {groups.map((group) => {
+                      const isCollapsed = collapsedColorKeys.has(group.colorKey);
+                      const toggleCollapse = () => setCollapsedColorKeys((prev) => {
+                        const next = new Set(prev);
+                        next.has(group.colorKey) ? next.delete(group.colorKey) : next.add(group.colorKey);
+                        return next;
+                      });
+                      return (
+                      <div key={group.colorKey} className="overflow-hidden rounded-2xl border border-on-surface/8 bg-white">
+                        {/* Color header — clickable */}
+                        <button type="button" onClick={toggleCollapse}
+                          className="flex w-full items-center gap-2 border-b border-on-surface/5 bg-surface/60 px-3 py-2 transition hover:bg-surface">
+                          <span className="h-4 w-4 shrink-0 rounded-full border border-black/10" style={{ backgroundColor: group.colorCode ?? '#e5e7eb' }} />
+                          <span className="text-xs font-black text-on-surface">{group.colorName}</span>
+                          <span className="ml-auto text-[10px] text-on-surface-variant/50">{group.variants.length} size</span>
+                          {isCollapsed
+                            ? <ChevronDown size={13} className="shrink-0 text-on-surface-variant/40" />
+                            : <ChevronUp size={13} className="shrink-0 text-on-surface-variant/40" />}
                         </button>
-                        <button type="button" disabled={variantBusyId === variant.variantId || !variant.isActive} onClick={() => void deactivateVariant(variant.variantId)} className="rounded-xl border border-red-100 px-3 py-2 text-xs font-bold text-red-500 disabled:opacity-50">
-                          {isVi ? 'Ngừng bán' : 'Deactivate'}
-                        </button>
+                        {/* Size rows */}
+                        {!isCollapsed && <div className="divide-y divide-on-surface/5">
+                          {group.variants.map((variant) => {
+                            const isExpanded = expandedVariantIds.has(variant.variantId);
+                            const toggleExpand = () => setExpandedVariantIds((prev) => {
+                              const next = new Set(prev);
+                              next.has(variant.variantId) ? next.delete(variant.variantId) : next.add(variant.variantId);
+                              return next;
+                            });
+                            return (
+                              <div key={variant.variantId} className={!variant.isActive ? 'opacity-60' : ''}>
+                                <div className="flex items-center gap-2 px-3 py-2">
+                                  {/* Size name */}
+                                  <span className="min-w-0 flex-1 text-xs font-semibold text-on-surface">
+                                    {variant.size?.sizeName ?? '—'}
+                                  </span>
+                                  {/* Stock */}
+                                  <span className="rounded-full bg-surface px-2 py-0.5 text-[10px] font-black text-on-surface-variant">
+                                    {isVi ? 'Tồn' : 'Stock'}: {variant.stockQuantity}
+                                  </span>
+                                  {!variant.isActive && (
+                                    <span className="rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-black text-red-500">
+                                      {isVi ? 'Dừng' : 'Off'}
+                                    </span>
+                                  )}
+                                  {/* Actions */}
+                                  <div className="flex shrink-0 items-center gap-0.5">
+                                    <button type="button" onClick={toggleExpand} title={isVi ? 'Chi tiết' : 'Details'}
+                                      className={`flex h-7 w-7 items-center justify-center rounded-lg transition hover:bg-surface ${isExpanded ? 'text-primary' : 'text-on-surface-variant/40 hover:text-on-surface'}`}>
+                                      <Eye size={13} />
+                                    </button>
+                                    <button type="button" onClick={() => editVariant(variant)} title={isVi ? 'Sửa' : 'Edit'}
+                                      className="flex h-7 w-7 items-center justify-center rounded-lg text-on-surface-variant/40 transition hover:bg-surface hover:text-primary">
+                                      <Edit2 size={12} />
+                                    </button>
+                                    <button type="button" disabled={variantBusyId === variant.variantId || !variant.isActive} onClick={() => void deactivateVariant(variant.variantId)} title={isVi ? 'Ngừng bán' : 'Deactivate'}
+                                      className="flex h-7 w-7 items-center justify-center rounded-lg text-on-surface-variant/40 transition hover:bg-red-50 hover:text-red-500 disabled:pointer-events-none disabled:opacity-30">
+                                      <Trash2 size={12} />
+                                    </button>
+                                  </div>
+                                </div>
+                                {/* Expandable details */}
+                                {isExpanded && (
+                                  <div className="border-t border-on-surface/5 bg-surface/40 px-3 pb-3 pt-2">
+                                    <div className="grid gap-2 text-xs sm:grid-cols-2">
+                                      <div className="rounded-xl bg-white px-3 py-2 shadow-sm">
+                                        <p className="mb-1 font-black text-on-surface">{isVi ? 'Mã hàng' : 'Codes'}</p>
+                                        <p className="text-on-surface-variant">SKU: {variant.sku || '—'}</p>
+                                        <p className="text-on-surface-variant">Barcode: {variant.barcode || '—'}</p>
+                                      </div>
+                                      <div className="rounded-xl bg-white px-3 py-2 shadow-sm">
+                                        <p className="mb-1 font-black text-on-surface">{isVi ? 'Giá' : 'Price'}</p>
+                                        <p className="text-on-surface-variant">
+                                          {variant.price ? currency.format(Number(variant.price)) : (isVi ? 'Theo sản phẩm' : 'Product price')}
+                                        </p>
+                                        {variant.salePrice && <p className="font-semibold text-green-600">KM: {currency.format(Number(variant.salePrice))}</p>}
+                                      </div>
+                                    </div>
+                                    {variant.images.length > 0 && (
+                                      <div className="mt-2 flex flex-wrap gap-2">
+                                        {variant.images.map((image) => (
+                                          <div key={image.imageId} className="group relative h-14 w-14 overflow-hidden rounded-xl border border-on-surface/10 bg-surface">
+                                            <img src={image.imageUrl} alt="Variant" className="h-full w-full object-cover" />
+                                            <button type="button" disabled={variantBusyId === image.imageId} onClick={() => void deleteVariantImage(variant.variantId, image.imageId)}
+                                              className="absolute inset-0 hidden items-center justify-center bg-black/50 text-white group-hover:flex">
+                                              <X size={13} />
+                                            </button>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>}
                       </div>
-                    </div>
-                    {variant.images.length > 0 ? (
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        {variant.images.map((image) => (
-                          <div key={image.imageId} className="group relative h-16 w-16 overflow-hidden rounded-xl border border-on-surface/10 bg-surface">
-                            <img src={image.imageUrl} alt="Variant" className="h-full w-full object-cover" />
-                            <button
-                              type="button"
-                              disabled={variantBusyId === image.imageId}
-                              onClick={() => void deleteVariantImage(variant.variantId, image.imageId)}
-                              className="absolute inset-0 hidden items-center justify-center bg-black/45 text-white group-hover:flex"
-                            >
-                              <X size={14} />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    ) : null}
+                    );
+                      })}
                   </div>
-                ))
-              )}
+                );
+              })()}
             </section>
           </div>
         )}
@@ -1303,27 +1442,13 @@ export default function Products() {
             <Field label={isVi ? 'Danh mục *' : 'Category *'} error={formErrors.categoryId}>
               <select
                 value={formState.categoryId}
-                onChange={(e) => setFormState((p) => ({ ...p, categoryId: e.target.value, subcategoryId: '' }))}
+                onChange={(e) => setFormState((p) => ({ ...p, categoryId: e.target.value }))}
                 className="input-base"
               >
                 <option value="">{isVi ? 'Chọn danh mục' : 'Select category'}</option>
                 {categoryOptions.map((c) => (
                   <option key={c.categoryId} value={c.categoryId}>
                     {`${'— '.repeat(c.level)}${c.categoryName}`}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label={isVi ? 'Danh mục phụ' : 'Subcategory'}>
-              <select
-                value={formState.subcategoryId}
-                onChange={(e) => setFormState((p) => ({ ...p, subcategoryId: e.target.value }))}
-                className="input-base"
-              >
-                <option value="">{isVi ? 'Không chọn' : 'None'}</option>
-                {visibleSubcategories.map((s) => (
-                  <option key={s.subcategoryId} value={s.subcategoryId}>
-                    {s.subcategoryName}
                   </option>
                 ))}
               </select>

@@ -121,7 +121,7 @@ const ALLOWED_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   pending: ['confirmed', 'cancelled'],
   confirmed: ['processing', 'cancelled'],
   processing: ['shipping', 'cancelled'],
-  shipping: ['delivered', 'partial_delivered', 'returned'],
+  shipping: ['delivered', 'returned'],
   partial_delivered: ['returned'],
   delivered: ['returned'],
   cancelled: [],
@@ -200,6 +200,10 @@ export default function Orders() {
   const [nextStatus, setNextStatus] = useState<OrderStatus>('pending');
   const [statusNote, setStatusNote] = useState('');
   const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [partialDeliverOpen, setPartialDeliverOpen] = useState(false);
+  const [partialDeliverQtys, setPartialDeliverQtys] = useState<Record<string, number>>({});
+  const [partialDeliverNote, setPartialDeliverNote] = useState('');
+  const [partialDeliverSaving, setPartialDeliverSaving] = useState(false);
 
   const [tracking, setTracking] = useState<OrderTracking | null>(null);
   const [trackingLoading, setTrackingLoading] = useState(false);
@@ -458,6 +462,62 @@ export default function Orders() {
       });
     } finally {
       setUpdatingStatus(false);
+    }
+  }
+
+  function openPartialDeliver() {
+    if (!selectedOrder) return;
+    setPartialDeliverQtys(Object.fromEntries(selectedOrder.items.map((item) => [item.id, item.quantity])));
+    setPartialDeliverNote('');
+    setPartialDeliverOpen(true);
+  }
+
+  async function handlePartialDeliver() {
+    if (!selectedOrder) return;
+    const items = selectedOrder.items.map((item) => ({
+      orderItemId: item.id,
+      deliveredQty: partialDeliverQtys[item.id] ?? item.quantity,
+    }));
+    const hasPartialLine = items.some((item) => {
+      const original = selectedOrder.items.find((orderItem) => orderItem.id === item.orderItemId);
+      return original ? item.deliveredQty < original.quantity : false;
+    });
+    if (!hasPartialLine) {
+      showToast({
+        tone: 'error',
+        title: isVietnamese ? 'Cần ít nhất một dòng giao thiếu' : 'At least one line must be partially delivered',
+      });
+      return;
+    }
+
+    setPartialDeliverSaving(true);
+    try {
+      const updated = await apiClient.patch<OrderDetail>(
+        `/orders/${selectedOrder.id}/partial-deliver`,
+        { items, note: partialDeliverNote.trim() || undefined },
+      );
+      setSelectedOrder(updated);
+      setPartialDeliverOpen(false);
+      setOrders((current) =>
+        current.map((order) =>
+          order.id === updated.id
+            ? { ...order, status: updated.status, totalPayment: updated.totalPayment, updatedAt: updated.updatedAt }
+            : order,
+        ),
+      );
+      setReloadKey((current) => current + 1);
+      showToast({
+        tone: 'success',
+        title: isVietnamese ? 'Đã ghi nhận giao một phần' : 'Partial delivery recorded',
+      });
+    } catch (error) {
+      showToast({
+        tone: 'error',
+        title: isVietnamese ? 'Giao một phần thất bại' : 'Partial delivery failed',
+        description: error instanceof Error ? error.message : '',
+      });
+    } finally {
+      setPartialDeliverSaving(false);
     }
   }
 
@@ -827,6 +887,15 @@ export default function Orders() {
               >
                 🖨 {isVietnamese ? 'In hóa đơn' : 'Print invoice'}
               </a>
+              {selectedOrder.status === 'shipping' && (
+                <button
+                  type="button"
+                  onClick={openPartialDeliver}
+                  className="admin-pill admin-pill-outline px-4 py-2.5 text-sm font-bold"
+                >
+                  {isVietnamese ? 'Giao một phần' : 'Partial delivery'}
+                </button>
+              )}
               {getAllowedNextStatuses(selectedOrder.status).length === 0 ? (
                 <span className="rounded-xl border border-on-surface/10 bg-surface/60 px-4 py-2.5 text-sm italic text-on-surface-variant/60">
                   {isVietnamese ? 'Đơn hàng đã kết thúc' : 'Order is finalized'}
@@ -1310,6 +1379,75 @@ export default function Orders() {
           </div>
         ) : null}
       </Modal>
+
+      <Modal
+        open={partialDeliverOpen}
+        title={isVietnamese ? 'Giao một phần' : 'Partial delivery'}
+        onClose={() => setPartialDeliverOpen(false)}
+        size="lg"
+        footer={
+          <div className="flex justify-end gap-3">
+            <button
+              type="button"
+              onClick={() => setPartialDeliverOpen(false)}
+              className="admin-pill admin-pill-outline px-5 py-2.5 text-sm font-bold"
+            >
+              {isVietnamese ? 'Đóng' : 'Close'}
+            </button>
+            <button
+              type="button"
+              onClick={() => void handlePartialDeliver()}
+              disabled={partialDeliverSaving}
+              className="admin-pill admin-pill-primary px-5 py-2.5 text-sm font-black disabled:opacity-60"
+            >
+              {partialDeliverSaving
+                ? isVietnamese ? 'Đang lưu...' : 'Saving...'
+                : isVietnamese ? 'Xác nhận' : 'Confirm'}
+            </button>
+          </div>
+        }
+      >
+        {selectedOrder ? (
+          <div className="space-y-4">
+            <div className="space-y-3">
+              {selectedOrder.items.map((item) => (
+                <div key={item.id} className="grid gap-3 rounded-xl border border-on-surface/8 bg-surface/50 p-4 sm:grid-cols-[1fr_140px]">
+                  <div>
+                    <p className="font-semibold text-on-surface">{item.productName}</p>
+                    <p className="text-xs text-on-surface-variant">
+                      {isVietnamese ? 'Đã đặt' : 'Ordered'}: {item.quantity}
+                    </p>
+                  </div>
+                  <label className="space-y-1">
+                    <span className="text-[10px] font-black uppercase tracking-wide text-on-surface-variant/50">
+                      {isVietnamese ? 'SL giao' : 'Delivered'}
+                    </span>
+                    <input
+                      type="number"
+                      min={0}
+                      max={item.quantity}
+                      value={partialDeliverQtys[item.id] ?? item.quantity}
+                      onChange={(event) => {
+                        const raw = Number(event.target.value);
+                        const next = Number.isFinite(raw) ? Math.max(0, Math.min(item.quantity, raw)) : 0;
+                        setPartialDeliverQtys((current) => ({ ...current, [item.id]: next }));
+                      }}
+                      className="w-full rounded-xl border border-on-surface/10 bg-white px-4 py-2.5 text-sm outline-none"
+                    />
+                  </label>
+                </div>
+              ))}
+            </div>
+            <textarea
+              rows={3}
+              value={partialDeliverNote}
+              onChange={(event) => setPartialDeliverNote(event.target.value)}
+              placeholder={isVietnamese ? 'Ghi chú giao một phần' : 'Partial delivery note'}
+              className="w-full rounded-xl border border-on-surface/10 bg-surface px-4 py-3 text-sm outline-none"
+            />
+          </div>
+        ) : null}
+      </Modal>
     </div>
   );
 }
@@ -1471,5 +1609,3 @@ function InfoPill({ label, value }: { label: string; value: string }) {
     </div>
   );
 }
-
-

@@ -30,8 +30,8 @@ type Product = {
 };
 
 type PoStatus = 'draft' | 'ordered' | 'partial' | 'received' | 'cancelled';
-type GrStatus = 'draft' | 'confirmed' | 'cancelled';
-type SrStatus = 'draft' | 'confirmed' | 'cancelled';
+type GrStatus = 'draft' | 'posted' | 'cancelled';
+type SrStatus = 'draft' | 'posted' | 'cancelled';
 
 type PoItem = {
   productId: string;
@@ -164,25 +164,25 @@ const PO_STATUS_COLOR: Record<PoStatus, string> = {
 
 const GR_STATUS_LABEL: Record<GrStatus, string> = {
   draft: 'Nháp',
-  confirmed: 'Đã xác nhận',
+  posted: 'Đã xác nhận',
   cancelled: 'Đã hủy',
 };
 
 const GR_STATUS_COLOR: Record<GrStatus, string> = {
   draft: 'bg-slate-100 text-slate-600',
-  confirmed: 'bg-emerald-100 text-emerald-700',
+  posted: 'bg-emerald-100 text-emerald-700',
   cancelled: 'bg-red-100 text-red-600',
 };
 
 const SR_STATUS_LABEL: Record<SrStatus, string> = {
   draft: 'Nháp',
-  confirmed: 'Đã xác nhận',
+  posted: 'Đã xác nhận',
   cancelled: 'Đã hủy',
 };
 
 const SR_STATUS_COLOR: Record<SrStatus, string> = {
   draft: 'bg-slate-100 text-slate-600',
-  confirmed: 'bg-emerald-100 text-emerald-700',
+  posted: 'bg-emerald-100 text-emerald-700',
   cancelled: 'bg-red-100 text-red-600',
 };
 
@@ -833,6 +833,22 @@ function GrTab({
       showToast({ tone: 'error', title: 'Điền đầy đủ thông tin các dòng hàng' });
       return;
     }
+    const missingVariantLines = lines.filter((l) => {
+      if (!l.productId || l.variantId) return false;
+      return getProductVariants(products, l.productId).length > 0;
+    });
+    if (missingVariantLines.length > 0) {
+      showToast({ tone: 'error', title: `${missingVariantLines.length} dòng chưa chọn biến thể`, description: 'Sản phẩm có size/màu phải chọn biến thể cụ thể.' });
+      return;
+    }
+    const overReceivedLines = lines.filter((l) => l.qtyOrdered > 0 && l.qtyReceived > l.qtyOrdered);
+    if (overReceivedLines.length > 0) {
+      showToast({
+        tone: 'warning',
+        title: `${overReceivedLines.length} dòng nhập thừa so với PO`,
+        description: 'Hệ thống vẫn lưu bình thường. Kiểm tra lại nếu không có thỏa thuận với NCC.',
+      });
+    }
     setSaving(true);
     try {
       await apiClient.post('/procurement/goods-receipts', {
@@ -1068,6 +1084,8 @@ function GrTab({
                         void apiClient
                           .get<Po & { items: PoItem[] }>(`/procurement/purchase-orders/${selectedPoId}`)
                           .then((po) => {
+                            // Auto-fill NCC từ PO
+                            setSupplierId(po.supplierId);
                             if (po.items?.length) {
                               setLines(
                                 po.items.map((item) => ({
@@ -1083,6 +1101,9 @@ function GrTab({
                               triggerPreview();
                             }
                           });
+                      } else {
+                        // Bỏ chọn PO → reset NCC
+                        setSupplierId('');
                       }
                     }}
                     className={selectCls}
@@ -1139,19 +1160,35 @@ function GrTab({
                             </select>
                           </FieldWrap>
                           <FieldWrap label="Biến thể">
-                            <select
-                              value={line.variantId ?? ''}
-                              onChange={(e) => setLine(idx, { variantId: e.target.value })}
-                              disabled={!line.productId}
-                              className={selectCls}
-                            >
-                              <option value="">Nhập tổng</option>
-                              {getProductVariants(products, line.productId).map((variant) => (
-                                <option key={variant.variantId} value={variant.variantId}>
-                                  {getVariantLabel(variant)} - tồn {variant.stockQuantity}
-                                </option>
-                              ))}
-                            </select>
+                            {(() => {
+                              const variants = getProductVariants(products, line.productId);
+                              const hasVariants = variants.length > 0;
+                              return (
+                                <>
+                                  <select
+                                    value={line.variantId ?? ''}
+                                    onChange={(e) => setLine(idx, { variantId: e.target.value })}
+                                    disabled={!line.productId}
+                                    className={selectCls}
+                                  >
+                                    {!hasVariants && <option value="">Nhập tổng</option>}
+                                    {hasVariants && !line.variantId && (
+                                      <option value="" disabled>— Chọn biến thể —</option>
+                                    )}
+                                    {variants.map((variant) => (
+                                      <option key={variant.variantId} value={variant.variantId}>
+                                        {getVariantLabel(variant)} - tồn {variant.stockQuantity}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  {hasVariants && !line.variantId && (
+                                    <p className="mt-1 text-[11px] text-red-500 font-semibold">
+                                      Phải chọn biến thể cụ thể để stock phân bổ đúng vào từng size/màu.
+                                    </p>
+                                  )}
+                                </>
+                              );
+                            })()}
                           </FieldWrap>
                           <FieldWrap label="Đơn giá nhập (₫) *">
                             <input type="number" min={0} value={line.unitPrice} onChange={(e) => setLine(idx, { unitPrice: Number(e.target.value) })} className={inputCls} />
@@ -1189,6 +1226,13 @@ function GrTab({
                           <FieldWrap label="Số tiền NCC hoàn (₫)">
                             <input type="number" min={0} value={line.refundAmount} onChange={(e) => setLine(idx, { refundAmount: Number(e.target.value) })} className={inputCls} />
                           </FieldWrap>
+                        )}
+                        {/* Cảnh báo nhận thừa */}
+                        {line.qtyOrdered > 0 && line.qtyReceived > line.qtyOrdered && (
+                          <div className="flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                            <span className="font-black">⚠</span>
+                            <span>Nhận thừa: đặt <strong>{line.qtyOrdered}</strong>, nhập <strong>{line.qtyReceived}</strong> (+{line.qtyReceived - line.qtyOrdered}). Hệ thống vẫn cho phép nhưng cần xác nhận với NCC.</span>
+                          </div>
                         )}
                         {/* Preview row */}
                         {prev && (
@@ -1359,7 +1403,7 @@ function SrTab({
           </button>
           <button type="button" onClick={() => {
             setSupplierId(''); setGrId(''); setReturnDate(today()); setNotes(''); setLines([emptySrItem()]);
-            void apiClient.get<{ items: Gr[] }>('/procurement/goods-receipts?limit=200&status=confirmed')
+            void apiClient.get<{ items: Gr[] }>('/procurement/goods-receipts?limit=200&status=posted')
               .then((d) => setAvailableGrs(d.items ?? []));
             setModalOpen(true);
           }}
@@ -1394,7 +1438,7 @@ function SrTab({
                     <td className="px-5 py-3.5 font-bold">{sr.srCode}</td>
                     <td className="px-5 py-3.5 text-on-surface-variant">{sup?.name ?? sr.supplierId}</td>
                     <td className="px-5 py-3.5 text-on-surface-variant">{new Date(sr.returnDate).toLocaleDateString('vi-VN')}</td>
-                    <td className="px-5 py-3.5 font-semibold text-emerald-700">{fmt(sr.totalRefund)}</td>
+                    <td className="px-5 py-3.5 font-semibold text-emerald-700">{fmt(sr.totalRefund ?? 0)}</td>
                     <td className="px-5 py-3.5">
                       <span className={`inline-flex whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-bold ${SR_STATUS_COLOR[sr.status]}`}>
                         {SR_STATUS_LABEL[sr.status]}

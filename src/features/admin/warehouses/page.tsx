@@ -35,7 +35,7 @@ type WarehouseStock = {
   product?: { productName: string; unit: string | null };
 };
 
-type TransferStatus = 'draft' | 'shipping' | 'received' | 'cancelled';
+type TransferStatus = 'draft' | 'shipped' | 'received' | 'cancelled';
 type Transfer = {
   transferId: string;
   transferCode: string;
@@ -48,7 +48,7 @@ type Transfer = {
 };
 type TransferItem = { productId: string; qtyRequested: number; qtyReceived: number; notes: string | null };
 
-type AdjustmentReason = 'damage' | 'loss' | 'inventory_count' | 'sample' | 'internal_use' | 'other';
+type AdjustmentReason = 'inventory_count' | 'damage' | 'expired' | 'lost' | 'other';
 type AdjustmentStatus = 'draft' | 'approved' | 'cancelled';
 type Adjustment = {
   adjustmentId: string;
@@ -69,13 +69,13 @@ type Meta = { page: number; limit: number; total: number; totalPages: number };
 
 const TRANSFER_STATUS_LABEL: Record<TransferStatus, string> = {
   draft: 'Nháp',
-  shipping: 'Đang vận chuyển',
+  shipped: 'Đã xuất kho',
   received: 'Đã nhận',
   cancelled: 'Đã hủy',
 };
 const TRANSFER_STATUS_COLOR: Record<TransferStatus, string> = {
   draft: 'bg-slate-100 text-slate-600',
-  shipping: 'bg-amber-100 text-amber-700',
+  shipped: 'bg-amber-100 text-amber-700',
   received: 'bg-emerald-100 text-emerald-700',
   cancelled: 'bg-red-100 text-red-600',
 };
@@ -88,11 +88,10 @@ const ADJ_STATUS_COLOR: Record<AdjustmentStatus, string> = {
 };
 
 const ADJ_REASON_LABEL: Record<AdjustmentReason, string> = {
-  damage: 'Hàng hỏng',
-  loss: 'Thất thoát',
   inventory_count: 'Kiểm kho',
-  sample: 'Lấy mẫu',
-  internal_use: 'Sử dụng nội bộ',
+  damage: 'Hàng hỏng',
+  expired: 'Hết hạn',
+  lost: 'Thất thoát',
   other: 'Khác',
 };
 
@@ -654,7 +653,7 @@ function TransfersTab({
                             Xuất kho
                           </button>
                         )}
-                        {t.status === 'shipping' && (
+                        {t.status === 'shipped' && (
                           <button type="button" onClick={() => void openReceiveModal(t.transferId)}
                             className="rounded-xl border border-emerald-200 px-3 py-1.5 text-xs font-bold text-emerald-700 hover:bg-emerald-50">
                             Nhận hàng
@@ -853,6 +852,7 @@ function AdjustmentsTab({
   const [reason, setReason] = useState<AdjustmentReason>('inventory_count');
   const [adjDate, setAdjDate] = useState(today());
   const [notes, setNotes] = useState('');
+  const [warehouseStock, setWarehouseStock] = useState<WarehouseStock[]>([]);
   const [lines, setLines] = useState<{ productId: string; qtyBefore: number; qtyAfter: number; notes: string }[]>([
     { productId: '', qtyBefore: 0, qtyAfter: 0, notes: '' },
   ]);
@@ -873,10 +873,16 @@ function AdjustmentsTab({
     void apiClient.get<Adjustment & { items: AdjustmentItem[] }>(`/warehouses/adjustments/${detailId}`).then(setDetail);
   }, [detailId]);
 
+  useEffect(() => {
+    if (!whId) { setWarehouseStock([]); return; }
+    void apiClient.get<WarehouseStock[]>(`/warehouses/${whId}/stock`).then(setWarehouseStock).catch(() => setWarehouseStock([]));
+  }, [whId]);
+
   // Auto-fill qtyBefore from product's quantityAvailable
   function handleProductChange(idx: number, productId: string) {
     const prod = products.find((p) => p.productId === productId);
-    setLines((prev) => prev.map((l, i) => i === idx ? { ...l, productId, qtyBefore: prod?.quantityAvailable ?? 0, qtyAfter: prod?.quantityAvailable ?? 0 } : l));
+    const stockQty = whId ? warehouseStock.find((s) => s.productId === productId)?.quantity ?? 0 : prod?.quantityAvailable ?? 0;
+    setLines((prev) => prev.map((l, i) => i === idx ? { ...l, productId, qtyBefore: stockQty, qtyAfter: stockQty } : l));
   }
 
   async function handleSave() {
@@ -1103,7 +1109,10 @@ function AdjustmentsTab({
                     <div key={idx} className="grid gap-2 sm:grid-cols-[1fr_90px_90px_32px] items-center">
                       <select value={line.productId} onChange={(e) => handleProductChange(idx, e.target.value)} className={selectCls}>
                         <option value="">— Sản phẩm —</option>
-                        {products.map((p) => <option key={p.productId} value={p.productId}>{p.productName} (tồn: {p.quantityAvailable})</option>)}
+                        {products.map((p) => {
+                          const stockQty = whId ? warehouseStock.find((s) => s.productId === p.productId)?.quantity ?? 0 : p.quantityAvailable;
+                          return <option key={p.productId} value={p.productId}>{p.productName} (tồn: {stockQty})</option>;
+                        })}
                       </select>
                       <label className="space-y-0.5">
                         <span className="text-[10px] font-black uppercase tracking-wide text-on-surface-variant/50">SL trước</span>
