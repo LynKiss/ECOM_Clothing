@@ -107,6 +107,7 @@ type RecommendationResponse = {
 type Review = {
   id: string;
   userId: string;
+  orderItemId: string;
   content: string;
   rating: number;
   likeCount: number;
@@ -127,6 +128,10 @@ type MyOrder = {
   id: string;
   status: string;
   items?: OrderItem[];
+};
+
+type MyOrdersResponse = {
+  items: MyOrder[];
 };
 
 function formatPrice(price: number | string) {
@@ -320,9 +325,12 @@ export default function ProductDetail() {
   // Check if user can review (has DELIVERED order with this product)
   useEffect(() => {
     if (!session || !id) return;
+    setAlreadyReviewed(false);
+    setEligibleOrderItemId(null);
     void clientApi
-      .get<MyOrder[]>('/users/me/orders')
-      .then(async (orders) => {
+      .get<MyOrdersResponse | MyOrder[]>('/users/me/orders?limit=50')
+      .then(async (response) => {
+        const orders = Array.isArray(response) ? response : (response.items ?? []);
         const deliveredOrders = orders.filter((o) => o.status === 'delivered');
         for (const order of deliveredOrders) {
           const detail = await clientApi
@@ -331,9 +339,9 @@ export default function ProductDetail() {
           if (!detail) continue;
           const matchingItem = detail.items?.find((item) => item.productId === id);
           if (matchingItem) {
-            const alreadyDone = reviews.some((r) => r.id === matchingItem.id);
+            const alreadyDone = reviews.some((r) => r.orderItemId === matchingItem.id);
             setAlreadyReviewed(alreadyDone);
-            if (!alreadyDone) setEligibleOrderItemId(matchingItem.id);
+            setEligibleOrderItemId(alreadyDone ? null : matchingItem.id);
             break;
           }
         }

@@ -51,6 +51,14 @@ type OrderDetailResponse = {
   items: OrderItem[];
 };
 
+type PaymentReconcileResponse = {
+  orderId: string;
+  paymentStatus: string;
+  transactionStatus?: string;
+  gatewayCode?: string;
+  message?: string;
+};
+
 const STATUS_STEPS = ['pending', 'confirmed', 'processing', 'shipping', 'delivered'];
 
 const STATUS_CONFIG: Record<
@@ -134,7 +142,10 @@ export default function OrderDetail() {
   const [loading, setLoading] = useState(true);
   const [tracking, setTracking] = useState<OrderTracking | null>(null);
   const [trackingLoading, setTrackingLoading] = useState(false);
+  const [paymentReconciling, setPaymentReconciling] = useState(false);
+  const [paymentSyncMessage, setPaymentSyncMessage] = useState<string | null>(null);
   const momoVerifiedRef = useRef(false);
+  const autoPaymentReconcileRef = useRef<string | null>(null);
 
   const shouldShowTracking = order?.status === 'shipping' || order?.status === 'delivered';
   const activeMapPoint = tracking?.activeLocation ?? tracking?.manualLocation ?? tracking?.gpsLocation ?? null;
@@ -177,6 +188,37 @@ export default function OrderDetail() {
     }
   };
 
+  const reconcilePayment = async (orderId: string, showAlert = false) => {
+    setPaymentReconciling(true);
+    setPaymentSyncMessage(null);
+    try {
+      const result = await clientApi.post<PaymentReconcileResponse>(
+        `/payments/orders/${orderId}/reconcile`,
+      );
+      setOrder((current) =>
+        current && current.id === orderId
+          ? { ...current, paymentStatus: result.paymentStatus }
+          : current,
+      );
+      await refreshOrder(orderId, true);
+      const message =
+        result.paymentStatus === 'paid'
+          ? 'Đã xác nhận thanh toán thành công.'
+          : result.message || 'Chưa ghi nhận thanh toán từ cổng MoMo.';
+      setPaymentSyncMessage(message);
+      if (showAlert) alert(message);
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Không thể kiểm tra thanh toán. Vui lòng thử lại.';
+      setPaymentSyncMessage(message);
+      if (showAlert) alert(message);
+    } finally {
+      setPaymentReconciling(false);
+    }
+  };
+
   useEffect(() => {
     if (!session) {
       void navigate('/client/login');
@@ -196,9 +238,9 @@ export default function OrderDetail() {
       .post('/payments/momo/verify', {
         orderId: searchParams.get('orderId'),
         requestId,
-        resultCode: Number(resultCode),
-        transId: searchParams.get('transId') ? Number(searchParams.get('transId')) : undefined,
-        amount: searchParams.get('amount') ? Number(searchParams.get('amount')) : undefined,
+        resultCode,
+        transId: searchParams.get('transId') ?? undefined,
+        amount: searchParams.get('amount') ?? undefined,
         message: searchParams.get('message') ?? '',
         partnerCode: searchParams.get('partnerCode') ?? '',
         orderInfo: searchParams.get('orderInfo') ?? '',
@@ -217,6 +259,20 @@ export default function OrderDetail() {
         setSearchParams({}, { replace: true });
       });
   }, [id, searchParams, setSearchParams]);
+
+  useEffect(() => {
+    if (
+      !order ||
+      order.paymentMethod !== 'momo' ||
+      order.paymentStatus !== 'unpaid' ||
+      autoPaymentReconcileRef.current === order.id
+    ) {
+      return;
+    }
+
+    autoPaymentReconcileRef.current = order.id;
+    void reconcilePayment(order.id, false);
+  }, [order]);
 
   useEffect(() => {
     if (!id || !shouldShowTracking) {
@@ -533,6 +589,24 @@ export default function OrderDetail() {
               <p className="mt-1 text-xs font-bold" style={{ color: paymentStatusInfo.color }}>
                 {paymentStatusInfo.label}
               </p>
+              {order.paymentMethod === 'momo' && order.paymentStatus !== 'paid' ? (
+                <button
+                  type="button"
+                  onClick={() => void reconcilePayment(order.id, true)}
+                  disabled={paymentReconciling}
+                  className="mt-3 flex w-full items-center justify-center gap-2 rounded-full border border-[#2563EB]/20 py-2 text-xs font-bold text-[#2563EB] transition hover:bg-[#2563EB]/10 disabled:opacity-60"
+                >
+                  {paymentReconciling ? (
+                    <LoaderCircle size={13} className="animate-spin" />
+                  ) : (
+                    <RefreshCw size={13} />
+                  )}
+                  Kiểm tra thanh toán
+                </button>
+              ) : null}
+              {paymentSyncMessage ? (
+                <p className="mt-2 text-xs text-gray-500">{paymentSyncMessage}</p>
+              ) : null}
             </div>
 
             {order.note ? (

@@ -162,6 +162,7 @@ export default function Payment() {
   const [simulateOpen, setSimulateOpen] = useState(false);
   const [simOrderId, setSimOrderId] = useState<string | null>(null);
   const [simRef, setSimRef] = useState<string | null>(null);
+  const [simAmount, setSimAmount] = useState<string | null>(null);
   const [simCountdown, setSimCountdown] = useState(600);
   const [simConfirming, setSimConfirming] = useState(false);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -252,7 +253,7 @@ export default function Payment() {
         orderId: simOrderId,
         transactionRef: simRef,
         success: true,
-        amount: String(total),
+        amount: simAmount ?? String(total),
         gatewayCode: 'DEMO_SUCCESS',
         gatewayMessage: 'Thanh toán thành công (demo)',
         rawPayload: { demo: true },
@@ -260,16 +261,15 @@ export default function Payment() {
       setSimulateOpen(false);
       setSuccess({
         orderId: simOrderId,
-        totalPayment: String(total),
+        totalPayment: simAmount ?? String(total),
         paymentMethod: method,
       });
-    } catch {
-      setSimulateOpen(false);
-      setSuccess({
-        orderId: simOrderId,
-        totalPayment: String(total),
-        paymentMethod: method,
-      });
+    } catch (error) {
+      alert(
+        error instanceof Error
+          ? error.message
+          : 'Xác nhận thanh toán thất bại. Vui lòng thử lại.',
+      );
     } finally {
       setSimConfirming(false);
     }
@@ -349,6 +349,7 @@ export default function Payment() {
           setSimRef(`${order.id}-${Date.now()}`);
         }
 
+        setSimAmount(order.totalPayment);
         setSimOrderId(order.id);
         setSimulateOpen(true);
       } else {
@@ -816,5 +817,4 @@ export default function Payment() {
     </>
   );
 }
-
 
