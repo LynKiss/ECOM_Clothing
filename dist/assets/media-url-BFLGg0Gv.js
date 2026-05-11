@@ -1,0 +1,1 @@
+const n="http://localhost:8000/api/v1";function s(){try{return new URL(n).origin}catch{return""}}function o(r){const t=r==null?void 0:r.trim();if(!t)return null;if(/^(https?:)?\/\//i.test(t)||t.startsWith("data:")||t.startsWith("blob:")||!t.startsWith("/"))return t;const i=s();return i?`${i}${t}`:t}export{o as r};
