@@ -78,7 +78,7 @@ const FALLBACK_BANNERS: Banner[] = [
   },
 ];
 
-const GENDER_BANNERS = [
+const GENDER_BANNERS_FALLBACK = [
   {
     label: 'ĐỒ NAM',
     href: '/client/products?search=nam',
@@ -139,7 +139,7 @@ const QUALITY_PILLARS = [
   { icon: Users, title: 'Cộng đồng mặc đẹp', desc: 'Hơn 50.000 khách hàng chia sẻ phong cách mỗi ngày.' },
 ];
 
-const LOOKBOOK = [
+const LOOKBOOK_FALLBACK = [
   {
     id: 'lk1',
     label: 'PHONG CÁCH BASIC',
@@ -221,6 +221,10 @@ function isUsableUrl(v?: string | null): v is string {
 function getCategoryImage(cat: Category): string | null {
   const imageUrl = resolveMediaUrl(cat.imageUrl);
   return isUsableUrl(imageUrl) ? imageUrl : null;
+}
+
+function normalizeStr(s: string) {
+  return s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'd').toLowerCase();
 }
 
 /* ─── CountdownTimer ────────────────────────────────── */
@@ -368,6 +372,7 @@ export default function Home() {
   const [news, setNews] = useState<NewsItem[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [banners, setBanners] = useState<Banner[]>(FALLBACK_BANNERS);
+  const [lookbookBanners, setLookbookBanners] = useState<Banner[]>([]);
   const [activeBanner, setActiveBanner] = useState(0);
   const [paused, setPaused] = useState(false);
   const [loadingFeatured, setLoadingFeatured] = useState(true);
@@ -417,6 +422,10 @@ export default function Home() {
     void clientApi.get<Banner[]>('/banners?position=homepage')
       .then((items) => setBanners(items.length ? items : FALLBACK_BANNERS))
       .catch(() => setBanners(FALLBACK_BANNERS));
+
+    void clientApi.get<Banner[]>('/banners?position=lookbook')
+      .then((items) => setLookbookBanners(items.length ? items : []))
+      .catch(() => setLookbookBanners([]));
   }, []);
 
   useEffect(() => {
@@ -432,6 +441,40 @@ export default function Home() {
 
   const banner = banners[activeBanner] ?? FALLBACK_BANNERS[0];
   const displayCats = (categories.length ? categories : FALLBACK_CATS).slice(0, 8);
+
+  const genderBanners = useMemo(() => {
+    if (!categories.length) return GENDER_BANNERS_FALLBACK;
+    const norm = (s: string) => normalizeStr(s);
+    const maleCat = categories.find(c => norm(c.categoryName).includes('nam') || norm(c.categorySlug).includes('nam'));
+    const femaleCat = categories.find(c => norm(c.categoryName).includes('nu') || norm(c.categorySlug).includes('nu'));
+    return [
+      {
+        label: maleCat ? maleCat.categoryName.toUpperCase() : 'ĐỒ NAM',
+        href: maleCat ? `/client/products?categoryIds=${maleCat.categoryId}` : '/client/products?search=nam',
+        image: (isUsableUrl(resolveMediaUrl(maleCat?.imageUrl)) ? resolveMediaUrl(maleCat!.imageUrl) : null) ?? GENDER_BANNERS_FALLBACK[0].image,
+        fallback: GENDER_BANNERS_FALLBACK[0].fallback,
+        objectPosition: GENDER_BANNERS_FALLBACK[0].objectPosition,
+      },
+      {
+        label: femaleCat ? femaleCat.categoryName.toUpperCase() : 'ĐỒ NỮ',
+        href: femaleCat ? `/client/products?categoryIds=${femaleCat.categoryId}` : '/client/products?search=nu',
+        image: (isUsableUrl(resolveMediaUrl(femaleCat?.imageUrl)) ? resolveMediaUrl(femaleCat!.imageUrl) : null) ?? GENDER_BANNERS_FALLBACK[1].image,
+        fallback: GENDER_BANNERS_FALLBACK[1].fallback,
+        objectPosition: GENDER_BANNERS_FALLBACK[1].objectPosition,
+      },
+    ];
+  }, [categories]);
+
+  const lookbook = useMemo(() => {
+    if (!lookbookBanners.length) return LOOKBOOK_FALLBACK;
+    return lookbookBanners.slice(0, 3).map((b, i) => ({
+      id: b.bannerId,
+      label: b.title,
+      sub: b.subtitle ?? LOOKBOOK_FALLBACK[i]?.sub ?? '',
+      image: (isUsableUrl(b.imageUrl) ? b.imageUrl : null) ?? LOOKBOOK_FALLBACK[i]?.image ?? '',
+      href: b.linkUrl ?? '/client/products',
+    }));
+  }, [lookbookBanners]);
 
   const handleAddToCart = async (product: Product, event: MouseEvent<HTMLButtonElement>) => {
     if ((product.variants?.length ?? 0) > 0) { void navigate('/client/products/' + product.productId); return; }
@@ -465,95 +508,106 @@ export default function Home() {
     <div className="bg-white text-gray-900">
 
       {/* ── ANNOUNCEMENT BAR ─────────────────────────── */}
-      <div className="bg-[#1a1a2e] py-2 text-center text-xs font-semibold tracking-wide text-white/90">
-        {ANNOUNCEMENTS[annoIdx]}
+      <div className="relative overflow-hidden bg-[#1a1a2e] py-2.5 text-center text-xs font-bold tracking-wide text-white">
+        <div className="flex items-center justify-center gap-3">
+          <span className="hidden h-px w-16 bg-white/20 sm:block" />
+          <span className="transition-all duration-500">{ANNOUNCEMENTS[annoIdx]}</span>
+          <span className="hidden h-px w-16 bg-white/20 sm:block" />
+        </div>
       </div>
 
       {/* ── HERO ─────────────────────────────────────── */}
-      <section className="relative overflow-hidden bg-white"
+      <section className="relative overflow-hidden bg-[#0a0a14]"
         onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}>
-        <div className="mx-auto flex min-h-[520px] max-w-[1760px] flex-col lg:flex-row lg:min-h-[620px]">
-          <div className="flex flex-1 flex-col justify-center px-8 py-16 lg:max-w-[44%] lg:px-16 xl:px-24">
-            <p className="text-xs font-black uppercase tracking-[0.3em] text-blue-600">
-              {(banner.subtitle?.split(',')[0]) ?? 'Thời trang chất lượng'}
-            </p>
-            <h1 className="mt-4 text-5xl font-black uppercase leading-[0.95] tracking-tight text-black md:text-6xl xl:text-7xl">
+        {/* Background image */}
+        {isUsableUrl(banner.imageUrl) && (
+          <img src={banner.imageUrl} alt="" className="absolute inset-0 h-full w-full object-cover object-center opacity-40 transition-opacity duration-700" />
+        )}
+        <div className="absolute inset-0 bg-gradient-to-r from-[#0a0a14]/95 via-[#0a0a14]/70 to-transparent" />
+        <div className="relative mx-auto flex min-h-[600px] max-w-[1760px] items-center px-8 lg:min-h-[680px] lg:px-16 xl:px-24">
+          <div className="max-w-2xl">
+            <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-blue-500/30 bg-blue-600/10 px-4 py-1.5 backdrop-blur-sm">
+              <span className="h-1.5 w-1.5 rounded-full bg-blue-400" />
+              <p className="text-xs font-black uppercase tracking-[0.25em] text-blue-300">
+                {(banner.subtitle?.split(',')[0]) ?? 'Thời trang chất lượng'}
+              </p>
+            </div>
+            <h1 className="text-5xl font-black uppercase leading-[0.92] tracking-tight text-white md:text-7xl xl:text-8xl">
               {(banner.title || 'NEW ARRIVALS').split('\\n').map((line, i) => (
                 <span key={i} className="block">{line}</span>
               ))}
             </h1>
-            <p className="mt-5 text-base text-gray-500 md:text-lg">{banner.subtitle ?? ''}</p>
-            <div className="mt-8 flex flex-wrap gap-3">
+            <p className="mt-6 max-w-lg text-base text-white/60 md:text-lg">{banner.subtitle ?? ''}</p>
+            <div className="mt-10 flex flex-wrap gap-4">
               <Link to={banner.linkUrl || '/client/products'}
-                className="inline-flex items-center gap-2 rounded-full bg-black px-8 py-3.5 text-sm font-black uppercase text-white transition hover:bg-gray-800">
+                className="inline-flex items-center gap-2 rounded-full bg-white px-9 py-4 text-sm font-black uppercase text-black shadow-lg transition hover:bg-gray-100 hover:shadow-xl">
                 {banner.ctaText || 'MUA NGAY'} <ArrowRight size={16} />
               </Link>
               <Link to="/client/products"
-                className="inline-flex items-center gap-2 rounded-full border border-gray-300 px-8 py-3.5 text-sm font-black uppercase text-gray-700 transition hover:border-black hover:text-black">
+                className="inline-flex items-center gap-2 rounded-full border border-white/25 px-9 py-4 text-sm font-black uppercase text-white backdrop-blur-sm transition hover:border-white/50 hover:bg-white/10">
                 Xem tất cả
               </Link>
             </div>
             {banners.length > 1 && (
-              <div className="mt-10 flex gap-2">
+              <div className="mt-12 flex items-center gap-3">
                 {banners.map((b, i) => (
                   <button key={b.bannerId} onClick={() => setActiveBanner(i)}
-                    className={'h-1.5 rounded-full transition-all ' + (i === activeBanner ? 'w-10 bg-black' : 'w-2 bg-gray-300')} />
+                    className={'h-[3px] rounded-full transition-all duration-300 ' + (i === activeBanner ? 'w-12 bg-white' : 'w-3 bg-white/30')} />
                 ))}
               </div>
             )}
           </div>
-          <div className="relative min-h-[300px] flex-1 overflow-hidden bg-[#e8f4ff] lg:min-h-0">
-            {isUsableUrl(banner.imageUrl) && (
-              <img src={banner.imageUrl} alt="" className="h-full w-full object-cover object-center" />
-            )}
-            {banners.length > 1 && (
-              <>
-                <button onClick={() => setActiveBanner((c) => (c - 1 + banners.length) % banners.length)}
-                  className="absolute left-4 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/80 shadow backdrop-blur-sm transition hover:bg-white">
-                  <ChevronLeft size={20} />
-                </button>
-                <button onClick={() => setActiveBanner((c) => (c + 1) % banners.length)}
-                  className="absolute right-4 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/80 shadow backdrop-blur-sm transition hover:bg-white">
-                  <ChevronRight size={20} />
-                </button>
-              </>
-            )}
-          </div>
+          {banners.length > 1 && (
+            <div className="absolute right-8 top-1/2 flex -translate-y-1/2 flex-col gap-3">
+              <button onClick={() => setActiveBanner((c) => (c - 1 + banners.length) % banners.length)}
+                className="flex h-11 w-11 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white backdrop-blur-sm transition hover:bg-white/20">
+                <ChevronLeft size={18} />
+              </button>
+              <button onClick={() => setActiveBanner((c) => (c + 1) % banners.length)}
+                className="flex h-11 w-11 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white backdrop-blur-sm transition hover:bg-white/20">
+                <ChevronRight size={18} />
+              </button>
+            </div>
+          )}
         </div>
       </section>
 
       {/* ── CATEGORY GRID ────────────────────────────── */}
-      <section className="mx-auto max-w-7xl px-6 pt-12 pb-8 lg:px-10">
-        <div className="mb-7 flex flex-col gap-2 text-center">
-          <p className="text-xs font-black uppercase tracking-[0.3em] text-blue-600">Danh mục sản phẩm</p>
-          <h2 className="text-2xl font-black uppercase tracking-tight text-black md:text-3xl">MUA SẮM THEO DANH MỤC</h2>
-          <p className="mx-auto max-w-xl text-sm text-gray-500">
-            Chọn nhóm sản phẩm bạn cần, ảnh danh mục sẽ dùng ảnh đã tải trong trang quản trị.
-          </p>
+      <section className="mx-auto max-w-7xl px-6 pt-14 pb-10 lg:px-10">
+        <div className="mb-8 flex items-end justify-between">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.3em] text-blue-600">Danh mục sản phẩm</p>
+            <h2 className="mt-1.5 text-2xl font-black uppercase tracking-tight text-black md:text-3xl">MUA SẮM THEO DANH MỤC</h2>
+          </div>
+          <Link to="/client/products" className="flex items-center gap-1 text-sm font-bold text-gray-400 underline underline-offset-4 hover:text-black transition">
+            Tất cả <ArrowRight size={13} />
+          </Link>
         </div>
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-8">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-8">
           {displayCats.map((cat) => {
             const imgSrc = getCategoryImage(cat);
             return (
               <Link key={cat.categoryId} to={`/client/products?categoryId=${cat.categoryId}`}
-                className="group rounded-2xl border border-gray-100 bg-white p-3 text-center shadow-sm transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md">
-                <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-blue-50 via-sky-50 to-slate-100" style={{ aspectRatio: '1/1' }}>
-                  {imgSrc ? (
-                    <img
-                      src={imgSrc}
-                      alt={cat.categoryName}
-                      className="h-full w-full object-cover object-center transition-transform duration-500 group-hover:scale-105"
-                    />
-                  ) : (
-                    <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-blue-300">
-                      <Shirt size={28} />
-                      <span className="text-2xl font-black">{cat.categoryName[0]}</span>
-                    </div>
-                  )}
+                className="group relative overflow-hidden rounded-2xl bg-gray-100 transition hover:shadow-lg"
+                style={{ aspectRatio: '3/4' }}>
+                {imgSrc ? (
+                  <img
+                    src={imgSrc}
+                    alt={cat.categoryName}
+                    className="absolute inset-0 h-full w-full object-cover object-center transition-transform duration-700 group-hover:scale-110"
+                  />
+                ) : (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-blue-50 via-slate-100 to-slate-200 text-blue-300">
+                    <Shirt size={32} />
+                    <span className="text-3xl font-black text-blue-200">{cat.categoryName[0]}</span>
+                  </div>
+                )}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-80 transition group-hover:opacity-100" />
+                <div className="absolute bottom-0 left-0 right-0 p-3">
+                  <span className="block text-center text-[11px] font-black uppercase leading-tight tracking-wide text-white drop-shadow">
+                    {cat.categoryName}
+                  </span>
                 </div>
-                <span className="mt-3 block line-clamp-2 min-h-[34px] text-center text-[12px] font-black uppercase leading-4 tracking-wide text-gray-800 group-hover:text-blue-600">
-                  {cat.categoryName}
-                </span>
               </Link>
             );
           })}
@@ -680,46 +734,56 @@ export default function Home() {
       </section>
 
       {/* ── LOOKBOOK ─────────────────────────────────── */}
+      {lookbook.length > 0 && (
       <section className="mx-auto max-w-7xl px-6 py-12 lg:px-10">
-        <div className="mb-7 text-center">
-          <p className="text-xs font-black uppercase tracking-[0.3em] text-blue-600">Cảm hứng mặc đẹp</p>
-          <h2 className="mt-1 text-2xl font-black uppercase tracking-tight text-black md:text-3xl">LOOKBOOK MÙA NÀY</h2>
+        <div className="mb-7 flex items-end justify-between">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.3em] text-blue-600">Cảm hứng mặc đẹp</p>
+            <h2 className="mt-1 text-2xl font-black uppercase tracking-tight text-black md:text-3xl">LOOKBOOK MÙA NÀY</h2>
+          </div>
+          <Link to="/client/products" className="flex items-center gap-1 text-sm font-bold text-gray-400 underline underline-offset-4 hover:text-black transition">
+            Khám phá <ArrowRight size={13} />
+          </Link>
         </div>
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-3" style={{ gridTemplateRows: 'auto' }}>
-          <Link to={LOOKBOOK[0].href}
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+          <Link to={lookbook[0]?.href ?? '/client/products'}
             className="group relative overflow-hidden rounded-3xl md:row-span-2"
-            style={{ minHeight: 400 }}>
-            <img src={LOOKBOOK[0].image} alt={LOOKBOOK[0].label}
-              className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-transparent to-transparent" />
-            <div className="absolute bottom-6 left-6 right-6">
-              <p className="text-[10px] font-black uppercase tracking-[0.3em] text-white/70">{LOOKBOOK[0].sub}</p>
-              <h3 className="mt-1 text-2xl font-black uppercase text-white">{LOOKBOOK[0].label}</h3>
-              <span className="mt-3 inline-flex items-center gap-1 text-sm font-black text-white underline underline-offset-4">
+            style={{ minHeight: 480 }}>
+            {lookbook[0]?.image && <img src={lookbook[0].image} alt={lookbook[0].label}
+              className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" />}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-transparent" />
+            <div className="absolute bottom-7 left-7 right-7">
+              <p className="text-[10px] font-black uppercase tracking-[0.35em] text-white/60">{lookbook[0]?.sub}</p>
+              <h3 className="mt-2 text-3xl font-black uppercase leading-tight text-white">{lookbook[0]?.label}</h3>
+              <span className="mt-4 inline-flex items-center gap-2 rounded-full border border-white/35 px-5 py-2 text-sm font-black text-white backdrop-blur-sm transition hover:bg-white/10">
                 Xem ngay <ArrowRight size={13} />
               </span>
             </div>
           </Link>
-          {LOOKBOOK.slice(1).map((item) => (
+          {lookbook.slice(1).map((item) => (
             <Link key={item.id} to={item.href}
               className="group relative overflow-hidden rounded-3xl"
-              style={{ minHeight: 260 }}>
+              style={{ minHeight: 232 }}>
               <img src={item.image} alt={item.label}
                 className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-              <div className="absolute bottom-5 left-5 right-5">
-                <p className="text-[10px] font-black uppercase tracking-[0.3em] text-white/70">{item.sub}</p>
+              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
+              <div className="absolute bottom-5 left-6 right-6">
+                <p className="text-[10px] font-black uppercase tracking-[0.3em] text-white/60">{item.sub}</p>
                 <h3 className="mt-1 text-xl font-black uppercase text-white">{item.label}</h3>
+                <span className="mt-2 inline-flex items-center gap-1 text-xs font-black text-white/70 underline underline-offset-4">
+                  Xem ngay <ArrowRight size={11} />
+                </span>
               </div>
             </Link>
           ))}
         </div>
       </section>
+      )}
 
       {/* ── GENDER SPLIT ─────────────────────────────── */}
       <section className="mx-auto max-w-7xl px-6 pb-12 lg:px-10">
         <div className="grid gap-4 md:grid-cols-2">
-          {GENDER_BANNERS.map((item) => (
+          {genderBanners.map((item) => (
             <Link key={item.label} to={item.href}
               className="group relative overflow-hidden rounded-3xl" style={{ minHeight: 360 }}>
               <div className="absolute inset-0" style={{ background: item.fallback }} />

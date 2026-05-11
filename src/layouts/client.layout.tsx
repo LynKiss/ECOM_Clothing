@@ -1,4 +1,4 @@
-﻿import { Outlet, NavLink, Link, useNavigate } from 'react-router-dom';
+import { Outlet, NavLink, Link, useNavigate } from 'react-router-dom';
 import { useState, useEffect, useRef, type FormEvent } from 'react';
 import {
   ShoppingCart,
@@ -50,6 +50,7 @@ type CategoryTreeNode = {
   categoryId: string;
   categoryName: string;
   categorySlug: string;
+  imageUrl?: string | null;
   children?: CategoryTreeNode[];
 };
 
@@ -65,53 +66,8 @@ function categoryHref(category: CategoryTreeNode) {
   return '/client/products?categoryIds=' + encodeURIComponent(category.categoryId);
 }
 
-function normalizeCategoryKey(value: string) {
-  return value
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/đ/g, 'd')
-    .replace(/Đ/g, 'D')
-    .toLowerCase();
-}
-
-function categoryMatches(category: CategoryTreeNode, keywords: string[]) {
-  const key = normalizeCategoryKey(`${category.categoryName} ${category.categorySlug}`);
-  return keywords.some((keyword) => key.includes(keyword));
-}
-
 function buildNavCategories(tree: CategoryTreeNode[]) {
-  const categories = tree.length ? tree : FALLBACK_CATEGORY_TREE;
-  const findByKeywords = (keywords: string[]) =>
-    categories.find((category) => categoryMatches(category, keywords));
-
-  const ordered = [
-    FALLBACK_CATEGORY_TREE[0],
-    findByKeywords(['nam']),
-    findByKeywords(['nu']),
-    findByKeywords(['the thao', 'sport']),
-    findByKeywords(['phu kien', 'accessory']),
-  ].filter(Boolean) as CategoryTreeNode[];
-
-  const seen = new Set<string>();
-  const result = ordered.filter((category) => {
-    if (seen.has(category.categoryId)) {
-      return false;
-    }
-    seen.add(category.categoryId);
-    return true;
-  });
-
-  for (const category of categories) {
-    if (result.length >= 5) {
-      break;
-    }
-    if (!seen.has(category.categoryId)) {
-      seen.add(category.categoryId);
-      result.push(category);
-    }
-  }
-
-  return result;
+  return (tree.length ? tree : FALLBACK_CATEGORY_TREE).slice(0, 6);
 }
 
 function getMegaColumns(category: CategoryTreeNode) {
@@ -360,47 +316,71 @@ export default function ClientLayout() {
           </nav>
 
           {activeMega && (
-            <div className="absolute left-0 top-full hidden w-full border-t border-black/10 bg-white shadow-xl lg:block">
+            <div className="absolute left-0 top-full hidden w-full border-t border-black/10 bg-white shadow-2xl lg:block">
               <div className="mx-auto max-w-[1580px] px-10 py-8">
                 <div className="grid grid-cols-5 gap-8">
                   <div>
-                    <Link to="/client/products" className="mb-5 flex items-center justify-between text-base font-black uppercase text-black">
+                    <Link to="/client/products" className="mb-5 flex items-center justify-between text-base font-black uppercase text-black hover:text-[#2538d5] transition">
                       Tất cả sản phẩm <span className="text-[#2538d5]">→</span>
                     </Link>
-                    <div className="space-y-4 text-sm font-bold">
-                      <Link to="/client/products?sortBy=created_at&sortOrder=DESC" className="block text-[#2538d5]">Sản phẩm mới</Link>
-                      <Link to="/client/products?sort=popular" className="block text-black">Bán chạy nhất</Link>
-                      <Link to="/client/products" className="block text-gray-500">Khám phá bộ sưu tập</Link>
-                      <Link to="/client/products?onSale=1" className="block text-gray-500">Ưu đãi</Link>
+                    <div className="space-y-3.5 text-sm font-semibold">
+                      <Link to="/client/products?sortBy=created_at&sortOrder=DESC" className="flex items-center gap-2 text-[#2538d5] hover:underline underline-offset-2">
+                        <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#2538d5]" />Sản phẩm mới
+                      </Link>
+                      <Link to="/client/products?sort=popular" className="flex items-center gap-2 text-black hover:text-[#2538d5] transition">
+                        <span className="inline-block h-1.5 w-1.5 rounded-full bg-gray-300" />Bán chạy nhất
+                      </Link>
+                      <Link to="/client/products" className="flex items-center gap-2 text-gray-500 hover:text-black transition">
+                        <span className="inline-block h-1.5 w-1.5 rounded-full bg-gray-200" />Bộ sưu tập
+                      </Link>
+                      <Link to="/client/products?onSale=1" className="flex items-center gap-2 text-red-500 hover:text-red-700 transition font-black">
+                        <span className="inline-block h-1.5 w-1.5 rounded-full bg-red-400" />Ưu đãi -50%
+                      </Link>
                     </div>
                   </div>
                   {megaColumns.map((category) => {
                     const columnItems = getColumnItems(category);
                     return (
                     <div key={category.categoryId}>
-                      <Link to={categoryHref(category)} className="mb-5 flex items-center justify-between text-base font-black uppercase text-black">
+                      {category.imageUrl && (
+                        <Link to={categoryHref(category)} className="mb-4 block overflow-hidden rounded-xl">
+                          <img src={category.imageUrl} alt={category.categoryName} className="h-28 w-full object-cover transition-transform duration-500 hover:scale-105" />
+                        </Link>
+                      )}
+                      <Link to={categoryHref(category)} className="mb-4 flex items-center justify-between text-base font-black uppercase text-black hover:text-[#2538d5] transition">
                         {category.categoryName} <span className="text-[#2538d5]">→</span>
                       </Link>
-                      <div className="space-y-4 text-sm font-semibold text-gray-600">
-                        <Link to={categoryHref(category)} className="block">Tất cả</Link>
+                      <div className="space-y-3 text-sm font-semibold text-gray-500">
+                        <Link to={categoryHref(category)} className="block text-gray-700 hover:text-black transition">Tất cả</Link>
                         {columnItems.map((child) => (
-                          <Link key={child.categoryId} to={categoryHref(child)} className="block hover:text-black">{child.categoryName}</Link>
+                          <Link key={child.categoryId} to={categoryHref(child)} className="block hover:text-black transition">{child.categoryName}</Link>
                         ))}
                       </div>
                     </div>
                     );
                   })}
                 </div>
-                <div className="mt-8 grid grid-cols-5 border-t border-black/10 bg-gray-50 text-sm font-black uppercase text-black">
-                  {['Theo nhu cầu', 'Đồ lót', 'Đồ thể thao', 'Mặc hằng ngày', 'Đồ bơi'].map((label, index) => (
+                {/* Bottom bar — DB-driven top-level categories for quick jump */}
+                <div className="mt-6 flex overflow-hidden rounded-xl border border-black/8 bg-gray-50">
+                  {navCategories.map((cat) => (
                     <Link
-                      key={label}
-                      to={index === 0 ? categoryHref(activeMega) : `/client/products?search=${encodeURIComponent(label)}`}
-                      className="border-r border-black/5 px-8 py-5 last:border-r-0 hover:text-[#2538d5]"
+                      key={cat.categoryId}
+                      to={categoryHref(cat)}
+                      onMouseEnter={() => setActiveMega(cat)}
+                      className={
+                        'flex flex-1 items-center justify-center border-r border-black/5 px-4 py-4 text-[12px] font-black uppercase tracking-wide transition last:border-r-0 hover:bg-white hover:text-[#2538d5] ' +
+                        (activeMega?.categoryId === cat.categoryId ? 'bg-white text-[#2538d5]' : 'text-black')
+                      }
                     >
-                      {label}
+                      {cat.categoryName}
                     </Link>
                   ))}
+                  <Link
+                    to="/client/products?onSale=1"
+                    className="flex flex-1 items-center justify-center border-l border-black/5 px-4 py-4 text-[12px] font-black uppercase tracking-wide text-red-600 transition hover:bg-red-50"
+                  >
+                    Sale -50%
+                  </Link>
                 </div>
               </div>
             </div>
