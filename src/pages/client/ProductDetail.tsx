@@ -74,6 +74,7 @@ type Product = {
   isShow: boolean;
   ratingAverage: string;
   ratingCount: number;
+  soldCount?: number;
   primaryImageUrl?: string | null;
   images: ProductImage[];
   category: { categoryId: string; categoryName: string; categorySlug: string } | null;
@@ -756,18 +757,10 @@ export default function ProductDetail() {
                 </div>
               )}
               <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-500">Tình trạng</span>
-                {selectedStock > 10 ? (
-                  <span className="font-semibold text-[#2563EB]">
-                    Còn hàng ({selectedStock} {product.unit ?? 'sản phẩm'})
-                  </span>
-                ) : selectedStock > 0 ? (
-                  <span className="font-semibold text-amber-600">
-                    Sắp hết hàng (còn {selectedStock} {product.unit ?? 'sản phẩm'})
-                  </span>
-                ) : (
-                  <span className="font-semibold text-[#c82014]">Hết hàng</span>
-                )}
+                <span className="text-gray-500">Đã bán</span>
+                <span className="font-semibold text-[#2563EB]">
+                  {(product.soldCount ?? 0).toLocaleString('vi-VN')} {product.unit ?? 'sản phẩm'}
+                </span>
               </div>
             </div>
 
@@ -1035,7 +1028,15 @@ export default function ProductDetail() {
                   { label: 'Xuất xứ', value: product.origin?.originName ?? '—' },
                   { label: 'Đơn vị', value: product.unit ?? '—' },
                   { label: 'Danh mục', value: product.category?.categoryName ?? '—' },
-                  { label: 'Danh mục phụ', value: product.subcategory?.subcategoryName ?? '—' },
+                  {
+                    label: 'Tình trạng',
+                    value:
+                      selectedStock > 10
+                        ? `Còn hàng (${selectedStock} ${product.unit ?? 'sản phẩm'})`
+                        : selectedStock > 0
+                          ? `Sắp hết hàng (còn ${selectedStock} ${product.unit ?? 'sản phẩm'})`
+                          : 'Hết hàng',
+                  },
                 ].map((row) => (
                   <div key={row.label} className="flex justify-between border-b border-black/5 pb-3">
                     <span className="text-gray-500">{row.label}</span>

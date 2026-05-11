@@ -296,9 +296,8 @@ export default function ClientLayout() {
                 {category.categoryName}
               </Link>
             ))}
-            <Link to="/client/products?onSale=1" className="flex flex-col items-center justify-center whitespace-nowrap text-base font-black uppercase leading-none text-red-600">
-              <span className="text-xs">-50%</span>
-              <span>Sale</span>
+              <Link to="/client/products?onSale=1" className="flex items-center justify-center whitespace-nowrap text-base font-black uppercase leading-none text-red-600">
+                Sale
             </Link>
             {navLinks.map((link) => (
               <NavLink
@@ -334,7 +333,7 @@ export default function ClientLayout() {
                         <span className="inline-block h-1.5 w-1.5 rounded-full bg-gray-200" />Bộ sưu tập
                       </Link>
                       <Link to="/client/products?onSale=1" className="flex items-center gap-2 text-red-500 hover:text-red-700 transition font-black">
-                        <span className="inline-block h-1.5 w-1.5 rounded-full bg-red-400" />Ưu đãi -50%
+                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-red-400" />Ưu đãi
                       </Link>
                     </div>
                   </div>
@@ -379,7 +378,7 @@ export default function ClientLayout() {
                     to="/client/products?onSale=1"
                     className="flex flex-1 items-center justify-center border-l border-black/5 px-4 py-4 text-[12px] font-black uppercase tracking-wide text-red-600 transition hover:bg-red-50"
                   >
-                    Sale -50%
+                  Sale
                   </Link>
                 </div>
               </div>
