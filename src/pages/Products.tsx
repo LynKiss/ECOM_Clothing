@@ -1135,12 +1135,12 @@ export default function Products() {
                         {sizes.map((s) => <option key={s.sizeId} value={s.sizeId}>{s.sizeName}</option>)}
                       </select>
                     </Field>
-                    <Field label={isVi ? 'Mã size mới' : 'New size code'}>
-                      <input disabled={!!variantForm.sizeId} value={variantForm.newSizeCode} onChange={(e) => setVariantForm((p) => ({ ...p, newSizeCode: e.target.value }))} placeholder="S, M, L, XL" className="input-base disabled:cursor-not-allowed disabled:opacity-40" />
+                    <Field label={isVi ? 'Tên size mới (hiển thị trên nút)' : 'New size name (shown on button)'}>
+                      <input disabled={!!variantForm.sizeId} value={variantForm.newSizeName} onChange={(e) => setVariantForm((p) => ({ ...p, newSizeName: e.target.value }))} placeholder={isVi ? 'Ví dụ: Small, M, XL' : 'E.g. Small, M, XL'} className="input-base disabled:cursor-not-allowed disabled:opacity-40" />
                     </Field>
                   </div>
-                  <Field label={isVi ? 'Tên size mới' : 'New size name'}>
-                    <input disabled={!!variantForm.sizeId} value={variantForm.newSizeName} onChange={(e) => setVariantForm((p) => ({ ...p, newSizeName: e.target.value }))} placeholder={isVi ? 'Ví dụ: Size L' : 'Example: Size L'} className="input-base disabled:cursor-not-allowed disabled:opacity-40" />
+                  <Field label={isVi ? 'Mã size (tùy chọn — dùng cho SKU)' : 'Size code (optional — for SKU only)'}>
+                    <input disabled={!!variantForm.sizeId} value={variantForm.newSizeCode} onChange={(e) => setVariantForm((p) => ({ ...p, newSizeCode: e.target.value }))} placeholder={isVi ? 'Ví dụ: S, M, L — không ảnh hưởng hiển thị' : 'E.g. S, M, L — not shown on storefront'} className="input-base disabled:cursor-not-allowed disabled:opacity-40" />
                   </Field>
 
                   <p className="pt-2 text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant/60">{isVi ? 'Mã hàng' : 'Codes'}</p>

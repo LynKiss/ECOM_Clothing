@@ -818,7 +818,7 @@ export default function ProductDetail() {
                             onClick={() => { setSelectedSizeId(size.sizeId); setQuantity(1); setSelectedImage(0); }}
                             className={'min-w-[64px] rounded-xl px-4 py-3 text-sm font-bold transition disabled:bg-gray-100 disabled:text-gray-400 ' + (selectedSizeId === size.sizeId ? 'bg-[#0B0F19] text-white' : 'bg-white text-[#0B0F19] border border-black/10')}
                           >
-                            {size.sizeCode ?? size.sizeName}
+                            {size.sizeName}
                           </button>
                         );
                       })}
@@ -847,8 +847,8 @@ export default function ProductDetail() {
                 <div>
                   <p className="text-sm font-black text-[#0B0F19]">Virtual Try-on</p>
                   <p className="text-xs text-gray-500">
-                    {selectedVariant?.color?.colorName || selectedVariant?.size?.sizeCode
-                      ? [selectedVariant?.color?.colorName, selectedVariant?.size?.sizeCode ?? selectedVariant?.size?.sizeName].filter(Boolean).join(' / ')
+                    {selectedVariant?.color?.colorName || selectedVariant?.size?.sizeName
+                      ? [selectedVariant?.color?.colorName, selectedVariant?.size?.sizeName].filter(Boolean).join(' / ')
                       : product.productName}
                   </p>
                 </div>

@@ -315,71 +315,110 @@ export default function ClientLayout() {
           </nav>
 
           {activeMega && (
-            <div className="absolute left-0 top-full hidden w-full border-t border-black/10 bg-white shadow-2xl lg:block">
+            <div className="absolute left-0 top-full hidden w-full border-t border-black/8 bg-white shadow-[0_8px_32px_rgba(0,0,0,0.12)] lg:block">
               <div className="mx-auto max-w-[1580px] px-10 py-8">
-                <div className="grid grid-cols-5 gap-8">
-                  <div>
-                    <Link to="/client/products" className="mb-5 flex items-center justify-between text-base font-black uppercase text-black hover:text-[#2538d5] transition">
-                      Tất cả sản phẩm <span className="text-[#2538d5]">→</span>
-                    </Link>
-                    <div className="space-y-3.5 text-sm font-semibold">
-                      <Link to="/client/products?sortBy=created_at&sortOrder=DESC" className="flex items-center gap-2 text-[#2538d5] hover:underline underline-offset-2">
-                        <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#2538d5]" />Sản phẩm mới
-                      </Link>
-                      <Link to="/client/products?sort=popular" className="flex items-center gap-2 text-black hover:text-[#2538d5] transition">
-                        <span className="inline-block h-1.5 w-1.5 rounded-full bg-gray-300" />Bán chạy nhất
-                      </Link>
-                      <Link to="/client/products" className="flex items-center gap-2 text-gray-500 hover:text-black transition">
-                        <span className="inline-block h-1.5 w-1.5 rounded-full bg-gray-200" />Bộ sưu tập
-                      </Link>
-                      <Link to="/client/products?onSale=1" className="flex items-center gap-2 text-red-500 hover:text-red-700 transition font-black">
-                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-red-400" />Ưu đãi
+                <div className="grid grid-cols-[200px_1fr_220px] gap-10">
+                  {/* Col 1 — Quick links */}
+                  <div className="border-r border-black/6 pr-8">
+                    <p className="mb-4 text-[10px] font-black uppercase tracking-[0.22em] text-gray-400">Khám phá</p>
+                    <div className="space-y-1">
+                      {[
+                        { to: '/client/products?sortBy=created_at&sortOrder=DESC', label: 'Hàng mới về', badge: 'NEW', badgeColor: '#2563EB' },
+                        { to: '/client/products?sort=popular', label: 'Bán chạy nhất', badge: null, badgeColor: '' },
+                        { to: '/client/products', label: 'Bộ sưu tập', badge: null, badgeColor: '' },
+                        { to: '/client/products?onSale=1', label: 'Ưu đãi hot', badge: 'SALE', badgeColor: '#dc2626' },
+                      ].map((item) => (
+                        <Link
+                          key={item.to}
+                          to={item.to}
+                          className="group flex items-center justify-between rounded-xl px-3 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-[#2563EB]/6 hover:text-[#2563EB]"
+                        >
+                          {item.label}
+                          {item.badge && (
+                            <span
+                              className="rounded-full px-2 py-0.5 text-[9px] font-black text-white"
+                              style={{ background: item.badgeColor }}
+                            >
+                              {item.badge}
+                            </span>
+                          )}
+                        </Link>
+                      ))}
+                    </div>
+                    <div className="mt-4 border-t border-black/6 pt-4">
+                      <Link
+                        to="/client/products"
+                        className="flex items-center gap-2 text-[11px] font-black uppercase tracking-wider text-[#2563EB] hover:underline underline-offset-2"
+                      >
+                        Xem tất cả sản phẩm
+                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 6h8M6 2l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
                       </Link>
                     </div>
                   </div>
-                  {megaColumns.map((category) => {
-                    const columnItems = getColumnItems(category);
-                    return (
-                    <div key={category.categoryId}>
-                      {category.imageUrl && (
-                        <Link to={categoryHref(category)} className="mb-4 block overflow-hidden rounded-xl">
-                          <img src={category.imageUrl} alt={category.categoryName} className="h-28 w-full object-cover transition-transform duration-500 hover:scale-105" />
-                        </Link>
-                      )}
-                      <Link to={categoryHref(category)} className="mb-4 flex items-center justify-between text-base font-black uppercase text-black hover:text-[#2538d5] transition">
-                        {category.categoryName} <span className="text-[#2538d5]">→</span>
-                      </Link>
-                      <div className="space-y-3 text-sm font-semibold text-gray-500">
-                        <Link to={categoryHref(category)} className="block text-gray-700 hover:text-black transition">Tất cả</Link>
-                        {columnItems.map((child) => (
-                          <Link key={child.categoryId} to={categoryHref(child)} className="block hover:text-black transition">{child.categoryName}</Link>
-                        ))}
-                      </div>
-                    </div>
-                    );
-                  })}
-                </div>
-                {/* Bottom bar — DB-driven top-level categories for quick jump */}
-                <div className="mt-6 flex overflow-hidden rounded-xl border border-black/8 bg-gray-50">
-                  {navCategories.map((cat) => (
+
+                  {/* Col 2 — Category columns */}
+                  <div className={`grid gap-8 ${megaColumns.length <= 2 ? 'grid-cols-2' : megaColumns.length === 3 ? 'grid-cols-3' : 'grid-cols-4'}`}>
+                    {megaColumns.map((category) => {
+                      const columnItems = getColumnItems(category);
+                      return (
+                        <div key={category.categoryId}>
+                          {category.imageUrl && (
+                            <Link to={categoryHref(category)} className="mb-4 block overflow-hidden rounded-2xl">
+                              <img src={category.imageUrl} alt={category.categoryName} className="h-32 w-full object-cover transition-transform duration-500 hover:scale-105" />
+                            </Link>
+                          )}
+                          <Link
+                            to={categoryHref(category)}
+                            className="group mb-3 inline-flex items-center gap-1.5 text-[13px] font-black uppercase tracking-wider text-black transition hover:text-[#2563EB]"
+                          >
+                            {category.categoryName}
+                            <svg width="11" height="11" viewBox="0 0 12 12" fill="none" className="opacity-40 transition group-hover:opacity-100 group-hover:translate-x-0.5"><path d="M2 6h8M6 2l4 4-4 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                          </Link>
+                          <div className="space-y-2">
+                            <Link to={categoryHref(category)} className="block text-sm font-semibold text-gray-400 transition hover:text-black">Tất cả</Link>
+                            {columnItems.map((child) => (
+                              <Link
+                                key={child.categoryId}
+                                to={categoryHref(child)}
+                                className="block text-sm font-semibold text-gray-600 transition hover:text-black"
+                              >
+                                {child.categoryName}
+                              </Link>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Col 3 — Promo card */}
+                  <div className="flex flex-col gap-3">
                     <Link
-                      key={cat.categoryId}
-                      to={categoryHref(cat)}
-                      onMouseEnter={() => setActiveMega(cat)}
-                      className={
-                        'flex flex-1 items-center justify-center border-r border-black/5 px-4 py-4 text-[12px] font-black uppercase tracking-wide transition last:border-r-0 hover:bg-white hover:text-[#2538d5] ' +
-                        (activeMega?.categoryId === cat.categoryId ? 'bg-white text-[#2538d5]' : 'text-black')
-                      }
+                      to="/client/products?onSale=1"
+                      className="group relative flex flex-1 flex-col justify-end overflow-hidden rounded-2xl p-5"
+                      style={{ background: 'linear-gradient(135deg, #1e3a8a 0%, #2563EB 60%, #3b82f6 100%)', minHeight: 140 }}
                     >
-                      {cat.categoryName}
+                      <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(circle at 80% 20%, #fff 0%, transparent 60%)' }} />
+                      <span className="relative mb-1 text-[10px] font-black uppercase tracking-[0.2em] text-blue-200">Ưu đãi</span>
+                      <p className="relative text-lg font-black leading-tight text-white">Giảm đến<br />50% hôm nay</p>
+                      <span className="relative mt-3 inline-flex w-fit items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-black text-[#2563EB] transition group-hover:bg-blue-50">
+                        Mua ngay
+                        <svg width="10" height="10" viewBox="0 0 12 12" fill="none"><path d="M2 6h8M6 2l4 4-4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                      </span>
                     </Link>
-                  ))}
-                  <Link
-                    to="/client/products?onSale=1"
-                    className="flex flex-1 items-center justify-center border-l border-black/5 px-4 py-4 text-[12px] font-black uppercase tracking-wide text-red-600 transition hover:bg-red-50"
-                  >
-                  Sale
-                  </Link>
+                    <Link
+                      to="/client/style-advisor"
+                      className="group flex items-center gap-3 rounded-2xl border border-[#2563EB]/15 bg-[#eff6ff] px-4 py-3.5 transition hover:border-[#2563EB]/30 hover:bg-[#dbeafe]/60"
+                    >
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#2563EB] text-white">
+                        <Sparkles size={15} />
+                      </div>
+                      <div>
+                        <p className="text-[11px] font-black text-[#1e3a8a]">AI Tư Vấn Phối Đồ</p>
+                        <p className="text-[10px] text-[#3b82f6]">Gợi ý outfit cá nhân hóa</p>
+                      </div>
+                    </Link>
+                  </div>
                 </div>
               </div>
             </div>
