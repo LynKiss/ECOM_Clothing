@@ -1,5 +1,6 @@
 import { Outlet, NavLink, Link, useNavigate } from 'react-router-dom';
 import { useState, useEffect, useRef, type FormEvent } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import {
   ShoppingCart,
   Search,
@@ -34,6 +35,14 @@ type SearchProduct = {
   productName: string;
   productPrice: string;
   effectivePrice: string;
+  primaryImageUrl: string | null;
+};
+
+type MegaProduct = {
+  productId: string;
+  productName: string;
+  effectivePrice: string;
+  basePrice?: string;
   primaryImageUrl: string | null;
 };
 
@@ -98,6 +107,7 @@ export default function ClientLayout() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [categoryTree, setCategoryTree] = useState<CategoryTreeNode[]>(FALLBACK_CATEGORY_TREE);
   const [activeMega, setActiveMega] = useState<CategoryTreeNode | null>(null);
+  const [megaProducts, setMegaProducts] = useState<Record<string, MegaProduct[]>>({});
   const userMenuRef = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
@@ -147,6 +157,21 @@ export default function ClientLayout() {
       .then((items) => setCategoryTree(items.length ? items : FALLBACK_CATEGORY_TREE))
       .catch(() => setCategoryTree(FALLBACK_CATEGORY_TREE));
   }, []);
+
+  // Fetch featured products when hovering a category (cached by categoryId)
+  useEffect(() => {
+    if (!activeMega) return;
+    const cid = activeMega.categoryId;
+    if (megaProducts[cid]) return; // already fetched
+    void clientApi
+      .get<{ items: MegaProduct[] }>(`/products?categoryId=${encodeURIComponent(cid)}&limit=3&sortBy=rating_average&sortOrder=DESC`)
+      .then((res) => {
+        const items = res.items ?? [];
+        if (items.length > 0) setMegaProducts((prev) => ({ ...prev, [cid]: items }));
+      })
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeMega?.categoryId]);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -222,6 +247,7 @@ export default function ClientLayout() {
   ];
   const navCategories = buildNavCategories(categoryTree);
   const megaColumns = activeMega ? getMegaColumns(activeMega) : [];
+  const activeMegaProducts = activeMega ? (megaProducts[activeMega.categoryId] ?? []) : [];
   const supportLinks = [
     { to: '/client/support/buying-guide', label: 'Hướng dẫn mua hàng' },
     { to: '/client/support/returns', label: 'Chính sách đổi trả' },
@@ -314,115 +340,319 @@ export default function ClientLayout() {
             ))}
           </nav>
 
-          {activeMega && (
-            <div className="absolute left-0 top-full hidden w-full border-t border-black/8 bg-white shadow-[0_8px_32px_rgba(0,0,0,0.12)] lg:block">
-              <div className="mx-auto max-w-[1580px] px-10 py-8">
-                <div className="grid grid-cols-[200px_1fr_220px] gap-10">
-                  {/* Col 1 — Quick links */}
-                  <div className="border-r border-black/6 pr-8">
-                    <p className="mb-4 text-[10px] font-black uppercase tracking-[0.22em] text-gray-400">Khám phá</p>
-                    <div className="space-y-1">
-                      {[
-                        { to: '/client/products?sortBy=created_at&sortOrder=DESC', label: 'Hàng mới về', badge: 'NEW', badgeColor: '#2563EB' },
-                        { to: '/client/products?sort=popular', label: 'Bán chạy nhất', badge: null, badgeColor: '' },
-                        { to: '/client/products', label: 'Bộ sưu tập', badge: null, badgeColor: '' },
-                        { to: '/client/products?onSale=1', label: 'Ưu đãi hot', badge: 'SALE', badgeColor: '#dc2626' },
-                      ].map((item) => (
-                        <Link
-                          key={item.to}
-                          to={item.to}
-                          className="group flex items-center justify-between rounded-xl px-3 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-[#2563EB]/6 hover:text-[#2563EB]"
-                        >
-                          {item.label}
-                          {item.badge && (
-                            <span
-                              className="rounded-full px-2 py-0.5 text-[9px] font-black text-white"
-                              style={{ background: item.badgeColor }}
-                            >
-                              {item.badge}
-                            </span>
-                          )}
-                        </Link>
-                      ))}
-                    </div>
-                    <div className="mt-4 border-t border-black/6 pt-4">
-                      <Link
-                        to="/client/products"
-                        className="flex items-center gap-2 text-[11px] font-black uppercase tracking-wider text-[#2563EB] hover:underline underline-offset-2"
-                      >
-                        Xem tất cả sản phẩm
-                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 6h8M6 2l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                      </Link>
-                    </div>
-                  </div>
+          <AnimatePresence>
+            {activeMega && (
+              <motion.div
+                key={activeMega.categoryId}
+                initial={{ opacity: 0, y: -6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.18, ease: [0.25, 0.46, 0.45, 0.94] }}
+                className="absolute left-0 top-full hidden w-full border-t border-black/8 bg-white shadow-[0_12px_40px_rgba(0,0,0,0.13)] lg:block"
+              >
+                <div className="mx-auto max-w-[1580px] px-10 py-8">
+                  <div className="grid grid-cols-[180px_auto_1fr_240px] gap-8">
 
-                  {/* Col 2 — Category columns */}
-                  <div className={`grid gap-8 ${megaColumns.length <= 2 ? 'grid-cols-2' : megaColumns.length === 3 ? 'grid-cols-3' : 'grid-cols-4'}`}>
-                    {megaColumns.map((category) => {
-                      const columnItems = getColumnItems(category);
-                      return (
-                        <div key={category.categoryId}>
-                          {category.imageUrl && (
-                            <Link to={categoryHref(category)} className="mb-4 block overflow-hidden rounded-2xl">
-                              <img src={category.imageUrl} alt={category.categoryName} className="h-32 w-full object-cover transition-transform duration-500 hover:scale-105" />
-                            </Link>
-                          )}
-                          <Link
-                            to={categoryHref(category)}
-                            className="group mb-3 inline-flex items-center gap-1.5 text-[13px] font-black uppercase tracking-wider text-black transition hover:text-[#2563EB]"
+                    {/* Col 1 — Quick links */}
+                    <motion.div
+                      initial={{ opacity: 0, x: -12 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ duration: 0.22, delay: 0.04, ease: 'easeOut' }}
+                      className="border-r border-black/6 pr-8"
+                    >
+                      <p className="mb-4 text-[10px] font-black uppercase tracking-[0.22em] text-gray-400">Khám phá</p>
+                      <div className="space-y-1">
+                        {[
+                          { to: '/client/products?sortBy=created_at&sortOrder=DESC', label: 'Hàng mới về', badge: 'NEW', badgeColor: '#2563EB' },
+                          { to: '/client/products?sort=popular', label: 'Bán chạy nhất', badge: null, badgeColor: '' },
+                          { to: '/client/products', label: 'Bộ sưu tập', badge: null, badgeColor: '' },
+                          { to: '/client/products?onSale=1', label: 'Ưu đãi hot', badge: 'SALE', badgeColor: '#dc2626' },
+                        ].map((item, i) => (
+                          <motion.div
+                            key={item.to}
+                            initial={{ opacity: 0, x: -8 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ duration: 0.18, delay: 0.06 + i * 0.05, ease: 'easeOut' }}
                           >
-                            {category.categoryName}
-                            <svg width="11" height="11" viewBox="0 0 12 12" fill="none" className="opacity-40 transition group-hover:opacity-100 group-hover:translate-x-0.5"><path d="M2 6h8M6 2l4 4-4 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                          </Link>
-                          <div className="space-y-2">
-                            <Link to={categoryHref(category)} className="block text-sm font-semibold text-gray-400 transition hover:text-black">Tất cả</Link>
-                            {columnItems.map((child) => (
-                              <Link
-                                key={child.categoryId}
-                                to={categoryHref(child)}
-                                className="block text-sm font-semibold text-gray-600 transition hover:text-black"
-                              >
-                                {child.categoryName}
-                              </Link>
-                            ))}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                            <Link
+                              to={item.to}
+                              className="group flex items-center justify-between rounded-xl px-3 py-2.5 text-sm font-semibold text-gray-700 transition-colors hover:bg-[#2563EB]/6 hover:text-[#2563EB]"
+                            >
+                              {item.label}
+                              {item.badge && (
+                                <span
+                                  className="rounded-full px-2 py-0.5 text-[9px] font-black text-white"
+                                  style={{ background: item.badgeColor }}
+                                >
+                                  {item.badge}
+                                </span>
+                              )}
+                            </Link>
+                          </motion.div>
+                        ))}
+                      </div>
+                      <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ duration: 0.2, delay: 0.28 }}
+                        className="mt-4 border-t border-black/6 pt-4"
+                      >
+                        <Link
+                          to="/client/products"
+                          className="flex items-center gap-2 text-[11px] font-black uppercase tracking-wider text-[#2563EB] hover:underline underline-offset-2"
+                        >
+                          Xem tất cả sản phẩm
+                          <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 6h8M6 2l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                        </Link>
+                      </motion.div>
+                    </motion.div>
 
-                  {/* Col 3 — Promo card */}
-                  <div className="flex flex-col gap-3">
-                    <Link
-                      to="/client/products?onSale=1"
-                      className="group relative flex flex-1 flex-col justify-end overflow-hidden rounded-2xl p-5"
-                      style={{ background: 'linear-gradient(135deg, #1e3a8a 0%, #2563EB 60%, #3b82f6 100%)', minHeight: 140 }}
+                    {/* Col 2 — Category columns */}
+                    <div className={`grid gap-8 ${megaColumns.length <= 2 ? 'grid-cols-2' : megaColumns.length === 3 ? 'grid-cols-3' : 'grid-cols-4'}`}>
+                      {megaColumns.map((category, colIdx) => {
+                        const columnItems = getColumnItems(category);
+                        return (
+                          <motion.div
+                            key={category.categoryId}
+                            initial={{ opacity: 0, y: 14 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.22, delay: 0.07 + colIdx * 0.07, ease: 'easeOut' }}
+                          >
+                            {category.imageUrl && (
+                              <Link to={categoryHref(category)} className="mb-4 block overflow-hidden rounded-2xl">
+                                <img src={category.imageUrl} alt={category.categoryName} className="h-32 w-full object-cover transition-transform duration-500 hover:scale-105" />
+                              </Link>
+                            )}
+                            <Link
+                              to={categoryHref(category)}
+                              className="group mb-3 inline-flex items-center gap-1.5 text-[13px] font-black uppercase tracking-wider text-black transition hover:text-[#2563EB]"
+                            >
+                              {category.categoryName}
+                              <svg width="11" height="11" viewBox="0 0 12 12" fill="none" className="opacity-40 transition-all group-hover:opacity-100 group-hover:translate-x-0.5"><path d="M2 6h8M6 2l4 4-4 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                            </Link>
+                            <div className="space-y-2">
+                              <Link to={categoryHref(category)} className="block text-sm font-semibold text-gray-400 transition hover:text-black">Tất cả</Link>
+                              {columnItems.map((child, linkIdx) => (
+                                <motion.div
+                                  key={child.categoryId}
+                                  initial={{ opacity: 0, x: -6 }}
+                                  animate={{ opacity: 1, x: 0 }}
+                                  transition={{ duration: 0.15, delay: 0.14 + colIdx * 0.07 + linkIdx * 0.04 }}
+                                >
+                                  <Link
+                                    to={categoryHref(child)}
+                                    className="group/link relative block overflow-hidden text-sm font-semibold text-gray-600 transition-colors hover:text-black"
+                                  >
+                                    <span className="relative">
+                                      {child.categoryName}
+                                      <span className="absolute -bottom-0.5 left-0 h-px w-0 bg-black transition-all duration-200 group-hover/link:w-full" />
+                                    </span>
+                                  </Link>
+                                </motion.div>
+                              ))}
+                            </div>
+                          </motion.div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Col 3 — Featured products */}
+                    <motion.div
+                      initial={{ opacity: 0, y: 12 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.22, delay: 0.12, ease: 'easeOut' }}
+                      className="border-l border-black/6 pl-8"
                     >
-                      <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(circle at 80% 20%, #fff 0%, transparent 60%)' }} />
-                      <span className="relative mb-1 text-[10px] font-black uppercase tracking-[0.2em] text-blue-200">Ưu đãi</span>
-                      <p className="relative text-lg font-black leading-tight text-white">Giảm đến<br />50% hôm nay</p>
-                      <span className="relative mt-3 inline-flex w-fit items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-black text-[#2563EB] transition group-hover:bg-blue-50">
-                        Mua ngay
-                        <svg width="10" height="10" viewBox="0 0 12 12" fill="none"><path d="M2 6h8M6 2l4 4-4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                      </span>
-                    </Link>
-                    <Link
-                      to="/client/style-advisor"
-                      className="group flex items-center gap-3 rounded-2xl border border-[#2563EB]/15 bg-[#eff6ff] px-4 py-3.5 transition hover:border-[#2563EB]/30 hover:bg-[#dbeafe]/60"
+                      <p className="mb-4 text-[10px] font-black uppercase tracking-[0.22em] text-gray-400">Nổi bật</p>
+                      {activeMegaProducts.length > 0 ? (
+                        <div className="space-y-3">
+                          {activeMegaProducts.map((p, i) => (
+                            <motion.div
+                              key={p.productId}
+                              initial={{ opacity: 0, y: 8 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ duration: 0.18, delay: 0.18 + i * 0.07 }}
+                            >
+                              <Link
+                                to={`/client/products/${p.productId}`}
+                                className="group flex items-center gap-3 rounded-xl p-2 transition-colors hover:bg-gray-50"
+                              >
+                                <div className="h-16 w-14 shrink-0 overflow-hidden rounded-xl bg-gray-100">
+                                  {p.primaryImageUrl ? (
+                                    <img
+                                      src={p.primaryImageUrl}
+                                      alt={p.productName}
+                                      className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                                    />
+                                  ) : (
+                                    <div className="flex h-full items-center justify-center">
+                                      <Shirt size={18} className="text-gray-300" />
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <p className="line-clamp-2 text-xs font-semibold leading-tight text-gray-700 transition-colors group-hover:text-black">
+                                    {p.productName}
+                                  </p>
+                                  <div className="mt-1.5 flex items-center gap-1.5">
+                                    <span className="text-sm font-black text-[#2563EB]">
+                                      {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(p.effectivePrice))}
+                                    </span>
+                                    {p.basePrice && Number(p.basePrice) > Number(p.effectivePrice) && (
+                                      <span className="text-[10px] text-gray-400 line-through">
+                                        {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(p.basePrice))}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </Link>
+                            </motion.div>
+                          ))}
+                          <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            transition={{ duration: 0.2, delay: 0.42 }}
+                          >
+                            <Link
+                              to={activeMega ? categoryHref(activeMega) : '/client/products'}
+                              className="mt-1 flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wider text-[#2563EB] hover:underline underline-offset-2"
+                            >
+                              Xem thêm
+                              <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2 6h8M6 2l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                            </Link>
+                          </motion.div>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          {[1, 2, 3].map((i) => (
+                            <div key={i} className="flex items-center gap-3 animate-pulse">
+                              <div className="h-16 w-14 shrink-0 rounded-xl bg-gray-100" />
+                              <div className="flex-1 space-y-2">
+                                <div className="h-3 w-4/5 rounded bg-gray-100" />
+                                <div className="h-3 w-3/5 rounded bg-gray-100" />
+                                <div className="h-3 w-2/5 rounded bg-gray-100" />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </motion.div>
+
+                    {/* Col 4 — Promo card */}
+                    <motion.div
+                      initial={{ opacity: 0, x: 14 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ duration: 0.24, delay: 0.14, ease: 'easeOut' }}
+                      className="flex flex-col gap-3"
                     >
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#2563EB] text-white">
-                        <Sparkles size={15} />
-                      </div>
-                      <div>
-                        <p className="text-[11px] font-black text-[#1e3a8a]">AI Tư Vấn Phối Đồ</p>
-                        <p className="text-[10px] text-[#3b82f6]">Gợi ý outfit cá nhân hóa</p>
-                      </div>
-                    </Link>
+                      {/* Main promo — dark premium card */}
+                      <motion.div whileHover={{ scale: 1.02 }} transition={{ duration: 0.2 }} className="flex-1">
+                        <Link
+                          to="/client/products?onSale=1"
+                          className="group relative flex h-full flex-col justify-end overflow-hidden rounded-2xl p-5"
+                          style={{ background: 'linear-gradient(145deg, #0f0c29 0%, #302b63 55%, #1a1a4e 100%)', minHeight: 155 }}
+                        >
+                          {/* Floating orb — violet */}
+                          <motion.div
+                            className="pointer-events-none absolute rounded-full"
+                            style={{ width: 90, height: 90, background: 'rgba(167,139,250,0.22)', top: -28, right: -18, filter: 'blur(20px)' }}
+                            animate={{ y: [0, -12, 0], scale: [1, 1.14, 1] }}
+                            transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
+                          />
+                          {/* Floating orb — pink */}
+                          <motion.div
+                            className="pointer-events-none absolute rounded-full"
+                            style={{ width: 56, height: 56, background: 'rgba(236,72,153,0.28)', top: 18, right: 36, filter: 'blur(13px)' }}
+                            animate={{ y: [0, 10, 0], x: [0, -6, 0] }}
+                            transition={{ duration: 3.5, repeat: Infinity, ease: 'easeInOut', delay: 0.6 }}
+                          />
+                          {/* Shimmer sweep */}
+                          <motion.div
+                            className="pointer-events-none absolute inset-0"
+                            style={{ background: 'linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.07) 50%, transparent 70%)' }}
+                            animate={{ x: ['-100%', '180%'] }}
+                            transition={{ duration: 2.6, repeat: Infinity, ease: 'linear', repeatDelay: 2.4 }}
+                          />
+                          {/* Twinkling stars */}
+                          {([{ top: '22%', left: '18%', delay: 0 }, { top: '48%', left: '72%', delay: 0.9 }, { top: '14%', left: '58%', delay: 1.6 }]).map((pos, i) => (
+                            <motion.div
+                              key={i}
+                              className="pointer-events-none absolute h-1 w-1 rounded-full bg-white"
+                              style={{ top: pos.top, left: pos.left }}
+                              animate={{ opacity: [0, 1, 0], scale: [0, 1.6, 0] }}
+                              transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut', delay: pos.delay }}
+                            />
+                          ))}
+                          {/* Flash Sale badge */}
+                          <div className="relative mb-2">
+                            <motion.span
+                              className="inline-flex items-center gap-1.5 rounded-full border border-pink-400/30 bg-pink-500/15 px-2.5 py-0.5 text-[9px] font-black uppercase tracking-widest text-pink-300"
+                              animate={{ opacity: [0.65, 1, 0.65] }}
+                              transition={{ duration: 1.8, repeat: Infinity }}
+                            >
+                              <span className="h-1.5 w-1.5 rounded-full bg-pink-400" style={{ boxShadow: '0 0 5px #f472b6' }} />
+                              FLASH SALE
+                            </motion.span>
+                          </div>
+                          {/* Big discount % */}
+                          <div className="relative">
+                            <p
+                              className="text-[44px] font-black leading-none"
+                              style={{ background: 'linear-gradient(135deg, #f9a8d4 0%, #c084fc 50%, #818cf8 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}
+                            >
+                              50%
+                            </p>
+                            <p className="relative -mt-0.5 text-[11px] font-medium text-purple-200/60">Giảm giá hôm nay</p>
+                          </div>
+                          {/* CTA */}
+                          <span className="relative mt-3 inline-flex w-fit items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-black text-white backdrop-blur-sm transition-all group-hover:border-white/30 group-hover:bg-white/20">
+                            Mua ngay
+                            <svg width="10" height="10" viewBox="0 0 12 12" fill="none" className="transition-transform group-hover:translate-x-0.5"><path d="M2 6h8M6 2l4 4-4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                          </span>
+                        </Link>
+                      </motion.div>
+
+                      {/* AI Advisor card — purple gradient */}
+                      <motion.div whileHover={{ scale: 1.02 }} transition={{ duration: 0.2 }}>
+                        <Link
+                          to="/client/style-advisor"
+                          className="group relative flex items-center gap-3 overflow-hidden rounded-2xl px-4 py-3.5"
+                          style={{ background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)' }}
+                        >
+                          {/* Shimmer */}
+                          <motion.div
+                            className="pointer-events-none absolute inset-0"
+                            style={{ background: 'linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.1) 50%, transparent 70%)' }}
+                            animate={{ x: ['-100%', '180%'] }}
+                            transition={{ duration: 2, repeat: Infinity, ease: 'linear', repeatDelay: 3 }}
+                          />
+                          <motion.div
+                            className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/20 text-white"
+                            animate={{ rotate: [0, 8, -8, 0] }}
+                            transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut', delay: 1 }}
+                          >
+                            <Sparkles size={15} />
+                          </motion.div>
+                          <div className="relative">
+                            <p className="text-[11px] font-black text-white">AI Tư Vấn Phối Đồ</p>
+                            <p className="text-[10px] text-purple-200/80">Gợi ý outfit cá nhân hóa</p>
+                          </div>
+                          <motion.div
+                            className="relative ml-auto text-white/50 transition-colors group-hover:text-white/90"
+                            animate={{ x: [0, 3, 0] }}
+                            transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
+                          >
+                            <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 6h8M6 2l4 4-4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                          </motion.div>
+                        </Link>
+                      </motion.div>
+                    </motion.div>
+
                   </div>
                 </div>
-              </div>
-            </div>
-          )}
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* Actions */}
           <div className="ml-auto flex items-center gap-1 lg:gap-2">
@@ -455,45 +685,56 @@ export default function ClientLayout() {
                 </button>
               </form>
 
-              {showSuggestions && suggestions.length > 0 && (
-                <div className="absolute right-0 top-full mt-2 w-[380px] overflow-hidden rounded-2xl border border-black/10 bg-white shadow-xl">
-                  {suggestions.map((p) => (
-                    <button
-                      key={p.productId}
-                      type="button"
-                      onClick={() => handleSuggestionClick(p.productId)}
-                      className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-gray-50"
-                    >
-                      <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-gray-100">
-                        {p.primaryImageUrl ? (
-                          <img src={p.primaryImageUrl} alt="" className="h-full w-full object-cover" />
-                        ) : (
-                          <div className="flex h-full items-center justify-center">
-                            <Shirt size={16} className="text-gray-300" />
-                          </div>
-                        )}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="line-clamp-1 text-sm font-bold text-black">{p.productName}</p>
-                        <p className="text-sm font-black text-[#2538d5]">
-                          {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(p.effectivePrice))}
-                        </p>
-                      </div>
-                    </button>
-                  ))}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowSuggestions(false);
-                      void navigate(`/client/products?search=${encodeURIComponent(searchQuery)}`);
-                      setSearchQuery('');
-                    }}
-                    className="flex w-full items-center justify-center gap-1.5 border-t border-black/5 py-3 text-xs font-black text-[#2538d5] hover:bg-gray-50"
+              <AnimatePresence>
+                {showSuggestions && suggestions.length > 0 && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -6, scale: 0.98 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -6, scale: 0.98 }}
+                    transition={{ duration: 0.15, ease: 'easeOut' }}
+                    className="absolute right-0 top-full mt-2 w-[380px] overflow-hidden rounded-2xl border border-black/10 bg-white shadow-xl"
                   >
-                    <Search size={12} /> Xem tất cả kết quả
-                  </button>
-                </div>
-              )}
+                    {suggestions.map((p, i) => (
+                      <motion.button
+                        key={p.productId}
+                        initial={{ opacity: 0, x: -6 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ duration: 0.14, delay: i * 0.04 }}
+                        type="button"
+                        onClick={() => handleSuggestionClick(p.productId)}
+                        className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-gray-50"
+                      >
+                        <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-gray-100">
+                          {p.primaryImageUrl ? (
+                            <img src={p.primaryImageUrl} alt="" className="h-full w-full object-cover" />
+                          ) : (
+                            <div className="flex h-full items-center justify-center">
+                              <Shirt size={16} className="text-gray-300" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="line-clamp-1 text-sm font-bold text-black">{p.productName}</p>
+                          <p className="text-sm font-black text-[#2538d5]">
+                            {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(p.effectivePrice))}
+                          </p>
+                        </div>
+                      </motion.button>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowSuggestions(false);
+                        void navigate(`/client/products?search=${encodeURIComponent(searchQuery)}`);
+                        setSearchQuery('');
+                      }}
+                      className="flex w-full items-center justify-center gap-1.5 border-t border-black/5 py-3 text-xs font-black text-[#2538d5] hover:bg-gray-50"
+                    >
+                      <Search size={12} /> Xem tất cả kết quả
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
             <button
               onClick={() => setMobileOpen(true)}
