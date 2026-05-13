@@ -172,6 +172,7 @@ export default function Products() {
   const [loadError, setLoadError] = useState('');
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [addingId, setAddingId] = useState<string | null>(null);
+  const [selectedColorIds, setSelectedColorIds] = useState<Record<string, string>>({});
   const [wishlistedIds, setWishlistedIds] = useState<Set<string>>(new Set());
   const [togglingWishlistId, setTogglingWishlistId] = useState<string | null>(null);
   const [categoriesExpanded, setCategoriesExpanded] = useState(true);
@@ -392,6 +393,13 @@ export default function Products() {
       const sizeOk = quickAddSizeId ? variant.size?.sizeId === quickAddSizeId : true;
       return colorOk && sizeOk;
     }) ?? variants[0] ?? null;
+  };
+
+  const handleDirectAddVariant = async (product: Product, variantId: string, e: MouseEvent<HTMLButtonElement>) => {
+    if (!session) { void navigate('/client/login'); return; }
+    triggerCartFlyAnimation(e.currentTarget);
+    setAddingId(product.productId);
+    try { await addItem(product.productId, 1, variantId); } finally { setAddingId(null); }
   };
 
   const handleAddToCart = async (product: Product, e: MouseEvent<HTMLButtonElement>) => {
@@ -879,79 +887,71 @@ export default function Products() {
                   const outOfStock = product.quantityAvailable === 0;
                   const rating = Number(product.ratingAverage ?? 0);
                   const lowStock = !outOfStock && product.quantityAvailable <= 10;
-
                   const isList = viewMode === 'list';
+                  const selColorId = selectedColorIds[product.productId] ?? '';
+
+                  const displayImg = (() => {
+                    if (!selColorId || !product.variants?.length) return product.primaryImageUrl;
+                    const v = product.variants.find(vv => vv.color?.colorId === selColorId && (vv.images?.length ?? 0) > 0);
+                    return v?.images?.[0]?.imageUrl ?? product.primaryImageUrl;
+                  })();
+
+                  const quickSizes = (() => {
+                    if (!product.variants?.length) return product.sizeOptions ?? [];
+                    const seen = new Set<string>();
+                    const sizes: ProductSize[] = [];
+                    for (const v of product.variants) {
+                      if (!v.isActive) continue;
+                      if (selColorId && v.color?.colorId !== selColorId) continue;
+                      if (v.size && !seen.has(v.size.sizeId)) { seen.add(v.size.sizeId); sizes.push(v.size); }
+                    }
+                    return sizes.length > 0 ? sizes : (product.sizeOptions ?? []);
+                  })();
 
                   return (
                     <div
                       key={product.productId}
-                      className={`client-card-soft group overflow-hidden transition-all duration-300 hover:border-[#2563EB]/30 ${
-                        isList
-                          ? 'flex flex-row'
-                          : 'flex flex-col'
-                      }`}
+                      className={`client-card-soft group overflow-hidden transition-all duration-300 hover:border-[#2563EB]/30 ${isList ? 'flex flex-row' : 'flex flex-col'}`}
                     >
                       {/* Image area */}
                       <div
-                        className={`relative shrink-0 overflow-hidden bg-gray-50 ${
-                          isList ? 'w-32 self-stretch sm:w-40 md:w-48' : 'w-full'
-                        }`}
+                        className={`relative shrink-0 overflow-hidden bg-gray-50 ${isList ? 'w-32 self-stretch sm:w-40 md:w-48' : 'w-full'}`}
                         style={!isList ? { aspectRatio: '1/1' } : undefined}
                       >
-                        <Link
-                          to={`/client/products/${product.productId}`}
-                          className="absolute inset-0 block"
-                        >
-                          {/* Always render placeholder underneath; image hides itself on error */}
-                          <div
-                            className="absolute inset-0 flex items-center justify-center"
-                            style={{ background: '#F8FAFC' }}
-                            aria-hidden="true"
-                          >
+                        <Link to={`/client/products/${product.productId}`} className="absolute inset-0 block">
+                          <div className="absolute inset-0 flex items-center justify-center" style={{ background: '#F8FAFC' }} aria-hidden="true">
                             <Shirt size={32} className="opacity-20" style={{ color: '#2563EB' }} />
                           </div>
-                          {product.primaryImageUrl && (
+                          {displayImg && (
                             <img
-                              src={product.primaryImageUrl}
+                              src={displayImg}
                               alt={product.productName}
-                              className="relative h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                              onError={(e) => {
-                                (e.currentTarget as HTMLImageElement).style.display = 'none';
-                              }}
+                              className="relative h-full w-full object-cover transition-all duration-500 group-hover:scale-105"
+                              onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
                             />
                           )}
                         </Link>
 
-                        {/* Badges (top-left stack) */}
+                        {/* Badges */}
                         <div className={`absolute left-2 top-2 flex flex-col gap-1 ${isList ? '' : 'sm:left-3 sm:top-3 sm:gap-1.5'}`}>
                           {hasDiscount && discountPct > 0 && (
-                            <span className="rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-black text-white sm:px-2.5 sm:py-1 sm:text-[11px]">
-                              -{discountPct}%
-                            </span>
+                            <span className="rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-black text-white sm:px-2.5 sm:py-1 sm:text-[11px]">-{discountPct}%</span>
                           )}
                           {!isList && isNewProduct(product.createdAt) && (
-                            <span className="inline-flex items-center gap-0.5 rounded-full bg-[#DBEAFE] px-2 py-0.5 text-[10px] font-black text-[#2563EB]">
-                              <Sparkles size={9} /> Mới
-                            </span>
+                            <span className="inline-flex items-center gap-0.5 rounded-full bg-[#DBEAFE] px-2 py-0.5 text-[10px] font-black text-[#2563EB]"><Sparkles size={9} /> Mới</span>
                           )}
                           {!isList && isBestSeller(product) && (
-                            <span className="inline-flex items-center gap-0.5 rounded-full bg-[#F1F5F9] px-2 py-0.5 text-[10px] font-black text-[#0B0F19]">
-                              <Award size={9} /> Bán chạy
-                            </span>
+                            <span className="inline-flex items-center gap-0.5 rounded-full bg-[#F1F5F9] px-2 py-0.5 text-[10px] font-black text-[#0B0F19]"><Award size={9} /> Bán chạy</span>
                           )}
                         </div>
 
-                        {/* Wishlist always visible */}
+                        {/* Wishlist */}
                         {!isList && (
                           <button
                             onClick={() => void handleToggleWishlist(product.productId)}
                             disabled={togglingWishlistId === product.productId}
                             title={isWishlisted ? 'Bỏ yêu thích' : 'Yêu thích'}
-                            className={`absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full transition-all ${
-                              isWishlisted
-                                ? 'bg-red-50 text-red-500'
-                                : 'bg-white/95 text-gray-400 hover:text-red-400'
-                            }`}
+                            className={`absolute right-2 top-2 z-20 flex h-8 w-8 items-center justify-center rounded-full transition-all ${isWishlisted ? 'bg-red-50 text-red-500' : 'bg-white/95 text-gray-400 hover:text-red-400'}`}
                           >
                             <Heart size={14} fill={isWishlisted ? 'currentColor' : 'none'} />
                           </button>
@@ -959,10 +959,50 @@ export default function Products() {
 
                         {/* Out of stock overlay */}
                         {outOfStock && (
-                          <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-[2px]">
-                            <span className="rounded-full bg-white px-3 py-1 text-[10px] font-black text-gray-800 sm:px-4 sm:py-1.5 sm:text-xs">
-                              Hết hàng
-                            </span>
+                          <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/40 backdrop-blur-[2px]">
+                            <span className="rounded-full bg-white px-3 py-1 text-[10px] font-black text-gray-800 sm:px-4 sm:py-1.5 sm:text-xs">Hết hàng</span>
+                          </div>
+                        )}
+
+                        {/* Quick size picker — slides up on hover (grid mode) */}
+                        {!isList && !outOfStock && (
+                          <div className="absolute bottom-0 left-0 right-0 z-10 translate-y-full opacity-0 transition-all duration-300 ease-out group-hover:translate-y-0 group-hover:opacity-100">
+                            <div className="bg-white/96 px-3 py-2.5 backdrop-blur-sm">
+                              <p className="mb-2 text-[10px] font-black uppercase tracking-wider text-[#0B0F19]">Thêm nhanh vào giỏ +</p>
+                              {quickSizes.length > 0 ? (
+                                <div className="flex flex-wrap gap-1.5 pb-0.5">
+                                  {quickSizes.map((size) => {
+                                    const variant = product.variants?.find(
+                                      v => v.isActive && v.stockQuantity > 0 && (!selColorId || v.color?.colorId === selColorId) && v.size?.sizeId === size.sizeId
+                                    );
+                                    return (
+                                      <button
+                                        key={size.sizeId}
+                                        type="button"
+                                        disabled={!variant || addingId === product.productId}
+                                        onClick={(e) => { if (variant) void handleDirectAddVariant(product, variant.variantId, e); }}
+                                        className={`min-w-[34px] rounded-lg px-2 py-1.5 text-[11px] font-bold transition-colors ${
+                                          variant
+                                            ? 'border border-black/10 bg-white text-[#0B0F19] hover:border-[#2563EB] hover:bg-[#2563EB] hover:text-white active:scale-95'
+                                            : 'cursor-not-allowed border border-gray-100 bg-gray-50 text-gray-300 line-through'
+                                        }`}
+                                      >
+                                        {size.sizeCode ?? size.sizeName}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              ) : (
+                                <button
+                                  type="button"
+                                  disabled={addingId === product.productId}
+                                  onClick={(e) => void handleAddToCart(product, e)}
+                                  className="w-full rounded-lg bg-[#1D4ED8] py-1.5 text-xs font-bold text-white transition hover:bg-[#1e40af] disabled:opacity-60"
+                                >
+                                  {addingId === product.productId ? <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" /> : 'Thêm vào giỏ'}
+                                </button>
+                              )}
+                            </div>
                           </div>
                         )}
                       </div>
@@ -975,46 +1015,37 @@ export default function Products() {
                               {product.category.categoryName}
                             </p>
                           )}
-
                           <Link
                             to={`/client/products/${product.productId}`}
-                            className={`block font-bold leading-snug text-[#0B0F19] transition hover:text-[#2563EB] line-clamp-2 ${
-                              isList ? 'text-sm sm:text-base' : 'text-sm'
-                            }`}
+                            className={`block font-bold leading-snug text-[#0B0F19] transition hover:text-[#2563EB] line-clamp-2 ${isList ? 'text-sm sm:text-base' : 'text-sm'}`}
                           >
                             {product.productName}
                           </Link>
 
-                          <div className={`mt-1 flex flex-wrap items-center gap-2 ${isList ? '' : ''}`}>
-                            {rating > 0 ? (
+                          <div className="mt-1 flex flex-wrap items-center gap-2">
+                            {rating > 0 && (
                               <div className="flex items-center gap-1">
                                 <div className="flex">
                                   {[1, 2, 3, 4, 5].map((s) => (
-                                    <Star
-                                      key={s}
-                                      size={10}
-                                      fill={s <= Math.round(rating) ? '#f59e0b' : 'none'}
-                                      className={s <= Math.round(rating) ? 'text-amber-400' : 'text-gray-200'}
-                                    />
+                                    <Star key={s} size={10} fill={s <= Math.round(rating) ? '#f59e0b' : 'none'} className={s <= Math.round(rating) ? 'text-amber-400' : 'text-gray-200'} />
                                   ))}
                                 </div>
-                                {product.ratingCount > 0 && (
-                                  <span className="text-[10px] text-gray-400">({product.ratingCount})</span>
-                                )}
+                                {product.ratingCount > 0 && <span className="text-[10px] text-gray-400">({product.ratingCount})</span>}
                               </div>
-                            ) : null}
-                            {product.origin && (
-                              <span className="text-[10px] text-gray-400">📍 {product.origin.originName}</span>
                             )}
+                            {product.origin && <span className="text-[10px] text-gray-400">📍 {product.origin.originName}</span>}
                           </div>
 
+                          {/* Color swatches — grid & list */}
                           {(product.colorOptions?.length ?? 0) > 0 && (
                             <div className="mt-2 flex flex-wrap items-center gap-1.5">
                               {product.colorOptions?.slice(0, 6).map((color) => (
-                                <span
+                                <button
                                   key={color.colorId}
-                                  className="h-5 w-8 rounded-full border border-white shadow-[0_0_0_1px_rgba(0,0,0,0.12)]"
+                                  type="button"
+                                  onClick={() => setSelectedColorIds(prev => ({ ...prev, [product.productId]: prev[product.productId] === color.colorId ? '' : color.colorId }))}
                                   title={color.colorName}
+                                  className={`h-5 w-8 rounded-full border-2 transition-transform hover:scale-105 ${selColorId === color.colorId ? 'border-[#2563EB]' : 'border-transparent shadow-[0_0_0_1px_rgba(0,0,0,0.12)]'}`}
                                   style={{ background: color.colorCode ?? '#e5e7eb' }}
                                 />
                               ))}
@@ -1024,23 +1055,17 @@ export default function Products() {
                             </div>
                           )}
 
-                          {/* List-mode badges row */}
+                          {/* List-mode badges */}
                           {isList && (
                             <div className="mt-1.5 flex flex-wrap gap-1">
                               {isNewProduct(product.createdAt) && (
-                                <span className="inline-flex items-center gap-0.5 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-600">
-                                  <Sparkles size={9} /> Mới
-                                </span>
+                                <span className="inline-flex items-center gap-0.5 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-600"><Sparkles size={9} /> Mới</span>
                               )}
                               {isBestSeller(product) && (
-                                <span className="inline-flex items-center gap-0.5 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-600">
-                                  <Award size={9} /> Bán chạy
-                                </span>
+                                <span className="inline-flex items-center gap-0.5 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-600"><Award size={9} /> Bán chạy</span>
                               )}
                               {product.isFeatured && (
-                                <span className="rounded-full bg-purple-50 px-2 py-0.5 text-[10px] font-bold text-purple-600">
-                                  ⭐ Nổi bật
-                                </span>
+                                <span className="rounded-full bg-purple-50 px-2 py-0.5 text-[10px] font-bold text-purple-600">⭐ Nổi bật</span>
                               )}
                             </div>
                           )}
@@ -1048,30 +1073,20 @@ export default function Products() {
 
                         {/* Price + actions */}
                         <div className={`mt-2 ${isList ? 'border-t border-black/5 pt-2 sm:mt-3 sm:pt-3' : 'border-t border-black/5 pt-2'}`}>
-                          <div className="mb-2">
+                          <div className={isList ? 'mb-2' : ''}>
                             <div className="flex flex-wrap items-baseline gap-1.5">
-                              <span
-                                className={`font-black ${isList ? 'text-base sm:text-lg' : 'text-base'}`}
-                                style={{ color: '#2563EB' }}
-                              >
+                              <span className={`font-black ${isList ? 'text-base sm:text-lg' : 'text-base'}`} style={{ color: '#2563EB' }}>
                                 {effective > 0 ? formatPrice(effective) : 'Liên hệ'}
                               </span>
-                              {hasDiscount && (
-                                <span className="text-xs text-gray-400 line-through">{formatPrice(base)}</span>
-                              )}
-                              {product.unit && (
-                                <span className="text-[10px] text-gray-400">/ {product.unit}</span>
-                              )}
+                              {hasDiscount && <span className="text-xs text-gray-400 line-through">{formatPrice(base)}</span>}
+                              {product.unit && <span className="text-[10px] text-gray-400">/ {product.unit}</span>}
                             </div>
-                            {lowStock && (
-                              <p className="mt-0.5 text-[10px] font-semibold text-orange-500">
-                                Chỉ còn {product.quantityAvailable} sản phẩm
-                              </p>
-                            )}
+                            {lowStock && <p className="mt-0.5 text-[10px] font-semibold text-orange-500">Chỉ còn {product.quantityAvailable} sản phẩm</p>}
                           </div>
 
-                          <div className="flex gap-2">
-                            {isList ? (
+                          {/* Buttons: LIST MODE ONLY */}
+                          {isList && (
+                            <div className="flex gap-2">
                               <button
                                 onClick={() => setQuickViewId(product.productId)}
                                 className="client-pill-outline flex items-center justify-center px-3 py-2 text-xs font-bold"
@@ -1079,31 +1094,20 @@ export default function Products() {
                               >
                                 <Eye size={14} />
                               </button>
-                            ) : (
-                              <Link
-                                to={`/client/products/${product.productId}`}
-                                className="client-pill-outline flex items-center justify-center px-3 py-2 text-xs font-bold"
+                              <button
+                                disabled={addingId === product.productId || outOfStock}
+                                onClick={(e) => void handleAddToCart(product, e)}
+                                className="client-pill-primary flex flex-1 items-center justify-center gap-1.5 py-2 text-xs font-bold disabled:opacity-50"
+                                style={{ background: outOfStock ? '#9ca3af' : '#1D4ED8' }}
                               >
-                                Xem
-                              </Link>
-                            )}
-                            <button
-                              disabled={addingId === product.productId || outOfStock}
-                              onClick={(e) => void handleAddToCart(product, e)}
-                              className="client-pill-primary flex flex-1 items-center justify-center gap-1.5 py-2 text-xs font-bold disabled:opacity-50"
-                              style={{ background: outOfStock ? '#9ca3af' : '#1D4ED8' }}
-                            >
-                              {addingId === product.productId ? (
-                                <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                              ) : (
-                                <>
-                                  <ShoppingCart size={12} />
-                                  <span className="hidden sm:inline">Thêm vào giỏ</span>
-                                  <span className="sm:hidden">Thêm</span>
-                                </>
-                              )}
-                            </button>
-                          </div>
+                                {addingId === product.productId ? (
+                                  <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                                ) : (
+                                  <><ShoppingCart size={12} /><span>Thêm vào giỏ</span></>
+                                )}
+                              </button>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
