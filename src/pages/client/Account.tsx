@@ -1,6 +1,6 @@
 ﻿import { useState, useEffect, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { User, KeyRound, MapPin, Package, LogOut, Save, LoaderCircle, CheckCircle2, AlertCircle, Heart, ImagePlus, Award } from 'lucide-react';
+import { User, KeyRound, MapPin, Package, LogOut, Save, LoaderCircle, CheckCircle2, AlertCircle, Heart, ImagePlus, Award, RotateCcw, MessageSquareText } from 'lucide-react';
 import { clientApi, logoutClient } from '../../lib/client-api';
 import { useClientSession } from '../../hooks/useClientSession';
 
@@ -277,6 +277,18 @@ export default function Account() {
                 <Package size={15} /> Lịch sử đơn hàng
               </Link>
               <Link
+                to="/client/returns"
+                className="flex w-full items-center gap-3 px-4 py-3 text-sm font-semibold text-[#0B0F19] transition hover:bg-black/3"
+              >
+                <RotateCcw size={15} /> Trả hàng của tôi
+              </Link>
+              <Link
+                to="/client/my-activity"
+                className="flex w-full items-center gap-3 px-4 py-3 text-sm font-semibold text-[#0B0F19] transition hover:bg-black/3"
+              >
+                <MessageSquareText size={15} /> Đánh giá & bình luận
+              </Link>
+              <Link
                 to="/client/wishlist"
                 className="flex w-full items-center gap-3 px-4 py-3 text-sm font-semibold text-[#0B0F19] transition hover:bg-black/3"
               >
@@ -394,5 +406,4 @@ export default function Account() {
     </div>
   );
 }
-
 

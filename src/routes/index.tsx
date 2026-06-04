@@ -7,6 +7,7 @@ import NotFound from '../components/shared/NotFound';
 import ProtectedAdminRoute from '../components/shared/ProtectedAdminRoute';
 import ProtectedSuperAdminRoute from '../components/shared/ProtectedSuperAdminRoute';
 import { ROUTE_PATHS } from './route-names';
+import AgriInventoryPageDirect from '../pages/AgriInventory';
 
 // Admin pages
 const DashboardPage = lazy(() => import('../features/admin/dashboard/page'));
@@ -63,11 +64,15 @@ const ClientRegisterPage = lazy(() => import('../features/client/register/page')
 const ClientAccountPage = lazy(() => import('../features/client/account/page'));
 const ClientOrdersPage = lazy(() => import('../features/client/orders/page'));
 const ClientOrderDetailPage = lazy(() => import('../features/client/order-detail/page'));
+const ClientReturnsPage = lazy(() => import('../pages/client/Returns'));
+const ClientMyActivityPage = lazy(() => import('../pages/client/MyActivity'));
 const ClientWishlistPage = lazy(() => import('../features/client/wishlist/page'));
 const ClientAddressesPage = lazy(() => import('../features/client/addresses/page'));
 const ClientRiceDiagnosisPage = lazy(() => import('../features/client/rice-diagnosis/page'));
 const ClientStyleAdvisorPage = lazy(() => import('../features/client/style-advisor/page'));
 const ClientVirtualTryOnPage = lazy(() => import('../features/client/virtual-try-on/page'));
+
+const AgriInventoryPage = lazy(() => import('../pages/AgriInventory'));
 
 const LoginPage = lazy(() => import('../pages/Login'));
 const SuperLoginPage = lazy(() => import('../pages/SuperLogin'));
@@ -140,6 +145,7 @@ export const router = createBrowserRouter([
               { path: 'aging-debt', element: withSuspense(<AgingDebtPage />) },
               { path: 'credit-limits', element: withSuspense(<CreditLimitsPage />) },
               { path: 'audit-logs', element: withSuspense(<AuditLogsPage />) },
+              { path: 'agri-inventory', element: withSuspense(<AgriInventoryPage />) },
             ],
           },
         ],
@@ -168,6 +174,8 @@ export const router = createBrowserRouter([
           { path: 'account', element: clientSuspense(<ClientAccountPage />) },
           { path: 'orders', element: clientSuspense(<ClientOrdersPage />) },
           { path: 'orders/:id', element: clientSuspense(<ClientOrderDetailPage />) },
+          { path: 'returns', element: clientSuspense(<ClientReturnsPage />) },
+          { path: 'my-activity', element: clientSuspense(<ClientMyActivityPage />) },
           { path: 'wishlist', element: clientSuspense(<ClientWishlistPage />) },
           { path: 'account/addresses', element: clientSuspense(<ClientAddressesPage />) },
           { path: 'style-advisor', element: clientSuspense(<ClientStyleAdvisorPage />) },
@@ -175,6 +183,7 @@ export const router = createBrowserRouter([
           { path: 'rice-diagnosis', element: clientSuspense(<ClientRiceDiagnosisPage />) },
         ],
       },
+      { path: 'agri-inventory', element: <AgriInventoryPageDirect /> },
       { path: 'client/login', element: withSuspense(<LoginPage />) },
       { path: 'login', element: withSuspense(<LoginPage />) },
       { path: 'super-login', element: withSuspense(<SuperLoginPage />) },
@@ -183,5 +192,4 @@ export const router = createBrowserRouter([
     ],
   },
 ]);
-
 

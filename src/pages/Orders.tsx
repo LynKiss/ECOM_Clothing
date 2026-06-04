@@ -15,6 +15,7 @@ import { useLanguage } from '../i18n/language-context';
 import { useToast } from '../hooks/useToast';
 import Pagination from '../components/shared/Pagination';
 import Modal from '../components/shared/Modal';
+import { resolveMediaUrl } from '../lib/media-url';
 import {
   TRACKING_MODE_LABELS,
   TRACKING_SOURCE_LABELS,
@@ -38,8 +39,14 @@ type PaymentStatus = 'unpaid' | 'paid' | 'failed' | 'refunded';
 type OrderItem = {
   id: string;
   productId: string;
+  variantId?: string | null;
   productName: string;
+  imageUrl?: string | null;
+  sku?: string | null;
+  colorName?: string | null;
+  sizeName?: string | null;
   quantity: number;
+  quantityDelivered?: number;
   unitPrice: string;
   lineTotal: string;
 };
@@ -1034,25 +1041,52 @@ export default function Orders() {
                     {isVietnamese ? 'Sản phẩm trong đơn' : 'Order items'}
                   </h3>
                   <div className="mt-4 space-y-3">
-                    {selectedOrder.items.map((item) => (
-                      <div
-                        key={item.id}
-                        className="flex items-center justify-between gap-4 rounded-xl bg-white px-4 py-3"
-                      >
-                        <div>
-                          <p className="font-semibold text-on-surface">{item.productName}</p>
-                          <p className="text-xs text-on-surface-variant">{item.productId}</p>
+                    {selectedOrder.items.map((item) => {
+                      const imageUrl = resolveMediaUrl(item.imageUrl);
+                      const variantText = [item.colorName, item.sizeName, item.sku]
+                        .filter(Boolean)
+                        .join(' · ');
+                      return (
+                        <div
+                          key={item.id}
+                          className="grid gap-3 rounded-xl bg-white px-4 py-3 sm:grid-cols-[56px_1fr_auto] sm:items-center"
+                        >
+                          <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-xl bg-surface-variant">
+                            {imageUrl ? (
+                              <img
+                                src={imageUrl}
+                                alt={item.productName}
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              <ShoppingCart size={20} className="text-primary" />
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="line-clamp-2 font-semibold text-on-surface">
+                              {item.productName}
+                            </p>
+                            <p className="mt-0.5 truncate text-xs text-on-surface-variant">
+                              {variantText || item.productId}
+                            </p>
+                            <p className="mt-0.5 text-xs text-on-surface-variant">
+                              Đã đặt: {item.quantity}
+                              {typeof item.quantityDelivered === 'number'
+                                ? ` · Đã giao: ${item.quantityDelivered || item.quantity}`
+                                : ''}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-semibold text-on-surface">
+                              {item.quantity} x {currency.format(Number(item.unitPrice))}
+                            </p>
+                            <p className="text-xs text-on-surface-variant">
+                              {currency.format(Number(item.lineTotal))}
+                            </p>
+                          </div>
                         </div>
-                        <div className="text-right">
-                          <p className="font-semibold text-on-surface">
-                            {item.quantity} x {currency.format(Number(item.unitPrice))}
-                          </p>
-                          <p className="text-xs text-on-surface-variant">
-                            {currency.format(Number(item.lineTotal))}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               </div>
@@ -1502,14 +1536,30 @@ function getPaymentMethodLabel(method: string | null | undefined, isVietnamese: 
 
 function normalizeHistoryNote(note: string | null): string {
   if (!note) return '';
+  const repaired = repairMojibake(note);
   const map: Record<string, string> = {
     'Order created': 'Đơn hàng đã được tạo',
     'Guest order created': 'Đơn hàng khách đã được tạo',
     'Order status updated by admin': 'Cập nhật trạng thái bởi admin',
     'Order cancelled by user': 'Khách hàng đã hủy đơn',
     'Backorder cancelled': 'Đã hủy đơn chờ hàng',
+    'ÄÆ¡n hÃ ng khÃ¡ch Ä‘Ã£ Ä‘Æ°á»£c táº¡o': 'Đơn hàng khách đã được tạo',
+    'ÄÆ¡n hÃ ng Ä‘Ã£ Ä‘Æ°á»£c táº¡o': 'Đơn hàng đã được tạo',
+    'Cáº­p nháº­t tráº¡ng thÃ¡i bá»Ÿi admin': 'Cập nhật trạng thái bởi admin',
+    'KhÃ¡ch hÃ ng xÃ¡c nháº­n Ä‘Ã£ nháº­n hÃ ng': 'Khách hàng xác nhận đã nhận hàng',
   };
-  return map[note] ?? note;
+  return map[note] ?? map[repaired] ?? repaired;
+}
+
+function repairMojibake(value: string): string {
+  if (!/[ÃÂÄáºÆâ]/.test(value)) return value;
+  try {
+    const bytes = Uint8Array.from(value, (char) => char.charCodeAt(0) & 0xff);
+    const decoded = new TextDecoder('utf-8', { fatal: false }).decode(bytes);
+    return decoded.replace(/�+/g, '').trim() || value;
+  } catch {
+    return value;
+  }
 }
 
 function getStatusLabel(status: OrderStatus, isVietnamese: boolean) {
@@ -1523,7 +1573,7 @@ function getStatusLabel(status: OrderStatus, isVietnamese: boolean) {
       delivered: 'Đã giao',
       partial_delivered: 'Giao một phần',
       cancelled: 'Đã hủy',
-      returned: 'Đã hoàn',
+      returned: 'Đã trả hàng',
     }
     : {
       backordered: 'Backordered',

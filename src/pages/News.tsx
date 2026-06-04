@@ -390,7 +390,7 @@ export default function News() {
                     <img
                       src={article.titleImageUrl}
                       alt={article.title}
-                      className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                      className="h-full w-full object-contain p-2 transition-transform group-hover:scale-[1.02]"
                     />
                   ) : (
                     <div className="flex h-full items-center justify-center text-on-surface-variant/40">
@@ -569,11 +569,11 @@ export default function News() {
             <FieldLabel label={isVietnamese ? 'Ảnh bìa' : 'Cover image'}>
               <div className="space-y-2">
                 {coverPreview ? (
-                  <div className="relative overflow-hidden rounded-2xl">
+                  <div className="relative overflow-hidden rounded-2xl bg-surface">
                     <img
                       src={coverPreview}
                       alt="Cover preview"
-                      className="h-40 w-full object-cover"
+                      className="h-40 w-full object-contain p-2"
                     />
                     <button
                       type="button"

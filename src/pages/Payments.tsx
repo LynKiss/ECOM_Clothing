@@ -49,7 +49,32 @@ type TxResponse = {
   items: TxItem[];
 };
 
-type PaymentTab = 'config' | 'transactions' | 'smtp';
+type RefundItem = {
+  refundId: string;
+  orderId: string;
+  returnId: string | null;
+  reason: string;
+  refundStatus: 'pending' | 'approved' | 'completed' | 'failed';
+  amount: string;
+  paymentProvider: string | null;
+  manualReference: string | null;
+  note: string | null;
+  createdAt: string;
+  order: {
+    status: string;
+    paymentStatus: string;
+    totalPayment: string;
+    fullName: string;
+    phone: string;
+  } | null;
+};
+
+type RefundResponse = {
+  meta: { page: number; limit: number; total: number; totalPages: number };
+  items: RefundItem[];
+};
+
+type PaymentTab = 'config' | 'transactions' | 'refunds' | 'smtp';
 
 type MethodFieldKey = Exclude<
   keyof PaymentMethodConfig,
@@ -229,7 +254,9 @@ function mergeSmtpConfig(settings?: Partial<SmtpConfig> | null): SmtpConfig {
 }
 
 function resolvePaymentTab(value: string | null): PaymentTab {
-  return value === 'transactions' || value === 'smtp' ? value : 'config';
+  return value === 'transactions' || value === 'smtp' || value === 'refunds'
+    ? value
+    : 'config';
 }
 
 export default function Payments() {
@@ -251,6 +278,7 @@ export default function Payments() {
   const [savedKey, setSavedKey] = useState<string | null>(null);
 
   const [items, setItems] = useState<TxItem[]>([]);
+  const [refundItems, setRefundItems] = useState<RefundItem[]>([]);
   const [meta, setMeta] = useState({
     page: 1,
     limit: 20,
@@ -267,7 +295,19 @@ export default function Payments() {
   const [filterStatus, setFilterStatus] = useState(
     searchParams.get('status') ?? '',
   );
+  const [refundStatus, setRefundStatus] = useState(
+    searchParams.get('refundStatus') ?? '',
+  );
   const [page, setPage] = useState(Number(searchParams.get('page') ?? '1'));
+  const [refundPage, setRefundPage] = useState(
+    Number(searchParams.get('refundPage') ?? '1'),
+  );
+  const [refundMeta, setRefundMeta] = useState({
+    page: 1,
+    limit: 20,
+    total: 0,
+    totalPages: 1,
+  });
 
   const dateFormatter = useMemo(
     () =>
@@ -335,6 +375,14 @@ export default function Payments() {
         next.set('page', String(page));
       }
     }
+    if (activeTab === 'refunds') {
+      if (refundStatus) {
+        next.set('refundStatus', refundStatus);
+      }
+      if (refundPage > 1) {
+        next.set('refundPage', String(refundPage));
+      }
+    }
 
     setSearchParams(next, { replace: true });
   }, [
@@ -342,6 +390,8 @@ export default function Payments() {
     filterProvider,
     filterStatus,
     page,
+    refundPage,
+    refundStatus,
     search,
     setSearchParams,
   ]);
@@ -349,6 +399,10 @@ export default function Payments() {
   useEffect(() => {
     setPage(1);
   }, [filterProvider, filterStatus, search]);
+
+  useEffect(() => {
+    setRefundPage(1);
+  }, [refundStatus]);
 
   useEffect(() => {
     if (activeTab !== 'transactions') {
@@ -404,6 +458,46 @@ export default function Payments() {
     reloadKey,
     showToast,
   ]);
+
+  useEffect(() => {
+    if (activeTab !== 'refunds') {
+      return;
+    }
+
+    let cancelled = false;
+    setLoading(true);
+    const query = new URLSearchParams({
+      page: String(refundPage),
+      limit: '20',
+    });
+    if (refundStatus) {
+      query.set('status', refundStatus);
+    }
+
+    void apiClient
+      .get<RefundResponse>(`/payments/admin/refunds?${query.toString()}`)
+      .then((data) => {
+        if (cancelled) return;
+        setRefundItems(data.items ?? []);
+        setRefundMeta(data.meta);
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) {
+          showToast({
+            tone: 'error',
+            title: 'Không tải được danh sách hoàn tiền',
+            description: error instanceof Error ? error.message : '',
+          });
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab, refundPage, refundStatus, reloadKey, showToast]);
 
   const filteredItems = search.trim()
     ? items.filter((item) => {
@@ -515,6 +609,45 @@ export default function Payments() {
     }
   };
 
+  const updateRefundStatus = async (
+    refund: RefundItem,
+    status: RefundItem['refundStatus'],
+  ) => {
+    const manualReference =
+      status === 'completed'
+        ? window.prompt('Nhập mã chứng từ hoặc ghi chú hoàn tiền:')
+        : undefined;
+    if (status === 'completed' && !manualReference?.trim()) {
+      showToast({
+        tone: 'warning',
+        title: 'Cần chứng từ hoàn tiền',
+      });
+      return;
+    }
+
+    try {
+      await apiClient.patch(`/payments/admin/refunds/${refund.refundId}/status`, {
+        status,
+        manualReference: manualReference?.trim(),
+        note:
+          status === 'completed'
+            ? 'Hoàn tiền thủ công đã hoàn tất'
+            : undefined,
+      });
+      setReloadKey((current) => current + 1);
+      showToast({
+        tone: 'success',
+        title: 'Đã cập nhật trạng thái hoàn tiền',
+      });
+    } catch (error) {
+      showToast({
+        tone: 'error',
+        title: 'Không cập nhật được hoàn tiền',
+        description: error instanceof Error ? error.message : '',
+      });
+    }
+  };
+
   return (
     <div className="space-y-6 pb-12">
       <div className="flex items-end justify-between gap-4">
@@ -556,6 +689,11 @@ export default function Payments() {
             id: 'transactions',
             label: isVi ? 'Lịch sử giao dịch' : 'Transactions',
             icon: BarChart3,
+          },
+          {
+            id: 'refunds',
+            label: isVi ? 'Hoàn tiền' : 'Refunds',
+            icon: RefreshCw,
           },
         ] as const).map(({ id, label, icon: Icon }) => (
           <button
@@ -1079,6 +1217,169 @@ export default function Payments() {
                   <button
                     disabled={page >= meta.totalPages}
                     onClick={() => setPage((current) => current + 1)}
+                    className="flex h-9 w-9 items-center justify-center rounded-xl border border-on-surface/10 text-on-surface-variant transition hover:border-primary/30 hover:text-primary disabled:opacity-40"
+                  >
+                    <ChevronRight size={16} />
+                  </button>
+                </div>
+              </div>
+            )}
+          </section>
+        </>
+      )}
+
+      {activeTab === 'refunds' && (
+        <>
+          <section className="rounded-xl border border-on-surface/8 bg-white p-5 shadow-sm">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-lg font-black text-on-surface">
+                  Hàng đợi hoàn tiền
+                </h2>
+                <p className="text-sm text-on-surface-variant">
+                  Quản lý refund thủ công cho trả hàng, hủy đơn đã thanh toán và giao thiếu.
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <select
+                  value={refundStatus}
+                  onChange={(event) => setRefundStatus(event.target.value)}
+                  className="rounded-2xl border border-on-surface/10 bg-surface px-4 py-3 text-sm outline-none"
+                >
+                  <option value="">Tất cả trạng thái</option>
+                  <option value="pending">Chờ xử lý</option>
+                  <option value="approved">Đã duyệt</option>
+                  <option value="completed">Đã hoàn tất</option>
+                  <option value="failed">Thất bại</option>
+                </select>
+                <button
+                  type="button"
+                  onClick={() => setReloadKey((current) => current + 1)}
+                  className="inline-flex items-center gap-2 rounded-2xl border border-on-surface/10 bg-surface px-4 py-3 text-sm font-semibold text-on-surface-variant transition hover:border-primary/30 hover:text-primary"
+                >
+                  <RefreshCw size={15} /> Làm mới
+                </button>
+              </div>
+            </div>
+          </section>
+
+          <section className="overflow-hidden rounded-xl border border-on-surface/8 bg-white shadow-sm">
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-left">
+                <thead className="border-b border-on-surface/8 bg-surface/70 text-[11px] font-black uppercase tracking-[0.18em] text-on-surface-variant/60">
+                  <tr>
+                    <th className="px-4 py-4">Refund</th>
+                    <th className="px-4 py-4">Đơn hàng</th>
+                    <th className="px-4 py-4">Khách</th>
+                    <th className="px-4 py-4">Lý do</th>
+                    <th className="px-4 py-4">Số tiền</th>
+                    <th className="px-4 py-4">Chứng từ</th>
+                    <th className="px-4 py-4">Trạng thái</th>
+                    <th className="px-4 py-4 text-right">Hành động</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-on-surface/6 text-sm">
+                  {loading ? (
+                    <tr>
+                      <td colSpan={8} className="px-4 py-16 text-center text-on-surface-variant">
+                        <LoaderCircle size={16} className="mr-2 inline animate-spin" />
+                        Đang tải...
+                      </td>
+                    </tr>
+                  ) : refundItems.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="px-4 py-16 text-center text-on-surface-variant">
+                        Không có refund cần xử lý
+                      </td>
+                    </tr>
+                  ) : (
+                    refundItems.map((refund) => (
+                      <tr key={refund.refundId} className="hover:bg-surface/40">
+                        <td className="px-4 py-3 font-mono text-xs">
+                          #{refund.refundId}
+                        </td>
+                        <td className="px-4 py-3 font-mono text-xs text-primary">
+                          {refund.orderId.slice(-8).toUpperCase()}
+                        </td>
+                        <td className="px-4 py-3">
+                          <p className="font-semibold">{refund.order?.fullName ?? '—'}</p>
+                          <p className="text-xs text-on-surface-variant">
+                            {refund.order?.phone ?? '—'}
+                          </p>
+                        </td>
+                        <td className="px-4 py-3">
+                          <p className="font-semibold">{refund.reason}</p>
+                          {refund.returnId ? (
+                            <p className="text-xs text-on-surface-variant">
+                              Return #{refund.returnId}
+                            </p>
+                          ) : null}
+                        </td>
+                        <td className="px-4 py-3 font-black text-primary">
+                          {formatVND(refund.amount)}
+                        </td>
+                        <td className="px-4 py-3 text-xs text-on-surface-variant">
+                          {refund.manualReference ?? refund.note ?? '—'}
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="rounded-full bg-surface px-2.5 py-1 text-xs font-bold">
+                            {refund.refundStatus}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <div className="flex justify-end gap-1">
+                            {refund.refundStatus === 'pending' ? (
+                              <button
+                                onClick={() => void updateRefundStatus(refund, 'approved')}
+                                className="rounded-xl border border-primary/20 px-3 py-1.5 text-xs font-bold text-primary hover:bg-primary/5"
+                              >
+                                Duyệt
+                              </button>
+                            ) : null}
+                            {refund.refundStatus !== 'completed' &&
+                            refund.refundStatus !== 'failed' ? (
+                              <>
+                                <button
+                                  onClick={() => void updateRefundStatus(refund, 'completed')}
+                                  className="rounded-xl bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700"
+                                >
+                                  Hoàn tất
+                                </button>
+                                <button
+                                  onClick={() => void updateRefundStatus(refund, 'failed')}
+                                  className="rounded-xl border border-red-200 px-3 py-1.5 text-xs font-bold text-red-600 hover:bg-red-50"
+                                >
+                                  Thất bại
+                                </button>
+                              </>
+                            ) : (
+                              <span className="text-xs text-on-surface-variant">—</span>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {refundMeta.totalPages > 1 && (
+              <div className="flex items-center justify-between border-t border-on-surface/8 px-5 py-4">
+                <p className="text-xs text-on-surface-variant">
+                  Trang {refundMeta.page}/{refundMeta.totalPages} · {refundMeta.total} refund
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    disabled={refundPage <= 1}
+                    onClick={() => setRefundPage((current) => current - 1)}
+                    className="flex h-9 w-9 items-center justify-center rounded-xl border border-on-surface/10 text-on-surface-variant transition hover:border-primary/30 hover:text-primary disabled:opacity-40"
+                  >
+                    <ChevronLeft size={16} />
+                  </button>
+                  <button
+                    disabled={refundPage >= refundMeta.totalPages}
+                    onClick={() => setRefundPage((current) => current + 1)}
                     className="flex h-9 w-9 items-center justify-center rounded-xl border border-on-surface/10 text-on-surface-variant transition hover:border-primary/30 hover:text-primary disabled:opacity-40"
                   >
                     <ChevronRight size={16} />

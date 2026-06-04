@@ -20,6 +20,8 @@ import {
   Bell,
   Camera,
   Sparkles,
+  RotateCcw,
+  MessageSquareText,
 } from 'lucide-react';
 import { useClientSession } from '../hooks/useClientSession';
 import { useCart } from '../hooks/useCart';
@@ -50,7 +52,7 @@ type Notification = {
   id: string | null;
   title: string;
   message: string;
-  metadata: { orderId?: string; type?: string } | null;
+  metadata: { orderId?: string; returnId?: string; targetUrl?: string; type?: string } | null;
   createdAt: string | null;
   channel: string;
 };
@@ -144,7 +146,7 @@ export default function ClientLayout() {
     const fetchNotifs = () =>
       void clientApi
         .get<Notification[]>('/notifications/me')
-        .then((data) => setNotifications(data.filter((n) => n.channel === 'SYSTEM')))
+        .then((data) => setNotifications(data.filter((n) => String(n.channel).toLowerCase() === 'system')))
         .catch(() => {});
     fetchNotifs();
     const interval = setInterval(fetchNotifs, 60_000);
@@ -774,6 +776,13 @@ export default function ClientLayout() {
                       ) : (
                         notifications.slice(0, 20).map((n, idx) => {
                           const orderId = n.metadata?.orderId;
+                          const targetUrl =
+                            n.metadata?.targetUrl ??
+                            (n.metadata?.returnId
+                              ? `/client/returns?returnId=${n.metadata.returnId}`
+                              : orderId
+                                ? `/client/orders/${orderId}`
+                                : null);
                           const inner = (
                             <>
                               <p className="text-xs font-semibold text-[#0B0F19]">{n.title}</p>
@@ -785,10 +794,10 @@ export default function ClientLayout() {
                               )}
                             </>
                           );
-                          return orderId ? (
+                          return targetUrl ? (
                             <Link
                               key={n.id ?? idx}
-                              to={`/client/orders/${orderId}`}
+                              to={targetUrl}
                               onClick={() => setNotifOpen(false)}
                               className="block border-b border-black/5 px-4 py-3 last:border-0 hover:bg-gray-50 transition"
                             >
@@ -882,6 +891,20 @@ export default function ClientLayout() {
                         className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-[#0B0F19] transition hover:bg-[#2563EB]/8"
                       >
                         <Package size={15} /> Đơn hàng
+                      </Link>
+                      <Link
+                        to="/client/returns"
+                        onClick={() => setUserMenuOpen(false)}
+                        className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-[#0B0F19] transition hover:bg-[#2563EB]/8"
+                      >
+                        <RotateCcw size={15} /> Trả hàng của tôi
+                      </Link>
+                      <Link
+                        to="/client/my-activity"
+                        onClick={() => setUserMenuOpen(false)}
+                        className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-[#0B0F19] transition hover:bg-[#2563EB]/8"
+                      >
+                        <MessageSquareText size={15} /> Đánh giá & bình luận
                       </Link>
                       <Link
                         to="/client/wishlist"

@@ -18,6 +18,8 @@ import {
 } from 'lucide-react';
 import { clientApi } from '../../lib/client-api';
 import { useClientSession } from '../../hooks/useClientSession';
+import { useToast } from '../../hooks/useToast';
+import { resolveMediaUrl } from '../../lib/media-url';
 import {
   TRACKING_MODE_LABELS,
   TRACKING_SOURCE_LABELS,
@@ -27,8 +29,16 @@ import {
 type OrderItem = {
   id: string;
   productId: string;
+  variantId?: string | null;
+  sku?: string | null;
+  colorName?: string | null;
+  sizeName?: string | null;
+  imageUrl?: string | null;
   productName: string;
   quantity: number;
+  quantityDelivered?: number;
+  returnableQuantity?: number;
+  returnedQuantity?: number;
   unitPrice: number;
   lineTotal: number;
 };
@@ -48,7 +58,21 @@ type OrderDetailResponse = {
   address: string;
   note: string | null;
   createdAt: string;
+  returnWindowDays?: number;
+  returnDeadline?: string | null;
+  canCreateReturn?: boolean;
+  returnBlockedReason?: string | null;
   items: OrderItem[];
+  returns?: Array<{
+    id: string;
+    orderItemId: string;
+    returnQuantity: number;
+    reason: string;
+    status: string;
+    inspectionStatus: string;
+    refundAmount: string | null;
+    maxRefundableAmount: string;
+  }>;
 };
 
 type PaymentReconcileResponse = {
@@ -132,11 +156,18 @@ function getMapEmbedUrl(latitude: number, longitude: number) {
   },${latitude - 0.03},${longitude + 0.03},${latitude + 0.03}&layer=mapnik&marker=${latitude},${longitude}`;
 }
 
+function getReturnBlockedMessage(reason?: string | null) {
+  if (reason === 'RETURN_WINDOW_EXPIRED') return 'Đã quá hạn 7 ngày kể từ khi nhận hàng.';
+  if (reason === 'RETURN_NOT_DELIVERED_YET') return 'Chỉ tạo trả hàng sau khi đơn đã được giao.';
+  return 'Hiện chưa thể tạo yêu cầu trả hàng cho đơn này.';
+}
+
 export default function OrderDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { session } = useClientSession();
+  const { showToast } = useToast();
 
   const [order, setOrder] = useState<OrderDetailResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -145,6 +176,12 @@ export default function OrderDetail() {
   const [paymentReconciling, setPaymentReconciling] = useState(false);
   const [paymentSyncMessage, setPaymentSyncMessage] = useState<string | null>(null);
   const [confirmingReceived, setConfirmingReceived] = useState(false);
+  const [returnModalOpen, setReturnModalOpen] = useState(false);
+  const [returnItemId, setReturnItemId] = useState('');
+  const [returnQuantity, setReturnQuantity] = useState(1);
+  const [returnReason, setReturnReason] = useState('');
+  const [returnDescription, setReturnDescription] = useState('');
+  const [submittingReturn, setSubmittingReturn] = useState(false);
   const momoVerifiedRef = useRef(false);
   const autoPaymentReconcileRef = useRef<string | null>(null);
 
@@ -157,7 +194,7 @@ export default function OrderDetail() {
     }
 
     try {
-      const data = await clientApi.get<OrderDetailResponse>(`/users/me/orders/${orderId}`);
+      const data = await clientApi.get<OrderDetailResponse>(`/orders/${orderId}`);
       setOrder(data);
     } catch {
       if (!silent) {
@@ -197,9 +234,97 @@ export default function OrderDetail() {
       await clientApi.patch(`/orders/${id}/confirm-received`);
       await refreshOrder(id, false);
     } catch (error) {
-      alert(error instanceof Error ? error.message : 'Không thể xác nhận. Vui lòng thử lại.');
+      showToast({
+        tone: 'error',
+        title: 'Không thể xác nhận',
+        description:
+          error instanceof Error ? error.message : 'Vui lòng thử lại.',
+      });
     } finally {
       setConfirmingReceived(false);
+    }
+  };
+
+  const selectedReturnItem = useMemo(
+    () => order?.items.find((item) => item.id === returnItemId) ?? null,
+    [order?.items, returnItemId],
+  );
+
+  const openReturnModal = (item?: OrderItem) => {
+    if (order && !order.canCreateReturn) {
+      showToast({
+        tone: 'warning',
+        title: 'Chưa thể tạo yêu cầu trả hàng',
+        description: getReturnBlockedMessage(order.returnBlockedReason),
+      });
+      return;
+    }
+    const target =
+      item ??
+      order?.items.find((entry) => Number(entry.returnableQuantity ?? 0) > 0) ??
+      null;
+    if (!target) {
+      showToast({
+        tone: 'warning',
+        title: 'Không còn sản phẩm có thể trả',
+      });
+      return;
+    }
+    setReturnItemId(target.id);
+    setReturnQuantity(1);
+    setReturnReason('');
+    setReturnDescription('');
+    setReturnModalOpen(true);
+  };
+
+  const submitReturnRequest = async () => {
+    if (!order || !id || !selectedReturnItem) return;
+    if (!returnReason.trim()) {
+      showToast({ tone: 'warning', title: 'Vui lòng chọn lý do trả hàng' });
+      return;
+    }
+    const maxQty = Number(selectedReturnItem.returnableQuantity ?? 0);
+    if (returnQuantity < 1 || returnQuantity > maxQty) {
+      showToast({
+        tone: 'warning',
+        title: 'Số lượng trả không hợp lệ',
+        description: `Bạn chỉ có thể trả tối đa ${maxQty} sản phẩm.`,
+      });
+      return;
+    }
+
+    setSubmittingReturn(true);
+    try {
+      await clientApi.post('/returns', {
+        orderId: order.id,
+        orderItemId: selectedReturnItem.id,
+        returnQuantity,
+        reason: returnReason.trim(),
+        description: returnDescription.trim() || returnReason.trim(),
+      });
+      setReturnModalOpen(false);
+      await refreshOrder(id, true);
+      showToast({
+        tone: 'success',
+        title: 'Đã gửi yêu cầu trả hàng',
+        description: 'Shop sẽ kiểm tra và phản hồi trong trang đơn hàng.',
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '';
+      const description = message.includes('RETURN_WINDOW_EXPIRED')
+        ? 'Đã quá thời hạn 7 ngày kể từ khi nhận hàng.'
+        : message.includes('RETURN_NOT_DELIVERED_YET')
+          ? 'Đơn hàng chưa ở trạng thái đã giao nên chưa thể trả hàng.'
+          : message.includes('RETURN_QUANTITY_EXCEEDS_AVAILABLE')
+            ? 'Số lượng trả vượt quá số lượng còn có thể trả.'
+            : message;
+      showToast({
+        tone: 'error',
+        title: 'Không gửi được yêu cầu trả hàng',
+        description,
+      });
+    } finally {
+      setSubmittingReturn(false);
     }
   };
 
@@ -221,14 +346,18 @@ export default function OrderDetail() {
           ? 'Đã xác nhận thanh toán thành công.'
           : result.message || 'Chưa ghi nhận thanh toán từ cổng MoMo.';
       setPaymentSyncMessage(message);
-      if (showAlert) alert(message);
+      if (showAlert) {
+        showToast({ tone: result.paymentStatus === 'paid' ? 'success' : 'info', title: message });
+      }
     } catch (error) {
       const message =
         error instanceof Error
           ? error.message
           : 'Không thể kiểm tra thanh toán. Vui lòng thử lại.';
       setPaymentSyncMessage(message);
-      if (showAlert) alert(message);
+      if (showAlert) {
+        showToast({ tone: 'error', title: message });
+      }
     } finally {
       setPaymentReconciling(false);
     }
@@ -261,6 +390,7 @@ export default function OrderDetail() {
         orderInfo: searchParams.get('orderInfo') ?? '',
         orderType: searchParams.get('orderType') ?? '',
         payType: searchParams.get('payType') ?? '',
+        responseTime: searchParams.get('responseTime') ?? '',
         extraData: searchParams.get('extraData') ?? '',
         signature: searchParams.get('signature') ?? '',
       })
@@ -523,38 +653,79 @@ export default function OrderDetail() {
                 Sản phẩm đã đặt
               </h3>
               <div className="space-y-4">
-                {order.items.map((item) => (
-                  <div key={item.id} className="flex items-start gap-4">
-                    <div
-                      className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl"
-                      style={{ background: '#DBEAFE' }}
-                    >
-                      <Shirt size={20} style={{ color: '#2563EB' }} />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <Link
-                        to={`/client/products/${item.productId}`}
-                        className="line-clamp-2 text-sm font-semibold text-[#0B0F19] hover:text-[#2563EB]"
+                {order.items.map((item) => {
+                  const imageUrl = resolveMediaUrl(item.imageUrl);
+                  const variantText = [item.colorName, item.sizeName, item.sku]
+                    .filter(Boolean)
+                    .join(' · ');
+
+                  return (
+                    <div key={item.id} className="flex items-start gap-4">
+                      <div
+                        className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl"
+                        style={{ background: '#DBEAFE' }}
                       >
-                        {item.productName}
-                      </Link>
-                      <p className="text-xs text-gray-400">
-                        {formatPrice(item.unitPrice)} x {item.quantity}
+                        {imageUrl ? (
+                          <img
+                            src={imageUrl}
+                            alt={item.productName}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <Shirt size={20} style={{ color: '#2563EB' }} />
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <Link
+                          to={`/client/products/${item.productId}`}
+                          className="line-clamp-2 text-sm font-semibold text-[#0B0F19] hover:text-[#2563EB]"
+                        >
+                          {item.productName}
+                        </Link>
+                        <p className="text-xs text-gray-400">
+                          {formatPrice(item.unitPrice)} x {item.quantity}
+                        </p>
+                        {variantText ? (
+                          <p className="mt-0.5 truncate text-xs text-gray-400">
+                            {variantText}
+                          </p>
+                        ) : null}
+                        {isDelivered || order.status === 'partial_delivered' ? (
+                          <p className="mt-1 text-[11px] font-semibold text-gray-500">
+                            Có thể trả:{' '}
+                            <span className="text-[#2563EB]">
+                              {item.returnableQuantity ?? 0}
+                            </span>
+                            {Number(item.returnedQuantity ?? 0) > 0
+                              ? ` · Đã yêu cầu: ${item.returnedQuantity}`
+                              : ''}
+                          </p>
+                        ) : null}
+                      </div>
+                      <p className="shrink-0 text-sm font-black text-[#2563EB]">
+                        {formatPrice(item.lineTotal)}
                       </p>
+                      {(isDelivered || order.status === 'partial_delivered') &&
+                      Number(item.returnableQuantity ?? 0) > 0 ? (
+                        <button
+                          type="button"
+                          onClick={() => openReturnModal(item)}
+                          className="shrink-0 rounded-full border border-amber-200 px-2.5 py-1 text-[11px] font-semibold text-amber-700 transition hover:bg-amber-50"
+                        >
+                          Trả hàng
+                        </button>
+                      ) : null}
+                      {isDelivered ? (
+                        <Link
+                          to={`/client/products/${item.productId}#reviews`}
+                          className="flex shrink-0 items-center gap-1 rounded-full border border-[#2563EB]/20 px-2.5 py-1 text-[11px] font-semibold text-[#2563EB] transition hover:bg-[#2563EB]/10"
+                        >
+                          <Star size={10} /> Đánh giá
+                        </Link>
+                      ) : null}
                     </div>
-                    <p className="shrink-0 text-sm font-black text-[#2563EB]">
-                      {formatPrice(item.lineTotal)}
-                    </p>
-                    {isDelivered ? (
-                      <Link
-                        to={`/client/products/${item.productId}#reviews`}
-                        className="shrink-0 flex items-center gap-1 rounded-full border border-[#2563EB]/20 px-2.5 py-1 text-[11px] font-semibold text-[#2563EB] transition hover:bg-[#2563EB]/10"
-                      >
-                        <Star size={10} /> Đánh giá
-                      </Link>
-                    ) : null}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
               <div className="mt-5 space-y-2 border-t border-black/5 pt-4 text-sm">
@@ -650,6 +821,27 @@ export default function OrderDetail() {
                   Đã nhận được hàng
                 </button>
               ) : null}
+              {(isDelivered || order.status === 'partial_delivered') ? (
+                <div className="space-y-2">
+                  <p className={`rounded-2xl px-4 py-3 text-xs font-semibold ${
+                    order.canCreateReturn === false
+                      ? 'border border-amber-200 bg-amber-50 text-amber-800'
+                      : 'bg-blue-50 text-[#0B0F19]'
+                  }`}>
+                    {order.canCreateReturn === false
+                      ? getReturnBlockedMessage(order.returnBlockedReason)
+                      : `Có thể yêu cầu trả hàng đến ${order.returnDeadline ? formatDate(order.returnDeadline) : 'hết thời hạn 7 ngày'}.`}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => openReturnModal()}
+                    disabled={order.canCreateReturn === false || !order.items.some((item) => Number(item.returnableQuantity ?? 0) > 0)}
+                    className="flex w-full items-center justify-center gap-2 rounded-full border border-amber-200 py-2.5 text-sm font-black text-amber-700 transition hover:bg-amber-50 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <Package size={15} /> Yêu cầu trả hàng
+                  </button>
+                </div>
+              ) : null}
               {order.status === 'pending' ? (
                 <button
                   onClick={async () => {
@@ -660,11 +852,24 @@ export default function OrderDetail() {
                         current ? { ...current, status: 'cancelled' } : current,
                       );
                     } catch (error) {
-                      alert(
+                      const message =
                         error instanceof Error
                           ? error.message
-                          : 'Không thể hủy đơn hàng',
-                      );
+                          : 'Không thể hủy đơn hàng';
+                      showToast({
+                        tone:
+                          message === 'PAID_ORDER_CANCEL_REQUIRES_REFUND'
+                            ? 'warning'
+                            : 'error',
+                        title:
+                          message === 'PAID_ORDER_CANCEL_REQUIRES_REFUND'
+                            ? 'Đơn đã thanh toán cần xử lý hoàn tiền'
+                            : message,
+                        description:
+                          message === 'PAID_ORDER_CANCEL_REQUIRES_REFUND'
+                            ? 'Vui lòng liên hệ CSKH để shop tạo chứng từ hoàn tiền trước khi hủy.'
+                            : undefined,
+                      });
                     }
                   }}
                   className="w-full rounded-full border border-red-200 py-2.5 text-sm font-bold text-red-600 transition hover:bg-red-50 active:scale-95"
@@ -694,6 +899,162 @@ export default function OrderDetail() {
           </div>
         </div>
       </div>
+      {returnModalOpen && selectedReturnItem ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
+          <div className="w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl">
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-xl font-black text-[#0B0F19]">
+                  Yêu cầu trả hàng
+                </h2>
+                <p className="mt-1 text-sm text-gray-500">
+                  Chọn đúng sản phẩm, số lượng và lý do để shop kiểm tra.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setReturnModalOpen(false)}
+                className="rounded-full p-2 text-gray-400 hover:bg-gray-100"
+              >
+                <XCircle size={18} />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <label className="block">
+                <span className="mb-1.5 block text-xs font-black uppercase tracking-wider text-gray-400">
+                  Sản phẩm
+                </span>
+                <select
+                  value={returnItemId}
+                  onChange={(event) => {
+                    const nextId = event.target.value;
+                    const nextItem = order.items.find((item) => item.id === nextId);
+                    setReturnItemId(nextId);
+                    setReturnQuantity(
+                      Math.min(1, Number(nextItem?.returnableQuantity ?? 1)),
+                    );
+                  }}
+                  className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm font-semibold outline-none focus:border-[#2563EB]"
+                >
+                  {order.items
+                    .filter((item) => Number(item.returnableQuantity ?? 0) > 0)
+                    .map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.productName}
+                        {item.colorName ? ` - ${item.colorName}` : ''}
+                        {item.sizeName ? ` / ${item.sizeName}` : ''}
+                      </option>
+                    ))}
+                </select>
+              </label>
+
+              <div className="flex gap-3 rounded-2xl bg-blue-50 p-4 text-sm text-[#0B0F19]">
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white">
+                  {resolveMediaUrl(selectedReturnItem.imageUrl) ? (
+                    <img
+                      src={resolveMediaUrl(selectedReturnItem.imageUrl) ?? ''}
+                      alt={selectedReturnItem.productName}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <Shirt size={20} className="text-[#2563EB]" />
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <p className="line-clamp-2 font-bold">{selectedReturnItem.productName}</p>
+                  {(selectedReturnItem.colorName || selectedReturnItem.sizeName || selectedReturnItem.sku) ? (
+                    <p className="mt-1 truncate text-xs text-gray-500">
+                      {[selectedReturnItem.colorName, selectedReturnItem.sizeName, selectedReturnItem.sku]
+                        .filter(Boolean)
+                        .join(' · ')}
+                    </p>
+                  ) : null}
+                  <p className="mt-1 text-xs text-gray-500">
+                    Đã mua {selectedReturnItem.quantity} · Có thể trả{' '}
+                    {selectedReturnItem.returnableQuantity ?? 0}
+                  </p>
+                </div>
+              </div>
+
+              <label className="block">
+                <span className="mb-1.5 block text-xs font-black uppercase tracking-wider text-gray-400">
+                  Số lượng trả
+                </span>
+                <input
+                  type="number"
+                  min={1}
+                  max={selectedReturnItem.returnableQuantity ?? 1}
+                  value={returnQuantity}
+                  onChange={(event) =>
+                    setReturnQuantity(
+                      Math.max(
+                        1,
+                        Math.min(
+                          Number(selectedReturnItem.returnableQuantity ?? 1),
+                          Number(event.target.value) || 1,
+                        ),
+                      ),
+                    )
+                  }
+                  className="w-full rounded-2xl border border-black/10 px-4 py-3 text-sm outline-none focus:border-[#2563EB]"
+                />
+              </label>
+
+              <label className="block">
+                <span className="mb-1.5 block text-xs font-black uppercase tracking-wider text-gray-400">
+                  Lý do
+                </span>
+                <select
+                  value={returnReason}
+                  onChange={(event) => setReturnReason(event.target.value)}
+                  className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none focus:border-[#2563EB]"
+                >
+                  <option value="">Chọn lý do trả hàng</option>
+                  <option value="wrong_size">Sai size / không vừa</option>
+                  <option value="defective">Sản phẩm lỗi hoặc hỏng</option>
+                  <option value="wrong_item">Shop giao sai sản phẩm</option>
+                  <option value="not_as_described">Sản phẩm không đúng mô tả</option>
+                  <option value="changed_mind">Đổi ý không còn nhu cầu</option>
+                  <option value="other">Lý do khác</option>
+                </select>
+              </label>
+
+              <label className="block">
+                <span className="mb-1.5 block text-xs font-black uppercase tracking-wider text-gray-400">
+                  Mô tả chi tiết
+                </span>
+                <textarea
+                  rows={3}
+                  value={returnDescription}
+                  onChange={(event) => setReturnDescription(event.target.value)}
+                  placeholder="Mô tả tình trạng hàng và mong muốn hỗ trợ..."
+                  className="w-full resize-none rounded-2xl border border-black/10 px-4 py-3 text-sm outline-none focus:border-[#2563EB]"
+                />
+              </label>
+            </div>
+
+            <div className="mt-5 flex gap-3">
+              <button
+                type="button"
+                onClick={() => setReturnModalOpen(false)}
+                disabled={submittingReturn}
+                className="flex-1 rounded-full border border-black/10 py-3 text-sm font-bold text-gray-600 hover:bg-gray-50"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={() => void submitReturnRequest()}
+                disabled={submittingReturn}
+                className="flex-1 rounded-full bg-[#2563EB] py-3 text-sm font-black text-white hover:bg-[#1D4ED8] disabled:opacity-60"
+              >
+                {submittingReturn ? 'Đang gửi...' : 'Gửi yêu cầu'}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -706,5 +1067,3 @@ function TrackingStat({ label, value }: { label: string; value: string }) {
     </div>
   );
 }
-
-

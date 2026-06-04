@@ -1,6 +1,7 @@
 ﻿import { useEffect, useState } from 'react';
 import { Package, RefreshCw, X, Check, AlertTriangle, Truck } from 'lucide-react';
 import { apiClient } from '../../../lib/api';
+import { useToast } from '../../../hooks/useToast';
 
 type ReturnStatus = 'requested' | 'approved' | 'rejected' | 'received' | 'inspected' | 'refunded';
 type InspectionStatus = 'pending' | 'usable' | 'damaged' | 'return_to_supplier';
@@ -12,12 +13,20 @@ interface ReturnRequest {
   userId: string;
   reason: string;
   description: string | null;
+  productName: string | null;
+  sku: string | null;
+  colorName: string | null;
+  sizeName: string | null;
+  orderedQuantity: number | null;
+  deliveredQuantity: number | null;
+  returnQuantity: number;
   returnStatus: ReturnStatus;
   inspectionStatus: InspectionStatus;
   inspectionNote: string | null;
   inspectedBy: string | null;
   inspectedAt: string | null;
   refundAmount: string | null;
+  maxRefundableAmount: string;
   createdAt: string;
 }
 
@@ -38,6 +47,7 @@ const INSPECTION_LABELS: Record<InspectionStatus, string> = {
 };
 
 export default function ReturnsAdminPage() {
+  const { showToast } = useToast();
   const [items, setItems] = useState<ReturnRequest[]>([]);
   const [loading, setLoading] = useState(false);
   const [inspectModal, setInspectModal] = useState<ReturnRequest | null>(null);
@@ -79,12 +89,44 @@ export default function ReturnsAdminPage() {
       });
       setInspectModal(null);
       await load();
+      showToast({ tone: 'success', title: 'Đã kiểm tra hàng trả về' });
     } catch (err) {
-      alert(
-        err instanceof Error
-          ? err.message
-          : 'Không thể inspect return — kiểm tra log',
-      );
+      showToast({
+        tone: 'error',
+        title: 'Không thể kiểm tra return',
+        description: err instanceof Error ? err.message : '',
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleStatus = async (
+    r: ReturnRequest,
+    status: ReturnStatus,
+    refundAmount?: string,
+  ) => {
+    setSubmitting(true);
+    try {
+      await apiClient.patch(`/returns/${r.returnId}/status`, {
+        status,
+        refundAmount,
+        note:
+          status === 'refunded'
+            ? `Hoàn tiền thủ công return ${r.returnId}`
+            : undefined,
+      });
+      await load();
+      showToast({
+        tone: 'success',
+        title: `Đã chuyển trạng thái ${STATUS_LABELS[status] ?? status}`,
+      });
+    } catch (err) {
+      showToast({
+        tone: 'error',
+        title: 'Không cập nhật được return',
+        description: err instanceof Error ? err.message : '',
+      });
     } finally {
       setSubmitting(false);
     }
@@ -119,6 +161,8 @@ export default function ReturnsAdminPage() {
               <tr>
                 <th className="px-4 py-3 text-left font-medium">Return ID</th>
                 <th className="px-4 py-3 text-left font-medium">Order ID</th>
+                <th className="px-4 py-3 text-left font-medium">Sản phẩm</th>
+                <th className="px-4 py-3 text-left font-medium">SL trả</th>
                 <th className="px-4 py-3 text-left font-medium">Lý do</th>
                 <th className="px-4 py-3 text-left font-medium">Trạng thái</th>
                 <th className="px-4 py-3 text-left font-medium">Inspect</th>
@@ -129,13 +173,13 @@ export default function ReturnsAdminPage() {
             <tbody className="divide-y divide-outline-variant">
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="py-10 text-center text-on-surface-variant">
+                  <td colSpan={9} className="py-10 text-center text-on-surface-variant">
                     Đang tải...
                   </td>
                 </tr>
               ) : items.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-10 text-center text-on-surface-variant">
+                  <td colSpan={9} className="py-10 text-center text-on-surface-variant">
                     Chưa có yêu cầu trả hàng
                   </td>
                 </tr>
@@ -145,6 +189,20 @@ export default function ReturnsAdminPage() {
                     <td className="px-4 py-2.5 font-mono text-xs">{r.returnId}</td>
                     <td className="px-4 py-2.5 font-mono text-xs">
                       {r.orderId.slice(0, 8)}...
+                    </td>
+                    <td className="px-4 py-2.5 max-w-[260px]">
+                      <p className="truncate font-semibold">
+                        {r.productName ?? r.orderItemId}
+                      </p>
+                      <p className="text-xs text-on-surface-variant">
+                        {[r.colorName, r.sizeName, r.sku].filter(Boolean).join(' · ') || '—'}
+                      </p>
+                    </td>
+                    <td className="px-4 py-2.5">
+                      <span className="font-semibold">{r.returnQuantity}</span>
+                      <span className="text-xs text-on-surface-variant">
+                        /{r.deliveredQuantity ?? r.orderedQuantity ?? '-'}
+                      </span>
                     </td>
                     <td className="px-4 py-2.5 max-w-[200px] truncate">{r.reason}</td>
                     <td className="px-4 py-2.5">
@@ -165,17 +223,63 @@ export default function ReturnsAdminPage() {
                       {new Date(r.createdAt).toLocaleDateString('vi-VN')}
                     </td>
                     <td className="px-4 py-2.5 text-right">
-                      {r.returnStatus === 'received' &&
-                      r.inspectionStatus === 'pending' ? (
-                        <button
-                          onClick={() => openInspect(r)}
-                          className="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary/90"
-                        >
-                          Kiểm tra
-                        </button>
-                      ) : (
-                        <span className="text-xs text-on-surface-variant">—</span>
-                      )}
+                      <div className="flex justify-end gap-1">
+                        {r.returnStatus === 'requested' ? (
+                          <>
+                            <button
+                              disabled={submitting}
+                              onClick={() => void handleStatus(r, 'approved')}
+                              className="rounded-lg bg-primary px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-primary/90"
+                            >
+                              Duyệt
+                            </button>
+                            <button
+                              disabled={submitting}
+                              onClick={() => void handleStatus(r, 'rejected')}
+                              className="rounded-lg border border-red-200 px-2.5 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50"
+                            >
+                              Từ chối
+                            </button>
+                          </>
+                        ) : null}
+                        {r.returnStatus === 'approved' ? (
+                          <button
+                            disabled={submitting}
+                            onClick={() => void handleStatus(r, 'received')}
+                            className="rounded-lg bg-blue-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-blue-700"
+                          >
+                            Đã nhận
+                          </button>
+                        ) : null}
+                        {r.returnStatus === 'received' &&
+                        r.inspectionStatus === 'pending' ? (
+                          <button
+                            disabled={submitting}
+                            onClick={() => openInspect(r)}
+                            className="rounded-lg bg-primary px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-primary/90"
+                          >
+                            Kiểm tra
+                          </button>
+                        ) : null}
+                        {r.returnStatus === 'inspected' ? (
+                          <button
+                            disabled={submitting}
+                            onClick={() =>
+                              void handleStatus(
+                                r,
+                                'refunded',
+                                r.maxRefundableAmount,
+                              )
+                            }
+                            className="rounded-lg bg-emerald-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700"
+                          >
+                            Hoàn tiền
+                          </button>
+                        ) : null}
+                        {['rejected', 'refunded'].includes(r.returnStatus) ? (
+                          <span className="text-xs text-on-surface-variant">—</span>
+                        ) : null}
+                      </div>
                     </td>
                   </tr>
                 ))
